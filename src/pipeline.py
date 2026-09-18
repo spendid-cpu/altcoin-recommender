@@ -1,14 +1,26 @@
 """한 번의 스캔 사이클: BTC 추세 확인 -> (유리하면) 전체 스캔 -> 상태 비교 -> 알림.
 scripts/run_scan.py(1회 실행)와 scripts/run_loop.py(계속 실행)가 공유해서 쓴다."""
 
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 import aiohttp
 
-from src import state_store, telegram_client
+from src import config, state_store, telegram_client
 from src.notifier import diff_alerts
 from src.scanner import check_btc_trend, scan_all
 
+KST = ZoneInfo("Asia/Seoul")
+
+
+async def _send_heartbeat(session: aiohttp.ClientSession, text: str) -> None:
+    if config.HEARTBEAT_ENABLED and telegram_client.is_configured():
+        await telegram_client.send_message(session, text)
+
 
 async def run_once(session: aiohttp.ClientSession) -> None:
+    now = datetime.now(KST).strftime("%H:%M KST")
+
     favorable = await check_btc_trend(session)
     print(f"[BTC 추세] MA20 위 2일 이상 유지: {favorable}")
     if not favorable:
@@ -17,6 +29,7 @@ async def run_once(session: aiohttp.ClientSession) -> None:
         # 다음에 추세가 다시 좋아졌을 때 같은 종목이 '신규 후보'로 재알림되게 한다.
         alerts, new_states = diff_alerts([])
         state_store.save_all(new_states)
+        await _send_heartbeat(session, f"[하트비트] {now} 스캔 완료 — BTC 추세 불리, 스캔 건너뜀")
         return
 
     print("업비트 KRW 마켓 스캔 중...")
@@ -44,3 +57,7 @@ async def run_once(session: aiohttp.ClientSession) -> None:
         print(f"  [{a.kind}] {a.message}")
         if telegram_client.is_configured():
             await telegram_client.send_message(session, a.message)
+
+    await _send_heartbeat(
+        session, f"[하트비트] {now} 스캔 완료 — 후보 {len(candidates)}개, 알림 {len(alerts)}건"
+    )

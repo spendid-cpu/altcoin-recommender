@@ -6,6 +6,7 @@ import sys
 import traceback
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -13,6 +14,7 @@ import aiohttp
 
 from src.pipeline import run_once
 
+KST = ZoneInfo("Asia/Seoul")
 INTERVAL_MINUTES = 15
 BUFFER_SECONDS = 20  # 캔들 마감 직후 업비트 쪽 데이터 반영 시간을 위한 여유
 
@@ -31,8 +33,8 @@ async def main() -> None:
     print(f"스케줄러 시작: {INTERVAL_MINUTES}분마다 스캔 (캔들 마감 + {BUFFER_SECONDS}초 뒤)")
     async with aiohttp.ClientSession() as session:
         while True:
-            started = datetime.now(timezone.utc)
-            print(f"\n===== 스캔 시작 {started.strftime('%Y-%m-%d %H:%M:%S')} UTC =====")
+            started = datetime.now(KST)
+            print(f"\n===== 스캔 시작 {started.strftime('%Y-%m-%d %H:%M:%S')} KST =====")
             try:
                 await run_once(session)
             except Exception:
@@ -40,8 +42,8 @@ async def main() -> None:
                 traceback.print_exc()
 
             wait_seconds = seconds_until_next_boundary()
-            next_time = datetime.now(timezone.utc) + timedelta(seconds=wait_seconds)
-            print(f"다음 스캔: {next_time.strftime('%Y-%m-%d %H:%M:%S')} UTC ({wait_seconds:.0f}초 뒤)")
+            next_time = datetime.now(KST) + timedelta(seconds=wait_seconds)
+            print(f"다음 스캔: {next_time.strftime('%Y-%m-%d %H:%M:%S')} KST ({wait_seconds:.0f}초 뒤)")
             await asyncio.sleep(wait_seconds)
 
 

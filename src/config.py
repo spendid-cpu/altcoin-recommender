@@ -9,6 +9,10 @@ load_dotenv()
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 
+# 스캔이 실제로 도는지 확인용 하트비트 메시지. 매 사이클(15분)마다 오니 평소엔 꺼두고,
+# 배포 직후 스케줄러가 잘 도는지 확인할 때만 켠다 (GitHub Actions 저장소 변수 HEARTBEAT=true).
+HEARTBEAT_ENABLED = os.environ.get("HEARTBEAT", "false").lower() == "true"
+
 # 프레임 축(하드 게이트) 가중치: 일봉 > 4시간 > 1시간
 FRAME_WEIGHTS = {"day": 3, "4h": 2, "1h": 1}
 FRAME_ORDER = ("day", "4h", "1h")  # 게이트를 타는 순서 (상위 -> 하위)
