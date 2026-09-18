@@ -26,10 +26,12 @@ async def scan_market(
     frames = []
     total_score = 0.0
     one_hour_df = None
+    latest_price = 0.0
 
     for frame in config.FRAME_ORDER:
         async with semaphore, limiter:
             candles = await upbit_client.fetch_candles(session, market, frame, count=100)
+        latest_price = float(candles["close"].iloc[-1])
 
         if frame == "day" and candles["value"].iloc[-1] < config.MIN_DAILY_TRADE_VALUE_KRW:
             # 체결이 어려운 저유동성 종목은 여기서 걸러낸다 (가산점이 아니라 필터 —
@@ -53,7 +55,9 @@ async def scan_market(
         total_score += config.VOLUME_BONUS
         volume_bonus = True
 
-    result = CandidateResult(market=market, total_score=total_score, frames=frames, volume_bonus=volume_bonus)
+    result = CandidateResult(
+        market=market, total_score=total_score, frames=frames, volume_bonus=volume_bonus, current_price=latest_price
+    )
 
     if result.full_gate_pass:
         # 일봉/4시간/1시간을 모두 통과한 종목만 15분봉 매수 타점을 확인한다
@@ -61,6 +65,7 @@ async def scan_market(
         async with semaphore, limiter:
             candles_15m = await upbit_client.fetch_candles(session, market, "15m", count=100)
         result.entry_ready = check_entry(candles_15m["close"])
+        result.current_price = float(candles_15m["close"].iloc[-1])  # 더 최신 가격으로 갱신
 
     return result
 

@@ -6,7 +6,8 @@ from zoneinfo import ZoneInfo
 
 import aiohttp
 
-from src import config, state_store, telegram_client
+from src import config, price_tracker, state_store, telegram_client
+from src.exchanges import upbit_client
 from src.notifier import diff_alerts
 from src.scanner import check_btc_trend, scan_all
 
@@ -53,11 +54,27 @@ async def run_once(session: aiohttp.ClientSession) -> None:
     print(f"\n알림 대상 {len(alerts)}건 (상태가 바뀐 종목만)")
     if not telegram_client.is_configured():
         print("(텔레그램 미설정 -> 콘솔에만 출력, .env에 TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID를 넣으면 전송됨)")
+    price_by_market = {c.market: c.current_price for c in candidates}
     for a in alerts:
         print(f"  [{a.kind}] {a.message}")
         if telegram_client.is_configured():
             await telegram_client.send_message(session, a.message)
+        if a.kind == "new_candidate":
+            # 발굴 시점의 가격을 '진입가'로 기록 — 이후 계속 추적해 실제 수익률을 검증하는 원본 데이터가 된다.
+            price_tracker.record_entry(a.market, price_by_market.get(a.market, 0.0))
+
+    await _track_prices(session)
 
     await _send_heartbeat(
         session, f"[하트비트] {now} 스캔 완료 — 후보 {len(candidates)}개, 알림 {len(alerts)}건"
     )
+
+
+async def _track_prices(session: aiohttp.ClientSession) -> None:
+    """발굴 후 TRACK_DAYS 이내인 종목들의 현재가를 스냅샷으로 남긴다."""
+    markets = price_tracker.active_tracked_markets()
+    if not markets:
+        return
+    prices = await upbit_client.fetch_ticker_prices(session, markets)
+    price_tracker.record_snapshots(prices)
+    print(f"가격 추적 중인 종목 {len(markets)}개 스냅샷 기록")

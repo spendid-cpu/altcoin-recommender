@@ -76,3 +76,12 @@ async def fetch_markets(session: aiohttp.ClientSession) -> list[str]:
         resp.raise_for_status()
         data = await resp.json()
     return [m["market"] for m in data if m["market"].startswith("KRW-")]
+
+
+async def fetch_ticker_prices(session: aiohttp.ClientSession, markets: list[str]) -> dict[str, float]:
+    """여러 마켓의 현재가를 한 번에 조회한다 (가격 추적용). 빈 목록이면 빈 dict 반환."""
+    if not markets:
+        return {}
+    params = {"markets": ",".join(markets)}
+    data = await _get_json(session, "ticker", params)
+    return {row["market"]: float(row["trade_price"]) for row in data}

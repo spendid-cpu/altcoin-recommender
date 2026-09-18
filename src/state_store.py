@@ -12,7 +12,8 @@ _DATA_DIR = Path(os.environ["DATA_DIR"]) if os.environ.get("DATA_DIR") else Path
 DB_PATH = _DATA_DIR / "state.db"
 
 
-def _connect() -> sqlite3.Connection:
+def connect_db() -> sqlite3.Connection:
+    """같은 SQLite 파일에 다른 테이블(예: price_tracker.price_history)을 추가할 때도 이 함수를 재사용한다."""
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.execute(
@@ -23,7 +24,7 @@ def _connect() -> sqlite3.Connection:
 
 
 def load_all() -> dict[str, dict]:
-    conn = _connect()
+    conn = connect_db()
     try:
         rows = conn.execute("SELECT market, state_json FROM market_state").fetchall()
         return {market: json.loads(state_json) for market, state_json in rows}
@@ -34,7 +35,7 @@ def load_all() -> dict[str, dict]:
 def save_all(states: dict[str, dict]) -> None:
     """market -> state dict. 상태가 없는(빈) 마켓도 명시적으로 넘기면 그 마켓 행이 초기화된다."""
     now = datetime.now(timezone.utc).isoformat()
-    conn = _connect()
+    conn = connect_db()
     try:
         conn.executemany(
             "INSERT INTO market_state (market, state_json, updated_at) VALUES (?, ?, ?) "

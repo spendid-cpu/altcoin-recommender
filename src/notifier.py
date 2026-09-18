@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from src import state_store
 from src.scoring import CandidateResult
 
-_EMPTY_STATE = {"cleared_frames": [], "entry_ready": False, "grade": "-"}
+_EMPTY_STATE = {"cleared_frames": [], "entry_ready": False, "grade": "-", "current_price": 0.0}
 
 
 @dataclass
@@ -15,11 +15,20 @@ class Alert:
     message: str
 
 
+def _fmt_price(price: float) -> str:
+    if price >= 100:
+        return f"{price:,.0f}원"
+    if price >= 1:
+        return f"{price:,.2f}원"
+    return f"{price:.4f}원"
+
+
 def _snapshot(candidate: CandidateResult) -> dict:
     return {
         "cleared_frames": candidate.cleared_frames,
         "entry_ready": candidate.entry_ready,
         "grade": candidate.grade,
+        "current_price": candidate.current_price,
     }
 
 
@@ -40,14 +49,17 @@ def diff_alerts(candidates: list[CandidateResult]) -> tuple[list[Alert], dict[st
         cur = current_by_market.get(market, _EMPTY_STATE)
         new_states[market] = cur
 
+        price_str = _fmt_price(cur["current_price"])
+
         if not prev["cleared_frames"] and cur["cleared_frames"]:
             alerts.append(Alert(market, "new_candidate",
-                                 f"[{cur['grade']}] {market} 신규 후보 진입 (프레임: {', '.join(cur['cleared_frames'])})"))
+                                 f"[{cur['grade']}] {market} 신규 후보 진입 @ {price_str} "
+                                 f"(프레임: {', '.join(cur['cleared_frames'])})"))
         elif len(cur["cleared_frames"]) > len(prev["cleared_frames"]):
             alerts.append(Alert(market, "frame_advance",
-                                 f"[{cur['grade']}] {market} 프레임 확장: {', '.join(cur['cleared_frames'])}"))
+                                 f"[{cur['grade']}] {market} 프레임 확장 @ {price_str}: {', '.join(cur['cleared_frames'])}"))
 
         if cur["entry_ready"] and not prev.get("entry_ready", False):
-            alerts.append(Alert(market, "entry_ready", f"[{cur['grade']}] {market} 15분봉 매수 타점 발생"))
+            alerts.append(Alert(market, "entry_ready", f"[{cur['grade']}] {market} 15분봉 매수 타점 발생 @ {price_str}"))
 
     return alerts, new_states

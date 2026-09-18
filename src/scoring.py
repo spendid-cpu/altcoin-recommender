@@ -134,6 +134,7 @@ class CandidateResult:
     frames: list[FrameResult]
     volume_bonus: bool = False
     entry_ready: bool = False
+    current_price: float = 0.0
 
     @property
     def cleared_frames(self) -> list[str]:
