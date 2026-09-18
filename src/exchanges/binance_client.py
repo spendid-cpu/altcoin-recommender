@@ -3,7 +3,10 @@
 import aiohttp
 import pandas as pd
 
-BASE_URL = "https://api.binance.com/api/v3"
+# api.binance.com은 일부 지역(예: GitHub Actions 러너가 주로 뜨는 미국 클라우드 IP 대역)에서
+# 451(지역 차단)을 반환한다. data-api.binance.vision은 바이낸스가 공개 시세 데이터 조회 전용으로
+# 제공하는 미러 도메인이라 계정/거래 기능은 없지만 지역 제한이 없다 — 우리는 시세만 읽으므로 이걸 쓴다.
+BASE_URL = "https://data-api.binance.vision/api/v3"
 
 
 async def fetch_klines(
