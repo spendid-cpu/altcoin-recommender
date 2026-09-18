@@ -1,5 +1,8 @@
 name: scan
 
+permissions:
+  contents: write  # data/state.db 변경사항을 다시 커밋+푸시하려면 필요
+
 on:
   schedule:
     - cron: "*/15 * * * *"
