@@ -34,3 +34,4 @@ jobs:
           git add data/state.db
           git diff --staged --quiet || git commit -m "state: 스캔 상태 갱신 [skip ci]"
           git push
+
