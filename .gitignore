@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+*.log
+# data/state.db는 GitHub Actions 실행 간 상태(중복 알림 방지)를 이어가기 위해 일부러 커밋한다.

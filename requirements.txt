@@ -1,0 +1,4 @@
+aiohttp>=3.9
+pandas>=2.2
+aiolimiter>=1.1
+python-dotenv>=1.0
