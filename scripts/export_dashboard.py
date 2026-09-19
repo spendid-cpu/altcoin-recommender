@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import aiohttp
 import pandas as pd
 
-from src import config, macro_job, price_tracker, scan_log
+from src import config, jsonutil, macro_job, price_tracker, scan_log
 from src.btc_trend import days_above_ma, is_trend_favorable
 from src.exchanges import binance_client
 
@@ -185,7 +185,7 @@ async def main(out_path: Path) -> None:
         "grade_thresholds": config.SCORE_GRADE_THRESHOLDS,
     }
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    out_path.write_text(jsonutil.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"대시보드 데이터 저장: {out_path} (후보 {len(candidates)}개, 추천 기록 {len(recs)}건, 스캔 기록 {len(scans)}건)")
 
 

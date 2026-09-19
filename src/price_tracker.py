@@ -12,7 +12,7 @@ import json
 import sqlite3
 from datetime import datetime, timedelta, timezone
 
-from src import state_store
+from src import jsonutil, state_store
 
 TRACK_DAYS = 3  # 진입 후 이 기간까지만 계속 추적 (백테스트 관찰 기간과 동일)
 
@@ -77,7 +77,7 @@ def record_entry(
         conn.execute(
             "INSERT OR REPLACE INTO price_history (market, recorded_at, price, is_entry, grade, score, detail) "
             "VALUES (?, ?, ?, 1, ?, ?, ?)",
-            (market, now, price, grade, score, json.dumps(detail, ensure_ascii=False) if detail else None),
+            (market, now, price, grade, score, jsonutil.dumps(detail, ensure_ascii=False) if detail else None),
         )
         conn.commit()
     finally:

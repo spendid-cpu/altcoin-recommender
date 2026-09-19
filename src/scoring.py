@@ -181,7 +181,8 @@ class CandidateResult:
             if d.get("long_turned_up") and config.PERIOD_BONUS_WEIGHTS["long"]:
                 items.append({"name": "장기 상승 전환", "points": config.PERIOD_BONUS_WEIGHTS["long"]})
             frames.append({
-                "frame": f.frame, "reason": reason, "short_k": d.get("short_k"),
+                "frame": f.frame, "reason": reason,
+                "short_k": d.get("short_k") if d.get("short_k") == d.get("short_k") else None,  # NaN(계산 불가)은 None
                 "points": round(f.score, 1), "items": items,
             })
         return {

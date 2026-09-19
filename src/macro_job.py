@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo
 import aiohttp
 import pandas as pd
 
-from src import btc_macro, config, state_store, telegram_client
+from src import btc_macro, config, jsonutil, state_store, telegram_client
 from src.exchanges import binance_client
 
 KST = ZoneInfo("Asia/Seoul")
@@ -69,7 +69,7 @@ async def refresh(session: aiohttp.ClientSession, max_age_minutes: float) -> dic
     if cached and _age_minutes(cached, now) < max_age_minutes:
         return cached
     macro = await build_macro(session)
-    state_store.set_meta(MACRO_KEY, json.dumps(macro, ensure_ascii=False, separators=(",", ":")))
+    state_store.set_meta(MACRO_KEY, jsonutil.dumps(macro, ensure_ascii=False, separators=(",", ":")))
     print(f"[매크로] 분석 갱신: BTC {macro['price']:,.0f} · 지지 {len(macro['fib']['supports'])}구간 · "
           f"저항 {len(macro['fib']['resistances'])}구간")
     return macro

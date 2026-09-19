@@ -1480,6 +1480,7 @@ const b64ToBytes = (str) => Uint8Array.from(atob(str), (c) => c.charCodeAt(0));
 const toHex = (u8) => [...u8].map((x) => x.toString(16).padStart(2, '0')).join('');
 const sha256 = async (text) => new Uint8Array(await crypto.subtle.digest('SHA-256', te.encode(text)));
 class LoginRequired extends Error {}
+class BadLogin extends Error {}  // 아이디/비밀번호가 틀려 복호화에 실패
 
 function stores() {
   const list = [];
@@ -1509,10 +1510,15 @@ async function aesOpen(rawKey, iv, data) {
 async function openPackage(pkg, id, wrapKey) {
   const slotKey = toHex(await sha256(`id|${id}`));
   const slot = pkg.slots.find((s) => s.k === slotKey);
-  if (!slot) throw new Error('unknown user');
-  const dataKey = await aesOpen(wrapKey, b64ToBytes(slot.iv), b64ToBytes(slot.w));
-  const plain = await aesOpen(dataKey, b64ToBytes(pkg.iv), b64ToBytes(pkg.ct));
-  return JSON.parse(new TextDecoder().decode(plain));
+  if (!slot) throw new BadLogin('unknown user');
+  let plain;
+  try {
+    const dataKey = await aesOpen(wrapKey, b64ToBytes(slot.iv), b64ToBytes(slot.w));
+    plain = await aesOpen(dataKey, b64ToBytes(pkg.iv), b64ToBytes(pkg.ct));
+  } catch (e) {
+    throw new BadLogin('decrypt failed');
+  }
+  return JSON.parse(new TextDecoder().decode(plain));  // 여기서 나는 오류는 로그인 문제가 아니라 데이터 문제다
 }
 
 async function fetchDataset() {
@@ -1533,6 +1539,7 @@ async function fetchDataset() {
   try {
     return await openPackage(pkg, auth.id, b64ToBytes(auth.w));
   } catch (e) {
+    if (!(e instanceof BadLogin)) throw e;  // 데이터가 깨진 경우는 로그인 문제가 아니라 그대로 오류로 알린다
     clearAuth();  // 비밀번호가 바뀌었거나 사용자에서 빠진 경우
     throw needLogin('로그인 정보가 바뀌었어요. 다시 로그인해 주세요.');
   }
@@ -1567,8 +1574,13 @@ $('#login-form').addEventListener('submit', async (ev) => {
     $('#error').hidden = true;
     renderAll();
   } catch (e) {
-    showLogin(pendingPkg, '아이디 또는 비밀번호가 맞지 않아요.');
-    $('#login-pw').select();
+    if (e instanceof BadLogin) {
+      showLogin(pendingPkg, '아이디 또는 비밀번호가 맞지 않아요.');
+      $('#login-pw').select();
+    } else {
+      console.error('로그인 후 처리 오류', e);
+      showLogin(pendingPkg, '로그인은 됐지만 데이터를 읽거나 그리는 중 오류가 났어요. 잠시 후 다시 시도해 주세요.');
+    }
   } finally {
     button.disabled = false; button.textContent = '로그인';
   }
@@ -1594,7 +1606,7 @@ async function load() {
     renderAll();
   } catch (e) {
     if (e instanceof LoginRequired) showLogin(e.pkg, e.message);
-    else $('#error').hidden = false;
+    else { console.error('대시보드 로딩/그리기 오류', e); $('#error').hidden = false; }
   } finally {
     document.body.classList.remove('loading');
   }
