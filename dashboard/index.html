@@ -152,6 +152,22 @@
   .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
   .howto { margin: 0; padding-left: 18px; color: var(--ink2); font-size: 12.5px; }
   .howto li { margin: 4px 0; }
+  /* 로그인 (데이터가 암호화돼 있을 때) */
+  .login { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; padding: 16px; background: var(--page); }
+  .login-card { width: 100%; max-width: 360px; display: grid; gap: 12px; padding: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+  .login-card h2 { margin: 0; font-size: 18px; font-weight: 650; }
+  .login-card label { display: grid; gap: 4px; font-size: 13px; color: var(--ink2); }
+  .login-card input[type="text"], .login-card input[type="password"] {
+    font: inherit; font-size: 15px; padding: 9px 10px; color: var(--ink); background: var(--page);
+    border: 1px solid var(--border); border-radius: 8px;
+  }
+  .login-card input:focus-visible { outline: 2px solid var(--s1); outline-offset: 1px; }
+  .login-card .check { display: flex; align-items: center; gap: 8px; }
+  .login-error { margin: 0; color: var(--bad); font-size: 13px; }
+  .btn.primary { color: var(--page); background: var(--ink); border-color: var(--ink); font-weight: 600; font-size: 14px; padding: 9px 12px; }
+  .btn.primary:hover { background: var(--ink); opacity: .88; }
+  .btn.primary:disabled { opacity: .55; cursor: default; }
+  body.locked .wrap { visibility: hidden; }
 </style>
 </head>
 <body>
@@ -163,6 +179,7 @@
     </div>
     <div class="top-actions">
       <span id="updated" class="muted"></span>
+      <button id="logout" class="btn" type="button" hidden>로그아웃</button>
       <button id="theme" class="btn" type="button">화면 모드 전환</button>
     </div>
   </header>
@@ -305,6 +322,18 @@
   </main>
 
   <footer>자동 스캔 결과를 정리한 참고 자료이며 투자 권유가 아닙니다. 표시 시각은 모두 한국시간(KST)이에요.</footer>
+</div>
+
+<div id="login" class="login" role="dialog" aria-modal="true" aria-labelledby="login-title" hidden>
+  <form id="login-form" class="login-card">
+    <h2 id="login-title">로그인</h2>
+    <p class="sub">허용된 사용자만 볼 수 있어요</p>
+    <label>아이디<input id="login-id" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
+    <label>비밀번호<input id="login-pw" name="password" type="password" autocomplete="current-password" required></label>
+    <label class="check"><input id="login-keep" type="checkbox"> 이 브라우저에서 로그인 유지</label>
+    <p id="login-error" class="login-error" role="alert" hidden></p>
+    <button id="login-submit" class="btn primary" type="submit">로그인</button>
+  </form>
 </div>
 
 <noscript>대시보드를 보려면 JavaScript가 필요해요.</noscript>
@@ -1153,6 +1182,112 @@ $('#m-range').addEventListener('click', (ev) => {
   renderFib(DATA.macro);
 });
 
+/* ---------- 로그인 (데이터가 암호화돼 있을 때) ---------- */
+// 데이터는 scripts/encrypt_dashboard.py가 만든 암호문(dashboard.enc.json)으로 올라온다. 아이디/비밀번호로 PBKDF2 키를 만들어
+// 자기 슬롯에서 데이터 키를 꺼내 브라우저 안에서만 푼다. 암호문이 없으면(404) 예전처럼 공개 데이터를 그대로 쓴다.
+const ENC_URL = 'dashboard.enc.json';
+const AUTH_KEY = 'dash_auth';
+const te = new TextEncoder();
+const bytesToB64 = (u8) => btoa(String.fromCharCode(...u8));
+const b64ToBytes = (str) => Uint8Array.from(atob(str), (c) => c.charCodeAt(0));
+const toHex = (u8) => [...u8].map((x) => x.toString(16).padStart(2, '0')).join('');
+const sha256 = async (text) => new Uint8Array(await crypto.subtle.digest('SHA-256', te.encode(text)));
+class LoginRequired extends Error {}
+
+function stores() {
+  const list = [];
+  for (const name of ['sessionStorage', 'localStorage']) { try { list.push(window[name]); } catch (e) { /* 저장소를 못 쓰는 환경 */ } }
+  return list;
+}
+function readAuth() {
+  for (const store of stores()) {
+    try { const raw = store.getItem(AUTH_KEY); if (raw) return JSON.parse(raw); } catch (e) { /* 무시 */ }
+  }
+  return null;
+}
+function saveAuth(auth, keep) {
+  try { (keep ? window.localStorage : window.sessionStorage).setItem(AUTH_KEY, JSON.stringify(auth)); } catch (e) { /* 저장 못 하면 이번 화면에서만 유지 */ }
+}
+function clearAuth() { for (const store of stores()) { try { store.removeItem(AUTH_KEY); } catch (e) { /* 무시 */ } } }
+
+async function deriveWrapKey(id, password, iterations) {
+  const salt = (await sha256(`salt|${id}`)).slice(0, 16);
+  const base = await crypto.subtle.importKey('raw', te.encode(password), 'PBKDF2', false, ['deriveBits']);
+  return new Uint8Array(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations }, base, 256));
+}
+async function aesOpen(rawKey, iv, data) {
+  const key = await crypto.subtle.importKey('raw', rawKey, 'AES-GCM', false, ['decrypt']);
+  return new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data));
+}
+async function openPackage(pkg, id, wrapKey) {
+  const slotKey = toHex(await sha256(`id|${id}`));
+  const slot = pkg.slots.find((s) => s.k === slotKey);
+  if (!slot) throw new Error('unknown user');
+  const dataKey = await aesOpen(wrapKey, b64ToBytes(slot.iv), b64ToBytes(slot.w));
+  const plain = await aesOpen(dataKey, b64ToBytes(pkg.iv), b64ToBytes(pkg.ct));
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+
+async function fetchDataset() {
+  const t = Date.now();
+  const enc = await fetch(`${ENC_URL}?t=${t}`, { cache: 'no-store' });
+  if (enc.status === 404) {
+    const res = await fetch(`${DATA_URL}?t=${t}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error(String(res.status));
+    $('#logout').hidden = true;
+    return res.json();
+  }
+  if (!enc.ok) throw new Error(String(enc.status));
+  const pkg = await enc.json();
+  $('#logout').hidden = false;
+  const auth = readAuth();
+  const needLogin = (message) => Object.assign(new LoginRequired(message), { pkg });
+  if (!auth) throw needLogin('');
+  try {
+    return await openPackage(pkg, auth.id, b64ToBytes(auth.w));
+  } catch (e) {
+    clearAuth();  // 비밀번호가 바뀌었거나 사용자에서 빠진 경우
+    throw needLogin('로그인 정보가 바뀌었어요. 다시 로그인해 주세요.');
+  }
+}
+
+let pendingPkg = null;
+function showLogin(pkg, message) {
+  pendingPkg = pkg;
+  document.body.classList.add('locked');
+  $('#login').hidden = false;
+  const err = $('#login-error');
+  err.hidden = !message;
+  err.textContent = message || '';
+  ($('#login-id').value ? $('#login-pw') : $('#login-id')).focus();
+}
+function hideLogin() {
+  document.body.classList.remove('locked');
+  $('#login').hidden = true;
+}
+$('#login-form').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  if (!pendingPkg) return;
+  const id = $('#login-id').value.trim().toLowerCase();
+  const button = $('#login-submit');
+  button.disabled = true; button.textContent = '확인 중…';
+  try {
+    const wrapKey = await deriveWrapKey(id, $('#login-pw').value, pendingPkg.iter);
+    DATA = await openPackage(pendingPkg, id, wrapKey);
+    saveAuth({ id, w: bytesToB64(wrapKey) }, $('#login-keep').checked);
+    $('#login-pw').value = '';
+    hideLogin();
+    $('#error').hidden = true;
+    renderAll();
+  } catch (e) {
+    showLogin(pendingPkg, '아이디 또는 비밀번호가 맞지 않아요.');
+    $('#login-pw').select();
+  } finally {
+    button.disabled = false; button.textContent = '로그인';
+  }
+});
+$('#logout').addEventListener('click', () => { clearAuth(); location.reload(); });
+
 /* ---------- 테마, 로딩 ---------- */
 const root = document.documentElement;
 try { const saved = localStorage.getItem('theme'); if (saved) root.setAttribute('data-theme', saved); } catch (e) { /* 저장소를 못 쓰는 환경이면 시스템 설정을 따른다 */ }
@@ -1166,13 +1301,13 @@ $('#theme').addEventListener('click', () => {
 async function load() {
   document.body.classList.add('loading');
   try {
-    const res = await fetch(`${DATA_URL}?t=${Date.now()}`, { cache: 'no-store' });
-    if (!res.ok) throw new Error(String(res.status));
-    DATA = await res.json();
+    DATA = await fetchDataset();
+    hideLogin();
     $('#error').hidden = true;
     renderAll();
   } catch (e) {
-    $('#error').hidden = false;
+    if (e instanceof LoginRequired) showLogin(e.pkg, e.message);
+    else $('#error').hidden = false;
   } finally {
     document.body.classList.remove('loading');
   }

@@ -58,6 +58,12 @@ jobs:
       - name: 대시보드 데이터 생성
         run: python scripts/export_dashboard.py
 
+      # DASHBOARD_USERS 시크릿이 있으면 데이터를 로그인해야 풀리는 암호문으로 바꾸고 평문은 지운다 (없으면 공개 상태 유지)
+      - name: 대시보드 데이터 암호화 (로그인)
+        run: python scripts/encrypt_dashboard.py
+        env:
+          DASHBOARD_USERS: ${{ secrets.DASHBOARD_USERS }}
+
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3

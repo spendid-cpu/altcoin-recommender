@@ -3,3 +3,4 @@ pandas>=2.2
 aiolimiter>=1.1
 python-dotenv>=1.0
 tzdata>=2024.1
+cryptography>=42.0
