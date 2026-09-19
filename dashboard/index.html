@@ -286,6 +286,7 @@
             <div id="m-range" class="seg" role="group" aria-label="차트 기간">
               <button class="btn" type="button" data-bars="180" aria-pressed="true">1개월</button>
               <button class="btn" type="button" data-bars="540" aria-pressed="false">3개월</button>
+              <button class="btn" type="button" data-bars="1080" aria-pressed="false">6개월</button>
             </div>
             <button class="btn" type="button" data-toggle="fib" aria-pressed="false">표로 보기</button>
           </div>
@@ -1132,7 +1133,7 @@ function renderFib(m) {
   }).reverse();
   tableEl.replaceChildren(buildTable(['봉 시작(KST)', '시가', '고가', '저가', '종가'], rows));
   wireToggle('fib', chartEl, tableEl, () => fibChart && fibChart.render());
-  $('#fib-note').textContent = `마지막 마감 4시간봉 종가 ${nf0.format(m.fib.basis_close)} 기준으로 판단해요 (현재가는 실시간 체결가).`;
+  $('#fib-note').textContent = `마지막 마감 4시간봉 종가 ${nf0.format(m.fib.basis_close)} 기준으로 판단해요 (현재가는 실시간 체결가). 지지·저항 구간과 파동 분석은 최근 3개월 기준이라, 6개월 차트의 왼쪽 부분에는 구간의 근거 표시(▲▼)가 없어요.`;
 }
 
 function positionBar(w) {

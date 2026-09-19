@@ -11,11 +11,14 @@ BASE_URL = "https://data-api.binance.vision/api/v3"
 
 async def fetch_ohlcv(
     session: aiohttp.ClientSession, symbol: str = "BTCUSDT", interval: str = "1d", limit: int = 200,
-    closed_only: bool = True,
+    closed_only: bool = True, end_time_ms: int | None = None,
 ) -> pd.DataFrame:
     """시가/고가/저가/종가/거래량까지 포함한 캔들. 오래된 캔들이 먼저 오고, time은 UTC 마감 시각이다.
-    closed_only=True(기본)면 아직 마감되지 않은 마지막 캔들은 버린다."""
+    closed_only=True(기본)면 아직 마감되지 않은 마지막 캔들은 버린다. 한 번에 최대 1000개라 더 과거가 필요하면
+    end_time_ms(이 시각 이전에 시작한 캔들까지)로 이어서 받는다."""
     params = {"symbol": symbol, "interval": interval, "limit": limit}
+    if end_time_ms is not None:
+        params["endTime"] = end_time_ms
     async with session.get(f"{BASE_URL}/klines", params=params) as resp:
         resp.raise_for_status()
         data = await resp.json()

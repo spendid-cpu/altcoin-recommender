@@ -28,14 +28,28 @@ WAVE_ICON = {"bull": "🟢", "neutral": "🟡", "bear": "🔴"}
 
 
 # ----------------------------------------------------------------------------- 조회/캐시
+async def fetch_4h_long(session: aiohttp.ClientSession, bars: int) -> pd.DataFrame:
+    """4시간봉을 bars개(최대 2회 요청) 받는다. 바이낸스는 한 번에 1000개까지라 부족분은 더 과거를 이어서 받는다."""
+    recent = await binance_client.fetch_ohlcv(session, config.BINANCE_SYMBOL, "4h", min(bars, 1000))
+    if len(recent) >= bars or recent.empty:
+        return recent.tail(bars).reset_index(drop=True)
+    first_open_ms = int((recent["time"].iloc[0] + pd.Timedelta(milliseconds=1) - pd.Timedelta(hours=4)).timestamp() * 1000)
+    older = await binance_client.fetch_ohlcv(
+        session, config.BINANCE_SYMBOL, "4h", bars - len(recent), end_time_ms=first_open_ms - 1
+    )
+    both = pd.concat([older, recent]).drop_duplicates(subset="time").sort_values("time")
+    return both.tail(bars).reset_index(drop=True)
+
+
 async def build_macro(session: aiohttp.ClientSession) -> dict:
-    day, h4, h1, price = await asyncio.gather(
+    day, h4_long, h1, price = await asyncio.gather(
         binance_client.fetch_ohlcv(session, config.BINANCE_SYMBOL, "1d", 200),
-        binance_client.fetch_ohlcv(session, config.BINANCE_SYMBOL, "4h", btc_macro.CANDLES_4H),
+        fetch_4h_long(session, btc_macro.CHART_SHOWN_BARS),
         binance_client.fetch_ohlcv(session, config.BINANCE_SYMBOL, "1h", 200),
         binance_client.fetch_price(session, config.BINANCE_SYMBOL),
     )
-    macro = btc_macro.analyse(day, h4, h1, price)
+    h4 = h4_long.tail(btc_macro.CANDLES_4H).reset_index(drop=True)  # 분석은 최근 3개월, 차트는 6개월
+    macro = btc_macro.analyse(day, h4, h1, price, h4_chart=h4_long)
     macro["generated_at"] = datetime.now(timezone.utc).isoformat()
     return macro
 

@@ -46,7 +46,7 @@ EXTREME_LOOKBACK = 5  # 교차 직전 이 캔들 수 안에 저점권/고점권�
 OVERSOLD = float(config.OVERSOLD_THRESHOLD)
 OVERBOUGHT = 100.0 - OVERSOLD
 
-CHART_SHOWN_BARS = CANDLES_4H
+CHART_SHOWN_BARS = 1080  # 차트에 담는 4시간봉 (1080개 = 180일 = 6개월). 지지·저항/파동 분석은 여전히 최근 CANDLES_4H(3개월)만 쓴다
 
 
 # =====================================================================================
@@ -483,8 +483,11 @@ def _chart(df4h: pd.DataFrame) -> dict:
     }
 
 
-def analyse(day: pd.DataFrame, h4: pd.DataFrame, h1: pd.DataFrame, price: float) -> dict:
-    """day/h4/h1은 fetch_ohlcv(closed_only=True) 결과, price는 실시간 현재가."""
+def analyse(
+    day: pd.DataFrame, h4: pd.DataFrame, h1: pd.DataFrame, price: float, h4_chart: pd.DataFrame | None = None
+) -> dict:
+    """day/h4/h1은 fetch_ohlcv(closed_only=True) 결과, price는 실시간 현재가.
+    h4는 분석용(최근 3개월), h4_chart는 차트에 그릴 더 긴 4시간봉(6개월)이다. 없으면 h4를 그대로 그린다."""
     day_close = day["close"]
     prev24 = float(h1["close"].iloc[-25]) if len(h1) >= 25 else None
     return {
@@ -498,5 +501,5 @@ def analyse(day: pd.DataFrame, h4: pd.DataFrame, h1: pd.DataFrame, price: float)
         },
         "fib": analyse_fib(h4, price),
         "stoch": analyse_stoch({"day": day, "4h": h4, "1h": h1}),
-        "chart": _chart(h4),
+        "chart": _chart(h4_chart if h4_chart is not None else h4),
     }
