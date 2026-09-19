@@ -33,6 +33,9 @@ async def _candles(session, market, frame, count, limiter, semaphore, cache, key
     if cache is not None and key in cache:
         return cache[key]
     async with semaphore, limiter:
+        # 200개를 넘으면 fetch_candles가 여러 번 나눠 요청한다 — 그만큼 요청 한도를 더 써서 429(속도 제한)를 피한다
+        for _ in range(-(-count // 200) - 1):
+            await limiter.acquire()
         df = await upbit_client.fetch_candles(session, market, frame, count=count)
     if cache is not None:
         cache[key] = df
