@@ -43,7 +43,7 @@ async def fetch_4h_long(session: aiohttp.ClientSession, bars: int) -> pd.DataFra
 
 async def build_macro(session: aiohttp.ClientSession) -> dict:
     day, h4_long, h1, price = await asyncio.gather(
-        binance_client.fetch_ohlcv(session, config.BINANCE_SYMBOL, "1d", 200),
+        binance_client.fetch_ohlcv(session, config.BINANCE_SYMBOL, "1d", btc_macro.DAILY_CANDLES + 35),  # 1년치 + MA 계산 여유
         fetch_4h_long(session, btc_macro.CANDLES_4H),
         binance_client.fetch_ohlcv(session, config.BINANCE_SYMBOL, "1h", 200),
         binance_client.fetch_price(session, config.BINANCE_SYMBOL),
@@ -91,7 +91,7 @@ def _members_text(zone: dict) -> str:
     for m in zone["members"]:
         if m["kind"] == "swing":
             continue
-        tag = ("큰" if m["wave"] == "large" else "작") + (f"{m['ratio']}" if m["kind"] == "ret" else f"확장{m['ratio']}")
+        tag = {"large": "큰", "long": "장기"}.get(m["wave"], "작") + (f"{m['ratio']}" if m["kind"] == "ret" else f"확장{m['ratio']}")
         if tag not in parts:
             parts.append(tag)
     if zone.get("swing_count"):
@@ -167,6 +167,10 @@ def format_briefing(macro: dict, now: datetime) -> str:
     lines += [_zone_line(z, "▫️") for z in picked] or ["   (범위 안에 라인이 없어요)"]
     lines.append("")
 
+    long_lines = _long_lines(macro.get("fib_long"))
+    if long_lines:
+        lines += long_lines + [""]
+
     lines.append("📊 스토캐스틱 RSI (마감 캔들 기준)")
     for frame, icon in (("day", "📅"), ("4h", "🕓"), ("1h", "🕐")):
         fr = stoch["frames"][frame]
@@ -182,6 +186,20 @@ def format_briefing(macro: dict, now: datetime) -> str:
     lines.append("")
     lines.append("※ 참고용 분석이며 투자 권유가 아니에요. 자세한 차트는 대시보드의 '비트코인 분석' 탭에서 볼 수 있어요.")
     return "\n".join(lines)
+
+
+def _long_lines(fib_long: dict | None) -> list[str]:
+    """장기(일봉 1년) 구간 중 눈에 띄는 것: 현재가에서 가까운 순으로 저항 3곳, 지지 2곳 (강도 3 이상)."""
+    if not fib_long:
+        return []
+    res = [z for z in fib_long["resistances"] if z["strength"] >= 3][:3]
+    sup = [z for z in fib_long["supports"] if z["strength"] >= 3][:2]
+    if not res and not sup:
+        return []
+    out = ["🔭 장기 구간 (일봉 1년 · 강도 3 이상 가까운 순)"]
+    out += [_zone_line(z, "🔴") for z in res] or ["🔴 (위쪽 강한 저항 없음)"]
+    out += [_zone_line(z, "🟢") for z in sup]
+    return out
 
 
 # ----------------------------------------------------------------------------- 스캔에서 호출

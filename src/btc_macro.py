@@ -4,6 +4,8 @@
    반등했던 저점과 꺾였던 고점(가격 반응 자리)을 전부 모아 같이 묶는다. 현재가 아래(지지)/위(저항)에서 서로 다른 근거가
    몇 개나 겹치는지로 강조하고, 피보나치 라인과 가격 반응 자리가 겹치는 구간(◆)은 한 단계 더 강조한다.
    겹친 곳은 한 점이 아니라 겹친 범위(구간)로 표기한다.
+   같은 방식을 일봉 1년치에도 적용해 '장기 구간'(현재가 위아래 60%까지)을 따로 만든다 — 4시간봉 6개월로는 보이지 않는
+   1년 전 고점 같은 큰 저항/지지를 보려는 것이다 (analyse_long).
    라인은 모두 '저점=0, 고점=1'로 놓고 계산한다 (TradingView 피보나치 도구를 저점→고점으로 그은 값과 같다).
    상승 파동 규칙: 0.618 라인 위를 지키면 상승 지속, 0.382 라인 아래로 종가가 내려가면 상승 무마.
    하락 파동은 이를 거울로 뒤집는다 (반등이 0.382 아래에 머물면 하락 지속, 0.618 위로 오르면 하락 무마).
@@ -26,15 +28,22 @@ from src.scoring import EPS, _crossed_up_series
 FIB_RATIOS = (0.382, 0.5, 0.618)  # 0.236/0.786까지 늘리면 라인이 너무 촘촘해져 겹침 개수가 변별력을 잃는다
 FIB_EXTENSIONS = (1.272, 1.618)  # 가장 최근 파동의 확장 라인 (고점 위/저점 아래에 라인이 없을 때를 위해)
 CANDLES_4H = 1080  # 4시간봉 1080개 = 180일 = 최근 6개월 (분석과 차트가 같은 범위를 쓴다. 3개월이면 5월 고점 같은 큰 저항이 빠진다)
-PIVOT_BARS = {"large": 12, "small": 4}  # 좌우 몇 개 캔들보다 높/낮아야 고점/저점으로 보는지 (12개 = 2일, 4개 = 16시간)
-MIN_LEG_PCT = {"large": 10.0, "small": 3.0}  # 직전 극점에서 이만큼 움직이지 못한 반대 방향 움직임은 파동으로 치지 않는다
-LEGS_USED = {"large": 4, "small": 4}  # 라인을 그을 최근 파동 수
+PIVOT_BARS = {"large": 12, "small": 4, "long": 5}  # 좌우 몇 개 캔들보다 높/낮아야 고점/저점으로 보는지 (12개 = 2일, 4개 = 16시간)
+MIN_LEG_PCT = {"large": 10.0, "small": 3.0, "long": 15.0}  # 직전 극점에서 이만큼 움직이지 못한 반대 방향 움직임은 파동으로 치지 않는다
+LEGS_USED = {"large": 4, "small": 4, "long": 6}  # 라인을 그을 최근 파동 수
 CLUSTER_TOL_PCT = 0.5  # 이 폭 안에 들어온 라인들은 '겹친' 것으로 본다
+# 장기(일봉 1년): 좌우 5일 중 가장 높/낮고 그 뒤 5일 안에 4% 이상 반대로 움직인 고점/저점 + 15% 이상 파동의 피보나치.
+# 일봉은 4시간봉보다 폭이 넓어 묶는 허용폭(±1%)과 범위(±60%, 1년 전 최고가까지)도 넓게 잡는다.
+DAILY_CANDLES = 365
+DAILY_SWING_BARS = 5
+DAILY_SWING_MIN_MOVE_PCT = 4.0
+LONG_CLUSTER_TOL_PCT = 1.0
+LONG_RANGE_PCT = 60.0
 SWING_PIVOT_BARS = 6  # 가격 반응 자리: 좌우 이만큼(6개 = 24시간)의 캔들보다 높/낮은 캔들을 고점/저점으로 모은다 (지그재그로 걸러내지 않고 전부)
 SWING_MIN_MOVE_PCT = 1.0  # 그 고점/저점에서 반대로 최소 이만큼 움직였어야 '반응'으로 친다 (사소한 흔들림 제외)
 LEVEL_RANGE_PCT = 15.0  # 현재가에서 이 범위 밖의 라인은 다루지 않는다
 STRENGTH_LABEL = {1: "약함", 2: "중간", 3: "강함", 4: "매우 강함", 5: "핵심"}
-WAVE_LABEL = {"large": "큰 파동", "small": "작은 파동"}
+WAVE_LABEL = {"large": "큰 파동", "small": "작은 파동", "long": "장기 파동"}
 
 # ---------------- 스토캐스틱 RSI 설정 ----------------
 STOCH_FRAMES = ("day", "4h", "1h")
@@ -198,11 +207,10 @@ def wave_state(leg: Leg, close: float) -> dict:
     }
 
 
-def swing_pivots(df: pd.DataFrame) -> list[Pivot]:
+def swing_pivots(df: pd.DataFrame, n: int = SWING_PIVOT_BARS, min_move_pct: float = SWING_MIN_MOVE_PCT) -> list[Pivot]:
     """가격이 반등했던 저점과 꺾였던 고점을 지그재그 없이 전부 모은다 (같은 자리에서 여러 번 반응했으면 각각 센다).
     좌우 SWING_PIVOT_BARS개 캔들 중 가장 높은(낮은) 캔들이고, 그 뒤 SWING_PIVOT_BARS개 캔들 안에 반대 방향으로
     SWING_MIN_MOVE_PCT 이상 움직였어야 한다 (고점은 그만큼 꺾여야, 저점은 그만큼 반등해야 '반응'으로 친다)."""
-    n = SWING_PIVOT_BARS
     win = 2 * n + 1
     is_high = df["high"] == df["high"].rolling(win, center=True).max()
     is_low = df["low"] == df["low"].rolling(win, center=True).min()
@@ -219,24 +227,24 @@ def swing_pivots(df: pd.DataFrame) -> list[Pivot]:
             else:
                 price = float(df.at[i, "low"])
                 move = (float(df["high"].iloc[i:hi_i].max()) / price - 1) * 100
-            if move < SWING_MIN_MOVE_PCT:
+            if move < min_move_pct:
                 continue
             out.append(Pivot(int(i), kind, price, df.at[i, "time"]))
             last_idx[kind] = i
     return out
 
 
-def _kst_day(ts: pd.Timestamp) -> str:
-    """4시간봉 마감 시각(UTC) -> 그 캔들이 시작된 한국시간 '월-일'."""
-    return (ts - pd.Timedelta(hours=4) + pd.Timedelta(hours=9)).strftime("%m-%d")
+def _kst_day(ts: pd.Timestamp, bar_hours: int = 4) -> str:
+    """캔들 마감 시각(UTC) -> 그 캔들이 시작된 한국시간 '월-일' (bar_hours: 봉 길이, 4시간봉 4 / 일봉 24)."""
+    return (ts - pd.Timedelta(hours=bar_hours) + pd.Timedelta(hours=9)).strftime("%m-%d")
 
 
-def _level_points(legs_by_wave: dict[str, list[Leg]], swings: list[Pivot] | None = None) -> list[dict]:
+def _level_points(legs_by_wave: dict[str, list[Leg]], swings: list[Pivot] | None = None, bar_hours: int = 4) -> list[dict]:
     points = []
     for pv in swings or []:
         points.append({
             "price": pv.price, "ratio": None, "kind": "swing", "wave": "swing", "leg": f"s{pv.idx}", "type": pv.kind,
-            "desc": f"{_kst_day(pv.time)} {'고점에서 꺾임' if pv.kind == 'H' else '저점에서 반등'}",
+            "desc": f"{_kst_day(pv.time, bar_hours)} {'고점에서 꺾임' if pv.kind == 'H' else '저점에서 반등'}",
         })
     for wave, legs in legs_by_wave.items():
         used = legs[-LEGS_USED[wave]:]
@@ -260,17 +268,19 @@ def _strength(score: int) -> int:
     return 4 if score <= 6 else 5
 
 
-def build_zones(points: list[dict], price: float) -> list[dict]:
+def build_zones(
+    points: list[dict], price: float, tol_pct: float = CLUSTER_TOL_PCT, range_pct: float = LEVEL_RANGE_PCT
+) -> list[dict]:
     """가격이 가까운 라인/자리끼리 묶어 '겹침 구간'을 만든다. 근거는 두 종류다 — 피보나치 라인(서로 다른 파동의 수로 센다.
     한 파동의 0.5와 0.618이 붙어 있는 것은 겹침으로 세지 않는다)과 가격 반응 자리(반등한 저점/꺾인 고점, 하나가 1회).
     겹침 개수는 두 근거를 합친 수이고, 피보나치와 가격 반응이 함께 있는 구간(confluence)은 강도를 한 단계 더 올린다."""
-    lo_bound, hi_bound = price * (1 - LEVEL_RANGE_PCT / 100), price * (1 + LEVEL_RANGE_PCT / 100)
+    lo_bound, hi_bound = price * (1 - range_pct / 100), price * (1 + range_pct / 100)
     pts = sorted((p for p in points if lo_bound <= p["price"] <= hi_bound), key=lambda p: p["price"])
     clusters: list[list[dict]] = []
     for p in pts:
         if clusters:
             mean = sum(m["price"] for m in clusters[-1]) / len(clusters[-1])
-            if abs(p["price"] - mean) <= mean * CLUSTER_TOL_PCT / 100:
+            if abs(p["price"] - mean) <= mean * tol_pct / 100:
                 clusters[-1].append(p)
                 continue
         clusters.append([p])
@@ -342,6 +352,34 @@ def analyse_fib(df4h: pd.DataFrame, price: float) -> dict:
             "swing_pivot_bars": SWING_PIVOT_BARS, "swing_min_move_pct": SWING_MIN_MOVE_PCT,
             "legs_used": LEGS_USED, "range_pct": LEVEL_RANGE_PCT,
         },
+    }
+
+
+def analyse_long(day: pd.DataFrame, price: float) -> dict:
+    """일봉 1년치로 장기 지지·저항 구간을 만든다 (4시간봉 분석과 같은 방식: 가격 반응 자리 + 파동의 피보나치 라인 겹침)."""
+    df = day.tail(DAILY_CANDLES).reset_index(drop=True)
+    legs = build_legs(df, "long")
+    swings = swing_pivots(df, DAILY_SWING_BARS, DAILY_SWING_MIN_MOVE_PCT)
+    if legs and legs[-1].end.provisional:  # 진행 중인 최근 고점/저점도 반응 자리로
+        tip = legs[-1].end
+        if all(abs(tip.idx - pv.idx) > DAILY_SWING_BARS or pv.kind != tip.kind for pv in swings):
+            swings.append(tip)
+    zones = build_zones(_level_points({"long": legs}, swings, bar_hours=24), price, LONG_CLUSTER_TOL_PCT, LONG_RANGE_PCT)
+    used = legs[-LEGS_USED["long"]:]
+    return {
+        "supports": sorted((z for z in zones if z["side"] == "support"), key=lambda z: -z["price"]),
+        "resistances": sorted((z for z in zones if z["side"] == "resistance"), key=lambda z: z["price"]),
+        "swings": [{"time": pv.time.isoformat(), "price": pv.price, "kind": pv.kind} for pv in swings],
+        # 차트의 파동 연결선 (일봉 파동은 '큰 파동' 선 모양으로 그린다)
+        "pivots": {
+            "large": ([{"time": lg.start.time.isoformat(), "price": lg.start.price, "kind": lg.start.kind} for lg in used]
+                      + ([{"time": used[-1].end.time.isoformat(), "price": used[-1].end.price, "kind": used[-1].end.kind}] if used else [])),
+            "small": [],
+        },
+        "params": {"candles": len(df), "cluster_tol_pct": LONG_CLUSTER_TOL_PCT, "range_pct": LONG_RANGE_PCT,
+                   "swing_bars": DAILY_SWING_BARS, "swing_min_move_pct": DAILY_SWING_MIN_MOVE_PCT,
+                   "leg_min_pct": MIN_LEG_PCT["long"], "legs_used": LEGS_USED["long"]},
+        "high": float(df["high"].max()), "low": float(df["low"].min()),
     }
 
 
@@ -481,12 +519,12 @@ def analyse_stoch(frames: dict[str, pd.DataFrame]) -> dict:
 # =====================================================================================
 # 종합
 # =====================================================================================
-def _chart(df4h: pd.DataFrame) -> dict:
-    """차트용 4시간봉. 저장 용량을 줄이려고 '첫 마감 시각 + 간격 + 정수 시/고/저/종가'로 압축한다."""
-    shown = df4h.tail(CHART_SHOWN_BARS)
+def _chart(df: pd.DataFrame, bars: int = CHART_SHOWN_BARS, step_hours: int = 4) -> dict:
+    """차트용 캔들. 저장 용량을 줄이려고 '첫 마감 시각 + 간격 + 정수 시/고/저/종가'로 압축한다 (4시간봉 또는 일봉)."""
+    shown = df.tail(bars)
     return {
         "first_close_ts": int(shown["time"].iloc[0].timestamp()),
-        "step_seconds": 4 * 3600,
+        "step_seconds": step_hours * 3600,
         "ohlc": [[round(r.open), round(r.high), round(r.low), round(r.close)] for r in shown.itertuples()],
     }
 
@@ -510,4 +548,6 @@ def analyse(
         "fib": analyse_fib(h4, price),
         "stoch": analyse_stoch({"day": day, "4h": h4, "1h": h1}),
         "chart": _chart(h4_chart if h4_chart is not None else h4),
+        "fib_long": analyse_long(day, price),
+        "chart_long": _chart(day, DAILY_CANDLES, 24),
     }
