@@ -31,10 +31,13 @@ def stoch_rsi(
 
 
 # 설계 문서(스토캐스틱 RSI 설정)에서 정한 단기/중기/장기 파라미터 세트
+# 사용자가 트레이딩뷰에서 쓰는 설정이다. 트레이딩뷰 스토캐스틱 RSI의 입력 순서는 (K, D, RSI 길이, 스토캐스틱 길이)라서
+# 단기 '3,3,5,5' = K 3 · D 3 · RSI 5 · 스토 5, 중기 '6,6,10,10' = K 6 · D 6 · RSI 10 · 스토 10, 장기 '12,12,20,20' = K 12 · D 12 ·
+# RSI 20 · 스토 20 이다. (처음에는 이 숫자를 RSI/스토/K/D 순서로 거꾸로 읽어 트레이딩뷰 차트와 신호가 정반대로 나왔다.)
 PERIOD_SETS = {
-    "short": {"rsi_period": 3, "stoch_period": 3, "smooth_k": 5, "smooth_d": 5},
-    "mid": {"rsi_period": 6, "stoch_period": 6, "smooth_k": 10, "smooth_d": 10},
-    "long": {"rsi_period": 12, "stoch_period": 12, "smooth_k": 20, "smooth_d": 20},
+    "short": {"rsi_period": 5, "stoch_period": 5, "smooth_k": 3, "smooth_d": 3},
+    "mid": {"rsi_period": 10, "stoch_period": 10, "smooth_k": 6, "smooth_d": 6},
+    "long": {"rsi_period": 20, "stoch_period": 20, "smooth_k": 12, "smooth_d": 12},
 }
 
 
