@@ -1335,8 +1335,9 @@ function renderMacro(d) {
 }
 
 /* ---------- 성과(익절·손절) 탭 ---------- */
-// 백테스트(2026-09, 약 65일, 비트코인 필터 적용, 익절 +5% / 손절 -5% / 3일): 프로그램 규칙 vs 옛 방식 vs 무작위. scripts의 백테스트로 다시 뽑는다.
-const BACKTEST_REF = { rule: [74, 30], old: [198, 122], random: [1004, 829] };
+// 백테스트(2026-09, 약 65일, 비트코인 필터 적용, 익절 +5% / 손절 -5% / 3일): 프로그램 규칙 vs 옛 방식 vs 무작위.
+// 스토캐스틱 RSI 설정을 트레이딩뷰 입력 순서로 바로잡은 뒤 다시 계산한 값이다 (바로잡기 전 값은 74:30 / 198:122라 쓰면 안 된다).
+const BACKTEST_REF = { rule: [255, 215], old: [365, 291], random: [1004, 829] };
 const RESULT_INFO = {
   take_profit: { label: '익절', mark: '▲', cls: 'tp' },
   stop_loss: { label: '손절', mark: '▼', cls: 'sl' },
@@ -1415,7 +1416,7 @@ function renderPerf(d) {
   $('#p-note').textContent = s.decided === 0
     ? '익절이나 손절로 끝난 추천이 아직 없어서 승률은 계산되지 않아요.'
     : (s.decided < 30 ? `익절·손절로 끝난 추천이 ${s.decided}건이라 표본이 적어요. 30건쯤 쌓이기 전에는 참고만 하세요.` : `익절·손절로 끝난 추천 ${s.decided}건 기준이에요.`);
-  $('#p-ref').textContent = `참고 (백테스트, 약 65일, 비트코인 필터 적용, 익절 +5% / 손절 -5%): 이 프로그램의 규칙 ${ratioText(BACKTEST_REF.rule)}, 옛 방식(일봉만 통과) ${ratioText(BACKTEST_REF.old)}, 아무 종목이나 골랐을 때 ${ratioText(BACKTEST_REF.random)}. 실제 승률이 무작위(약 55%)보다 뚜렷하게 높게 유지되는지 보면 돼요.`;
+  $('#p-ref').textContent = `참고 (백테스트, 약 65일, 비트코인 필터 적용, 스토캐스틱 설정을 바로잡은 뒤 기준, 익절 +5% / 손절 -5%): 이 프로그램의 규칙 ${ratioText(BACKTEST_REF.rule)}, 옛 방식(일봉만 통과) ${ratioText(BACKTEST_REF.old)}, 아무 종목이나 골랐을 때 ${ratioText(BACKTEST_REF.random)}. 실제 승률이 무작위(약 55%)보다 뚜렷하게 높게 유지되는지 보면 돼요.`;
 
   // 추천별 표
   const host = $('#p-list');
