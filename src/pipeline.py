@@ -71,7 +71,7 @@ async def run_once(session: aiohttp.ClientSession) -> None:
         if a.kind == "new_candidate":
             # 발굴 시점의 가격/등급/점수를 '진입 기록'으로 남긴다 — 이후 계속 추적해 실제 수익률을 검증하는 원본 데이터.
             c = candidate_by_market[a.market]
-            price_tracker.record_entry(a.market, c.current_price, c.grade, round(c.total_score, 1))
+            price_tracker.record_entry(a.market, c.current_price, c.grade, round(c.total_score, 1), c.breakdown())
 
     prices = await _track_prices(session)
     await exits.process_exits(session, prices, candidates, btc_filter_on=True)

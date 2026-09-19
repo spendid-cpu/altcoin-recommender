@@ -1,6 +1,6 @@
 """비트코인 매크로 분석의 조회/캐시/텔레그램 발송.
 
-- 분석(btc_macro.analyse)은 시간당 한 번만 새로 계산해 state.db(meta)에 JSON으로 저장한다. 대시보드는 이 저장본을 읽는다.
+- 분석(btc_macro.analyse)은 config.MACRO_REFRESH_MINUTES(기본 10분 = 매 스캔)마다 새로 계산해 state.db(meta)에 JSON으로 저장한다. 대시보드는 이 저장본을 읽는다.
 - 매일 config.MACRO_BRIEFING_HOUR(기본 오전 8시, 한국시간) 이후 첫 스캔에서 브리핑을 텔레그램으로 한 번 보낸다.
   발송 직전에는 캔들이 오래되지 않게 분석을 새로 계산한다.
 - 여기서 나는 오류는 알트코인 스캔을 막으면 안 되므로 run()이 삼킨다.

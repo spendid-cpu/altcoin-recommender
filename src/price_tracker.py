@@ -8,6 +8,7 @@
 +1h/+4h/+1d/+3d 수익률을 계산해 백테스트 결과와 비교할 수 있다.
 """
 
+import json
 import sqlite3
 from datetime import datetime, timedelta, timezone
 
@@ -33,6 +34,8 @@ def connect() -> sqlite3.Connection:
         conn.execute("ALTER TABLE price_history ADD COLUMN grade TEXT")
     if "score" not in columns:
         conn.execute("ALTER TABLE price_history ADD COLUMN score REAL")
+    if "detail" not in columns:  # 추천 근거(점수 구성) JSON. 이전 버전에서 만든 추천은 비어 있다
+        conn.execute("ALTER TABLE price_history ADD COLUMN detail TEXT")
     conn.execute(
         "CREATE TABLE IF NOT EXISTS rec_exits ("
         "market TEXT, entered_at TEXT, ended_at TEXT, exit_price REAL, return_pct REAL, reason TEXT, "
@@ -64,15 +67,17 @@ def _merge_duplicate_entries(conn: sqlite3.Connection) -> None:
         conn.commit()
 
 
-def record_entry(market: str, price: float, grade: str = "-", score: float | None = None) -> None:
-    """신규 후보 발굴 시점의 가격(과 그때의 등급/점수)을 '진입가'로 기록한다."""
+def record_entry(
+    market: str, price: float, grade: str = "-", score: float | None = None, detail: dict | None = None
+) -> None:
+    """신규 후보 발굴 시점의 가격(과 그때의 등급/점수, 점수 구성 근거)을 '진입가'로 기록한다."""
     now = datetime.now(timezone.utc).isoformat()
     conn = connect()
     try:
         conn.execute(
-            "INSERT OR REPLACE INTO price_history (market, recorded_at, price, is_entry, grade, score) "
-            "VALUES (?, ?, ?, 1, ?, ?)",
-            (market, now, price, grade, score),
+            "INSERT OR REPLACE INTO price_history (market, recorded_at, price, is_entry, grade, score, detail) "
+            "VALUES (?, ?, ?, 1, ?, ?, ?)",
+            (market, now, price, grade, score, json.dumps(detail, ensure_ascii=False) if detail else None),
         )
         conn.commit()
     finally:
@@ -129,12 +134,12 @@ def record_exit(market: str, entered_at: datetime, exit_price: float, return_pct
 
 def load_recommendations() -> list[dict]:
     """진입 기록(is_entry=1) 하나가 추천 하나. 이후 스냅샷을 붙여 시간순(오래된 것 먼저)으로 반환한다.
-    각 항목: market, entered_at(datetime), entry_price, grade, score, snaps[(datetime, price)],
+    각 항목: market, entered_at(datetime), entry_price, grade, score, detail(추천 근거 dict 또는 None), snaps[(datetime, price)],
     exit(종료된 추천이면 {ended_at, exit_price, return_pct, reason}, 아니면 None)"""
     conn = connect()
     try:
         rows = conn.execute(
-            "SELECT market, recorded_at, price, is_entry, grade, score FROM price_history ORDER BY market, recorded_at"
+            "SELECT market, recorded_at, price, is_entry, grade, score, detail FROM price_history ORDER BY market, recorded_at"
         ).fetchall()
         exit_rows = conn.execute(
             "SELECT market, entered_at, ended_at, exit_price, return_pct, reason FROM rec_exits"
@@ -149,13 +154,14 @@ def load_recommendations() -> list[dict]:
     recs: list[dict] = []
     current: dict | None = None
     current_market = None
-    for market, recorded_at, price, is_entry, grade, score in rows:
+    for market, recorded_at, price, is_entry, grade, score, detail in rows:
         if market != current_market:
             current, current_market = None, market
         at = datetime.fromisoformat(recorded_at)
         if is_entry:
             current = {"market": market, "entered_at": at, "entry_price": price, "grade": grade or "-",
-                       "score": score, "snaps": [], "exit": exits.get((market, recorded_at))}
+                       "score": score, "detail": json.loads(detail) if detail else None, "snaps": [],
+                       "exit": exits.get((market, recorded_at))}
             recs.append(current)
         elif current is not None:
             current["snaps"].append((at, price))

@@ -160,6 +160,39 @@ class CandidateResult:
         """일봉/4시간/1시간 게이트를 모두 통과했는지 (15분 저점 여부와 무관)."""
         return all(f in self.cleared_frames for f in config.FRAME_ORDER)
 
+    def breakdown(self) -> dict:
+        """추천 근거: 어떤 프레임에서 왜 통과했고 어떤 항목으로 몇 점을 받았는지 (대시보드 '성과' 탭이 그대로 보여준다)."""
+        frames = []
+        for f in self.frames:
+            if not f.passed_gate:
+                continue
+            d = f.detail
+            if d.get("first_touch"):
+                reason = "저점권(%K 20 이하) 최초 도달"
+            elif d.get("golden_cross"):
+                reason = "저점권에서 골든크로스"
+            else:
+                reason = "15분 %K가 저점권" if d.get("at_low") else "조건 통과"
+            items = [{"name": "프레임 통과", "points": config.FRAME_WEIGHTS[f.frame]}]
+            if d.get("golden_cross"):
+                items.append({"name": "골든크로스 보너스", "points": config.GOLDEN_CROSS_BONUS})
+            if d.get("mid_turned_up") and config.PERIOD_BONUS_WEIGHTS["mid"]:
+                items.append({"name": "중기 상승 전환", "points": config.PERIOD_BONUS_WEIGHTS["mid"]})
+            if d.get("long_turned_up") and config.PERIOD_BONUS_WEIGHTS["long"]:
+                items.append({"name": "장기 상승 전환", "points": config.PERIOD_BONUS_WEIGHTS["long"]})
+            frames.append({
+                "frame": f.frame, "reason": reason, "short_k": d.get("short_k"),
+                "points": round(f.score, 1), "items": items,
+            })
+        return {
+            "frames": frames,
+            "total": round(self.total_score, 1),
+            "grade": self.grade,
+            "rule": ("일봉·4시간·1시간 조건을 모두 통과하고 15분봉이 저점일 때 추천" if config.RECOMMEND_ONLY_AT_15M_LOW
+                     else "일봉 조건을 통과하면 추천"),
+            "entry_ready": self.entry_ready,
+        }
+
     @property
     def low_15m(self) -> bool:
         return config.LOW_FRAME in self.cleared_frames

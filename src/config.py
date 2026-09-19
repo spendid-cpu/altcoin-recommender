@@ -45,14 +45,16 @@ MIN_RECOMMEND_SCORE = _env_float("MIN_RECOMMEND_SCORE", 0) or 0
 # 3일 보유 +1.62% 승률 55.5%. 다만 3일 보유와의 차이는 통계적으로 구분되지 않는 수준이다.
 # 점수 하락/조건 이탈로 종료하는 규칙은 평균 +0.06~+0.3%로 오히려 나빠서 넣지 않았다(신호가 약해져도 가격은 계속 올랐다).
 EXIT_TAKE_PROFIT_PCT = _env_float("EXIT_TAKE_PROFIT_PCT", 5.0)  # 추천가 대비 +X% 도달 시 종료 (0/off면 끔)
-EXIT_STOP_LOSS_PCT = _env_float("EXIT_STOP_LOSS_PCT", None)  # 추천가 대비 -X% 도달 시 종료 (기본 끔: -3~-5%는 평균을 낮췄다)
+# 손절은 프로그램이 쓸모 있는지 재기 위해 익절과 같은 폭(-5%)으로 둔다: 익절 수 : 손절 수 비율이 곧 성과 지표가 된다(대시보드 '성과' 탭).
+# 다만 이전 백테스트(20일)에서는 손절을 -3~-5%로 걸면 평균이 낮아졌으니, 매매 규칙으로 최적이라는 뜻은 아니다. 끄려면 'off'.
+EXIT_STOP_LOSS_PCT = _env_float("EXIT_STOP_LOSS_PCT", 5.0)  # 추천가 대비 -X% 도달 시 종료 (0/off면 끔)
 EXIT_TRAIL_ARM_PCT = _env_float("EXIT_TRAIL_ARM_PCT", None)  # 최고 수익이 +X%를 넘으면 되돌림 감시 시작
 EXIT_TRAIL_DD_PCT = _env_float("EXIT_TRAIL_DD_PCT", None)  # 고점 대비 -Y% 되돌리면 종료 (ARM과 함께 지정)
 
-# 비트코인 매크로 분석(피보나치 지지·저항 + 스토캐스틱 RSI 현황). 대시보드용 분석은 이 간격(분)마다 새로 계산한다
-# (스캔이 15분마다 돌아도 분석은 시간당 한 번 — 4시간봉/1시간봉이 그 이상 자주 바뀌지 않는다).
-# 발송 시각 정각에 딱 맞춰 돌지는 않아서 55분으로 잡아 실제 갱신이 시간당 한 번이 되게 한다.
-MACRO_REFRESH_MINUTES = _env_float("MACRO_REFRESH_MINUTES", 55) or 55
+# 비트코인 매크로 분석(지지·저항 + 스토캐스틱 RSI 현황). 대시보드용 분석은 이 간격(분)마다 새로 계산한다.
+# 스캔이 15분마다 도니 10분으로 두면 매 스캔마다 갱신된다 (현재가와 15분 사이의 변화를 놓치지 않으려고 시간당 → 15분으로 줄였다).
+# 값을 키우면 그만큼 덜 자주 갱신한다 (저장소 변수 MACRO_REFRESH_MINUTES).
+MACRO_REFRESH_MINUTES = _env_float("MACRO_REFRESH_MINUTES", 10) or 10
 # 매일 이 시각(한국시간, 시) 이후 첫 스캔에서 비트코인 매크로 브리핑을 텔레그램으로 보낸다 (기본 8시).
 # 끄려면 값을 'off'로 둔다 (GitHub Actions 저장소 변수 MACRO_BRIEFING_HOUR). 숫자가 아닌 값은 기본값으로 본다.
 _raw_hour = (os.environ.get("MACRO_BRIEFING_HOUR") or "").strip().lower()

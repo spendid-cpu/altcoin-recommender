@@ -23,7 +23,8 @@ from src.exchanges import binance_client
 
 KST = ZoneInfo("Asia/Seoul")
 HORIZONS_HOURS = (1, 4, 24, 72)
-MAX_RECOMMENDATIONS = 60
+MAX_RECOMMENDATIONS = 400  # 성과 집계에 쓰는 전체 추천 수 (오래된 것은 가격 경로를 뺀다)
+SERIES_KEPT = 60  # 가격 경로(차트용)를 담는 최근 추천 수
 BTC_DAYS_SHOWN = 45
 DEFAULT_OUT = Path(__file__).resolve().parent.parent / "dashboard" / "dashboard.json"
 
@@ -93,6 +94,7 @@ def build_recommendations(now: datetime) -> list[dict]:
             "entry_price": entry_price,
             "grade": rec["grade"],
             "score": rec["score"],
+            "detail": rec.get("detail"),
             "last_price": last_price,
             "last_at": last_at.isoformat(),
             "return_pct": pct(last_price),
@@ -103,7 +105,10 @@ def build_recommendations(now: datetime) -> list[dict]:
             ],
         })
     out.sort(key=lambda r: r["entered_at"], reverse=True)
-    return out[:MAX_RECOMMENDATIONS]
+    out = out[:MAX_RECOMMENDATIONS]
+    for rec in out[SERIES_KEPT:]:  # 오래된 추천은 차트에 안 쓰므로 가격 경로를 덜어 파일을 작게 유지한다
+        rec["series"] = []
+    return out
 
 
 def build_summary(recs: list[dict]) -> dict:
@@ -169,6 +174,13 @@ async def main(out_path: Path) -> None:
         "summary": build_summary(recs),
         "scans": scans,
         "track_days": price_tracker.TRACK_DAYS,
+        "exit_rules": {
+            "take_profit_pct": config.EXIT_TAKE_PROFIT_PCT,
+            "stop_loss_pct": config.EXIT_STOP_LOSS_PCT,
+            "trail_arm_pct": config.EXIT_TRAIL_ARM_PCT,
+            "trail_dd_pct": config.EXIT_TRAIL_DD_PCT,
+            "track_days": price_tracker.TRACK_DAYS,
+        },
         "grade_thresholds": config.SCORE_GRADE_THRESHOLDS,
     }
     out_path.parent.mkdir(parents=True, exist_ok=True)
