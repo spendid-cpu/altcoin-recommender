@@ -230,7 +230,7 @@
       <div class="card-head">
         <div>
           <h2 id="h-cand">현재 후보</h2>
-          <p class="sub">일봉 조건을 통과한 종목이에요. 4시간·1시간을 지나 15분봉이 저점에 오면 추천돼요 (점수 높은 순)</p>
+          <p class="sub">일봉 조건을 통과한 관찰 대상이에요. 4시간·1시간을 지나 15분봉이 저점에 오면 추천돼요. 이미 추천한 종목은 '이미 추천됨'으로 표시하고 결과는 성과 탭에서 봐요 (점수 높은 순)</p>
         </div>
       </div>
       <div id="cand" class="table-wrap"></div>
@@ -765,14 +765,22 @@ function renderCandidates(d) {
       : '지금 조건을 통과한 종목이 없어요.'));
     return;
   }
+  // 추천됐는지 헷갈리지 않게 상태를 따로 보여준다: 최근(추적 기간 안)에 이미 추천한 종목 / 지금 추천 대상 / 아직 대기
+  const trackMs = (d.track_days || 3) * 86400e3;
+  const statusOf = (c) => {
+    const recent = c.entered_at && Date.now() - new Date(c.entered_at).getTime() < trackMs;
+    if (recent) return c.rec_exit ? `이미 추천됨 · ${EXIT_LABEL[c.rec_exit] || c.rec_exit}로 종료` : '이미 추천됨 · 추적 중';
+    return c.recommendable ? '추천 대상' : '대기 · 15분 저점을 기다려요';
+  };
   host.replaceChildren(buildTable(
-    ['종목', '등급', '점수', '통과 프레임', '15분 저점', '발굴가', '현재가', '발굴 후'],
+    ['종목', '상태', '등급', '점수', '통과 프레임', '15분 저점', '발굴가', '현재가', '발굴 후'],
     cands.map((c) => [
-      c.market, gradePill(c.grade), c.score == null ? '—' : c.score.toFixed(1),
+      c.market, h('span', { class: statusOf(c).startsWith('이미') ? '' : 'muted', text: statusOf(c) }),
+      gradePill(c.grade), c.score == null ? '—' : c.score.toFixed(1),
       c.frames.map((f) => FRAME_LABEL[f] || f).join(' › '),
       c.low_15m ? h('span', { class: 'flag', text: c.entry_ready ? '✓ 저점 · 타점' : '✓ 저점' }) : h('span', { class: 'muted', text: '대기' }),
       fmtKRW(c.entry_price), fmtKRW(c.current_price), pct(c.return_pct),
-    ]), 2));
+    ]), 3));
 }
 
 function renderTracking(d) {

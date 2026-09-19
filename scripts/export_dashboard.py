@@ -146,6 +146,7 @@ def build_candidates(latest_by_market: dict[str, dict]) -> tuple[list[dict], str
             "entry_price": rec["entry_price"] if rec else None,
             "entered_at": rec["entered_at"] if rec else None,
             "return_pct": rec["return_pct"] if rec else None,
+            "rec_exit": rec["exit"]["reason"] if rec and rec.get("exit") else None,  # 이미 추천한 종목이면 종료 사유(익절 등)
         })
     candidates.sort(key=lambda c: (c["score"] is None, -(c["score"] or 0)))
     last_update = max((r[2] for r in rows), default=None)
