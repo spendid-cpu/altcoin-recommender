@@ -194,7 +194,7 @@
       <div class="card-head">
         <div>
           <h2 id="h-cand">현재 후보</h2>
-          <p class="sub">이번 스캔에서 조건을 통과한 종목 (점수 높은 순)</p>
+          <p class="sub">일봉 조건을 통과한 종목이에요. 4시간·1시간을 지나 15분봉이 저점에 오면 추천돼요 (점수 높은 순)</p>
         </div>
       </div>
       <div id="cand" class="table-wrap"></div>
@@ -317,7 +317,7 @@ const NS = 'http://www.w3.org/2000/svg';
 const DATA_URL = 'dashboard.json';
 const STALE_MINUTES = 45;
 const EXPECTED_GAP_MINUTES = 15;
-const FRAME_LABEL = { day: '일봉', '4h': '4시간', '1h': '1시간' };
+const FRAME_LABEL = { day: '일봉', '4h': '4시간', '1h': '1시간', '15m': '15분' };
 const EXIT_LABEL = { take_profit: '익절', stop_loss: '손절', trailing: '되돌림', expired: '기간 만료' };
 const $ = (sel, root = document) => root.querySelector(sel);
 
@@ -599,7 +599,7 @@ function renderTiles(d) {
   const cands = d.candidates || [];
   const count = (g) => cands.filter((c) => c.grade === g).length;
   tiles.push(tile('현재 후보', [String(cands.length)],
-    `A ${count('A')} · B ${count('B')} · 등급 없음 ${cands.length - count('A') - count('B')} · 15분 타점 ${cands.filter((c) => c.entry_ready).length}`));
+    `A ${count('A')} · B ${count('B')} · 등급 없음 ${cands.length - count('A') - count('B')} · 15분 저점 ${cands.filter((c) => c.low_15m).length}`));
 
   if (d.last_scan_at) {
     const stale = minutesSince(d.last_scan_at) > STALE_MINUTES;
@@ -677,11 +677,11 @@ function renderCandidates(d) {
     return;
   }
   host.replaceChildren(buildTable(
-    ['종목', '등급', '점수', '통과 프레임', '15분 타점', '발굴가', '현재가', '발굴 후'],
+    ['종목', '등급', '점수', '통과 프레임', '15분 저점', '발굴가', '현재가', '발굴 후'],
     cands.map((c) => [
       c.market, gradePill(c.grade), c.score == null ? '—' : c.score.toFixed(1),
       c.frames.map((f) => FRAME_LABEL[f] || f).join(' › '),
-      c.entry_ready ? h('span', { class: 'flag', text: '✓ 발생' }) : h('span', { class: 'muted', text: '대기' }),
+      c.low_15m ? h('span', { class: 'flag', text: c.entry_ready ? '✓ 저점 · 타점' : '✓ 저점' }) : h('span', { class: 'muted', text: '대기' }),
       fmtKRW(c.entry_price), fmtKRW(c.current_price), pct(c.return_pct),
     ]), 2));
 }

@@ -13,6 +13,7 @@ from src.scoring import CandidateResult
 
 _EMPTY_STATE = {
     "cleared_frames": [], "entry_ready": False, "grade": "-", "current_price": 0.0, "score": None,
+    "recommendable": False, "low_15m": False,
     "alerted_frames": [], "alerted_entry": False,
 }
 
@@ -40,6 +41,8 @@ def _snapshot(candidate: CandidateResult) -> dict:
         "grade": candidate.grade,
         "current_price": candidate.current_price,
         "score": round(candidate.total_score, 1),
+        "recommendable": candidate.recommendable,
+        "low_15m": candidate.low_15m,
     }
 
 
@@ -58,6 +61,8 @@ def _normalize(state: dict | None) -> dict:
 def diff_alerts(candidates: list[CandidateResult]) -> tuple[list[Alert], dict[str, dict]]:
     """이번 스캔 결과 vs 저장된 이전 상태를 비교해 (알림 목록, 다음에 저장할 전체 상태)를 반환한다.
 
+    - 추천 대상(CandidateResult.recommendable: 기본은 일봉/4시간/1시간 통과 + 15분 저점)이 아닌 후보는 대시보드에만
+      보이고 알림도 기준선도 만들지 않는다. 15분 저점에 오면 그때 신규 추천으로 알린다.
     - 신규 추천: 아직 아무것도 알리지 않은 종목이고, 최근 추천한 적이 없고, 점수가 MIN_RECOMMEND_SCORE 이상일 때만 알린다.
     - 프레임 확장 / 15분 타점: 이미 알린 단계보다 더 진행됐을 때만 알린다 (후보에서 빠졌다 돌아와도 반복 안 함).
     - 후보에서 빠졌을 때: 최근 추천한 종목이면 알린 단계를 유지하고, 아니면 초기화해서 다음 재진입을 새 추천으로 본다.
@@ -83,6 +88,16 @@ def diff_alerts(candidates: list[CandidateResult]) -> tuple[list[Alert], dict[st
 
         alerted_frames = prev["alerted_frames"]
         alerted_entry = prev["alerted_entry"]
+
+        if not cur["recommendable"]:
+            # 추천 시점(15분 저점)을 기다리는 후보. 최근 추천한 종목이면 이미 알린 단계를 기억해 둔다
+            keep = market in tracked
+            new_states[market] = {
+                **cur,
+                "alerted_frames": alerted_frames if keep else [],
+                "alerted_entry": alerted_entry if keep else False,
+            }
+            continue
 
         if not alerted_frames:
             if (cur["score"] or 0) < config.MIN_RECOMMEND_SCORE:

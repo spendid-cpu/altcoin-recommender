@@ -135,6 +135,8 @@ def build_candidates(latest_by_market: dict[str, dict]) -> tuple[list[dict], str
             "score": state.get("score"),
             "frames": state["cleared_frames"],
             "entry_ready": bool(state.get("entry_ready")),
+            "low_15m": bool(state.get("low_15m")),
+            "recommendable": bool(state.get("recommendable")),
             "current_price": state.get("current_price"),
             "entry_price": rec["entry_price"] if rec else None,
             "entered_at": rec["entered_at"] if rec else None,

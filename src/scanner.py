@@ -66,11 +66,15 @@ async def scan_market(
     )
 
     if result.full_gate_pass:
-        # 일봉/4시간/1시간을 모두 통과한 종목만 15분봉 매수 타점을 확인한다
-        # (조건 유효기간이 아직 없으므로 지금은 '이번 스캔 시점에 15분 신호가 있는가'만 본다)
+        # 일봉/4시간/1시간을 모두 통과한 종목만 15분봉을 본다. 15분봉은 마지막 관문(저점인가)이면서 점수에도 들어간다.
+        # entry_ready는 그 위에서 '이번 캔들에 골든크로스가 났는가'를 따로 보는 표시다.
         async with semaphore, limiter:
-            candles_15m = await upbit_client.fetch_candles(session, market, "15m", count=LOOKBACK_CANDLES)
+            candles_15m = await upbit_client.fetch_candles(session, market, config.LOW_FRAME, count=LOOKBACK_CANDLES)
         if not candles_15m.empty:
+            low = score_frame(config.LOW_FRAME, candles_15m["close"])
+            result.frames.append(low)
+            if low.passed_gate:
+                result.total_score += low.score
             result.entry_ready = check_entry(candles_15m["close"])
             result.current_price = float(candles_15m["close"].iloc[-1])  # 더 최신 가격으로 갱신
 

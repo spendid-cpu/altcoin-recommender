@@ -84,7 +84,9 @@ def score_frame(frame: str, close: pd.Series, validity_hours: float | None = Non
     최초 도달 또는 골든크로스한 적이 있으면 통과 (백테스트로 확인된 '조건 유효기간').
     가산점: 골든크로스일 때 TRIGGER 보너스, 중기/장기가 이미 상승 전환(K>D) 상태면 주기 가산점.
     """
-    validity_hours = config.VALIDITY_WINDOW_HOURS if validity_hours is None else validity_hours
+    is_low_frame = frame == config.LOW_FRAME
+    if validity_hours is None:
+        validity_hours = config.LOW_FRAME_LOOKBACK_HOURS if is_low_frame else config.VALIDITY_WINDOW_HOURS
     lookback_bars = max(1, round(validity_hours / config.FRAME_HOURS[frame]))
 
     periods = stoch_rsi_all_periods(close)
@@ -92,7 +94,9 @@ def score_frame(frame: str, close: pd.Series, validity_hours: float | None = Non
 
     is_first_touch = bool(first_touch_series(short_k).tail(lookback_bars).any())
     is_golden_cross = bool(golden_cross_series(short_k, short_d).tail(lookback_bars).any())
-    passed = is_first_touch or is_golden_cross
+    # 15분봉(LOW_FRAME)은 '지금 저점권에 있는가'도 통과로 본다 (저점권에 머무는 동안에는 최초 도달이 이미 지나갔어도 저점이다)
+    at_low = is_low_frame and bool(short_k.iloc[-1] <= config.OVERSOLD_THRESHOLD + EPS)
+    passed = is_first_touch or is_golden_cross or at_low
 
     if not passed:
         return FrameResult(frame=frame, passed_gate=False, score=0.0)
@@ -115,6 +119,7 @@ def score_frame(frame: str, close: pd.Series, validity_hours: float | None = Non
         detail={
             "first_touch": is_first_touch,
             "golden_cross": is_golden_cross,
+            "at_low": at_low,
             "short_k": round(float(short_k.iloc[-1]), 2),
             "mid_turned_up": period_state["mid"],
             "long_turned_up": period_state["long"],
@@ -152,7 +157,19 @@ class CandidateResult:
 
     @property
     def full_gate_pass(self) -> bool:
-        return self.cleared_frames == list(config.FRAME_ORDER)
+        """일봉/4시간/1시간 게이트를 모두 통과했는지 (15분 저점 여부와 무관)."""
+        return all(f in self.cleared_frames for f in config.FRAME_ORDER)
+
+    @property
+    def low_15m(self) -> bool:
+        return config.LOW_FRAME in self.cleared_frames
+
+    @property
+    def recommendable(self) -> bool:
+        """추천 대상인지. 기본은 일봉/4시간/1시간을 모두 통과하고 15분봉이 저점일 때만 True."""
+        if config.RECOMMEND_ONLY_AT_15M_LOW:
+            return self.cleared_frames == [*config.FRAME_ORDER, config.LOW_FRAME]
+        return bool(self.cleared_frames)
 
     @property
     def grade(self) -> str:
