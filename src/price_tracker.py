@@ -16,7 +16,11 @@ from src import state_store
 TRACK_DAYS = 3  # 진입 후 이 기간까지만 계속 추적 (백테스트 관찰 기간과 동일)
 
 
+_deduped = False
+
+
 def connect() -> sqlite3.Connection:
+    global _deduped
     conn = state_store.connect_db()  # 테이블 생성 등 초기화 로직 재사용
     conn.execute(
         "CREATE TABLE IF NOT EXISTS price_history ("
@@ -29,7 +33,30 @@ def connect() -> sqlite3.Connection:
         conn.execute("ALTER TABLE price_history ADD COLUMN grade TEXT")
     if "score" not in columns:
         conn.execute("ALTER TABLE price_history ADD COLUMN score REAL")
+    if not _deduped:
+        _merge_duplicate_entries(conn)
+        _deduped = True
     return conn
+
+
+def _merge_duplicate_entries(conn: sqlite3.Connection) -> None:
+    """추적 기간(TRACK_DAYS) 안에 같은 종목의 진입 기록이 또 있으면 중복 추천이므로 일반 스냅샷으로 바꾼다.
+    (알림 중복 방지가 들어가기 전에 생긴 기록을 정리하는 용도. 여러 번 실행해도 결과는 같다.)"""
+    rows = conn.execute(
+        "SELECT market, recorded_at FROM price_history WHERE is_entry = 1 ORDER BY market, recorded_at"
+    ).fetchall()
+    window = timedelta(days=TRACK_DAYS)
+    last_kept: dict[str, datetime] = {}
+    duplicates = []
+    for market, recorded_at in rows:
+        at = datetime.fromisoformat(recorded_at)
+        if market in last_kept and at - last_kept[market] < window:
+            duplicates.append((market, recorded_at))
+        else:
+            last_kept[market] = at
+    if duplicates:
+        conn.executemany("UPDATE price_history SET is_entry = 0 WHERE market = ? AND recorded_at = ?", duplicates)
+        conn.commit()
 
 
 def record_entry(market: str, price: float, grade: str = "-", score: float | None = None) -> None:
@@ -59,6 +86,34 @@ def active_tracked_markets() -> list[str]:
         return [r[0] for r in rows]
     finally:
         conn.close()
+
+
+def load_recommendations() -> list[dict]:
+    """진입 기록(is_entry=1) 하나가 추천 하나. 이후 스냅샷을 붙여 시간순(오래된 것 먼저)으로 반환한다.
+    각 항목: market, entered_at(datetime), entry_price, grade, score, snaps[(datetime, price)]"""
+    conn = connect()
+    try:
+        rows = conn.execute(
+            "SELECT market, recorded_at, price, is_entry, grade, score FROM price_history ORDER BY market, recorded_at"
+        ).fetchall()
+    finally:
+        conn.close()
+
+    recs: list[dict] = []
+    current: dict | None = None
+    current_market = None
+    for market, recorded_at, price, is_entry, grade, score in rows:
+        if market != current_market:
+            current, current_market = None, market
+        at = datetime.fromisoformat(recorded_at)
+        if is_entry:
+            current = {"market": market, "entered_at": at, "entry_price": price, "grade": grade or "-",
+                       "score": score, "snaps": []}
+            recs.append(current)
+        elif current is not None:
+            current["snaps"].append((at, price))
+    recs.sort(key=lambda r: r["entered_at"])
+    return recs
 
 
 def record_snapshots(prices: dict[str, float]) -> None:

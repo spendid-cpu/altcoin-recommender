@@ -23,6 +23,30 @@ def connect_db() -> sqlite3.Connection:
     return conn
 
 
+def get_meta(key: str) -> str | None:
+    """작은 키-값 저장소 (예: 마지막 현황 리포트 발송 시각)."""
+    conn = connect_db()
+    try:
+        conn.execute("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+        row = conn.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
+        return row[0] if row else None
+    finally:
+        conn.close()
+
+
+def set_meta(key: str, value: str) -> None:
+    conn = connect_db()
+    try:
+        conn.execute("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+        conn.execute(
+            "INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            (key, value),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def load_all() -> dict[str, dict]:
     conn = connect_db()
     try:

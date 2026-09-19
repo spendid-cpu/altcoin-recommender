@@ -1,11 +1,19 @@
-"""이전 스캔 상태와 비교해 '상태가 바뀐' 종목만 알림 대상으로 골라낸다 (중복 알림 방지)."""
+"""이전 스캔 상태와 비교해 '상태가 바뀐' 종목만 알림 대상으로 골라낸다 (중복 알림 방지).
+
+상태에는 지금 후보인지(cleared_frames, entry_ready ...)와 별개로 '이미 알린 단계'(alerted_frames,
+alerted_entry)를 따로 둔다. 추천 후 추적 기간(price_tracker.TRACK_DAYS) 안에 있는 종목은 후보에서 잠깐
+빠졌다가 다시 들어와도 이미 알린 단계를 기억하고 있어서 같은 알림이 반복되지 않는다.
+"""
 
 from dataclasses import dataclass
 
-from src import state_store
+from src import price_tracker, state_store
 from src.scoring import CandidateResult
 
-_EMPTY_STATE = {"cleared_frames": [], "entry_ready": False, "grade": "-", "current_price": 0.0, "score": None}
+_EMPTY_STATE = {
+    "cleared_frames": [], "entry_ready": False, "grade": "-", "current_price": 0.0, "score": None,
+    "alerted_frames": [], "alerted_entry": False,
+}
 
 
 @dataclass
@@ -15,7 +23,9 @@ class Alert:
     message: str
 
 
-def _fmt_price(price: float) -> str:
+def fmt_price(price: float | None) -> str:
+    if price is None:
+        return "—"
     if price >= 100:
         return f"{price:,.0f}원"
     if price >= 1:
@@ -33,34 +43,63 @@ def _snapshot(candidate: CandidateResult) -> dict:
     }
 
 
+def _normalize(state: dict | None) -> dict:
+    """옛 형식(alerted_* 없음)의 저장 상태는 '지금 상태 = 이미 알린 상태'로 간주한다."""
+    if state is None:
+        return dict(_EMPTY_STATE)
+    normalized = {**_EMPTY_STATE, **state}
+    if "alerted_frames" not in state:
+        normalized["alerted_frames"] = list(state.get("cleared_frames", []))
+    if "alerted_entry" not in state:
+        normalized["alerted_entry"] = bool(state.get("entry_ready", False))
+    return normalized
+
+
 def diff_alerts(candidates: list[CandidateResult]) -> tuple[list[Alert], dict[str, dict]]:
     """이번 스캔 결과 vs 저장된 이전 상태를 비교해 (알림 목록, 다음에 저장할 전체 상태)를 반환한다.
-    day 게이트조차 못 넘은 종목은 candidates에 없으므로, 이전에 후보였다가 이번에 탈락한 종목은
-    빈 상태로 명시적으로 되돌려 다음 재진입 시 '신규 후보'로 다시 잡히게 한다.
+
+    - 신규 후보: 아직 아무것도 알리지 않은 종목이고, 추적 중인 추천이 아닐 때만 알린다.
+    - 프레임 확장 / 15분 타점: 이미 알린 단계보다 더 진행됐을 때만 알린다 (후보에서 빠졌다 돌아와도 반복 안 함).
+    - 후보에서 빠졌을 때: 추적 중이면 알린 단계를 유지하고, 추적이 끝났으면 초기화해서 다음 재진입을 새 추천으로 본다.
     """
     previous = state_store.load_all()
+    tracked = set(price_tracker.active_tracked_markets())
     current_by_market = {c.market: _snapshot(c) for c in candidates}
 
     alerts: list[Alert] = []
     new_states: dict[str, dict] = {}
 
-    all_markets = set(previous) | set(current_by_market)
-    for market in all_markets:
-        prev = previous.get(market, _EMPTY_STATE)
-        cur = current_by_market.get(market, _EMPTY_STATE)
-        new_states[market] = cur
+    for market in set(previous) | set(current_by_market):
+        prev = _normalize(previous.get(market))
+        cur = current_by_market.get(market)
 
-        price_str = _fmt_price(cur["current_price"])
+        if cur is None:
+            state = dict(_EMPTY_STATE)
+            if market in tracked:
+                state["alerted_frames"] = prev["alerted_frames"]
+                state["alerted_entry"] = prev["alerted_entry"]
+            new_states[market] = state
+            continue
 
-        if not prev["cleared_frames"] and cur["cleared_frames"]:
-            alerts.append(Alert(market, "new_candidate",
-                                 f"[{cur['grade']}] {market} 신규 후보 진입 @ {price_str} "
-                                 f"(프레임: {', '.join(cur['cleared_frames'])})"))
-        elif len(cur["cleared_frames"]) > len(prev["cleared_frames"]):
+        alerted_frames = prev["alerted_frames"]
+        alerted_entry = prev["alerted_entry"]
+        price_str = fmt_price(cur["current_price"])
+
+        if not alerted_frames:
+            if market not in tracked:
+                alerts.append(Alert(market, "new_candidate",
+                                    f"[{cur['grade']}] {market} 신규 후보 진입 @ {price_str} "
+                                    f"(프레임: {', '.join(cur['cleared_frames'])})"))
+            alerted_frames = cur["cleared_frames"]  # 알림을 생략해도 기준선은 갱신한다
+        elif len(cur["cleared_frames"]) > len(alerted_frames):
             alerts.append(Alert(market, "frame_advance",
-                                 f"[{cur['grade']}] {market} 프레임 확장 @ {price_str}: {', '.join(cur['cleared_frames'])}"))
+                                f"[{cur['grade']}] {market} 프레임 확장 @ {price_str}: {', '.join(cur['cleared_frames'])}"))
+            alerted_frames = cur["cleared_frames"]
 
-        if cur["entry_ready"] and not prev.get("entry_ready", False):
+        if cur["entry_ready"] and not alerted_entry:
             alerts.append(Alert(market, "entry_ready", f"[{cur['grade']}] {market} 15분봉 매수 타점 발생 @ {price_str}"))
+            alerted_entry = True
+
+        new_states[market] = {**cur, "alerted_frames": alerted_frames, "alerted_entry": alerted_entry}
 
     return alerts, new_states

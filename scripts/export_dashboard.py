@@ -28,10 +28,6 @@ BTC_DAYS_SHOWN = 45
 DEFAULT_OUT = Path(__file__).resolve().parent.parent / "dashboard" / "dashboard.json"
 
 
-def _parse(iso: str) -> datetime:
-    return datetime.fromisoformat(iso)
-
-
 async def build_btc(session: aiohttp.ClientSession) -> dict:
     try:
         df = await binance_client.fetch_klines(session, config.BINANCE_SYMBOL, "1d", 100)
@@ -67,30 +63,8 @@ def _nearest_within(snaps: list[tuple[datetime, float]], target: datetime, toler
 
 def build_recommendations(now: datetime) -> list[dict]:
     """price_history의 진입 기록(is_entry=1) 하나가 '추천' 하나. 이후 스냅샷을 붙여 수익률을 계산한다."""
-    conn = price_tracker.connect()
-    try:
-        rows = conn.execute(
-            "SELECT market, recorded_at, price, is_entry, grade, score FROM price_history ORDER BY market, recorded_at"
-        ).fetchall()
-    finally:
-        conn.close()
-
-    recs: list[dict] = []
-    current: dict | None = None
-    current_market = None
-    for market, recorded_at, price, is_entry, grade, score in rows:
-        if market != current_market:
-            current, current_market = None, market
-        at = _parse(recorded_at)
-        if is_entry:
-            current = {"market": market, "entered_at": at, "entry_price": price, "grade": grade or "-",
-                       "score": score, "snaps": []}
-            recs.append(current)
-        elif current is not None:
-            current["snaps"].append((at, price))
-
     out = []
-    for rec in recs:
+    for rec in price_tracker.load_recommendations():
         entry_at, entry_price = rec["entered_at"], rec["entry_price"]
         snaps = rec["snaps"]
         last_at, last_price = (snaps[-1] if snaps else (entry_at, entry_price))

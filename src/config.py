@@ -13,6 +13,14 @@ TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 # 배포 직후 스케줄러가 잘 도는지 확인할 때만 켠다 (GitHub Actions 저장소 변수 HEARTBEAT=true).
 HEARTBEAT_ENABLED = os.environ.get("HEARTBEAT", "false").lower() == "true"
 
+# 추천 후 추적 중인 종목의 현황(추천가 대비 수익률, 점수 변화 등)을 텔레그램으로 보내는 간격(시간).
+# 0이면 끈다. 스캔이 돌 때만 확인하므로 실제 발송은 이 간격이 지난 뒤 첫 스캔에서 나간다.
+# GitHub Actions 저장소 변수 REPORT_INTERVAL_HOURS로 바꿀 수 있다.
+try:
+    REPORT_INTERVAL_HOURS = float(os.environ.get("REPORT_INTERVAL_HOURS") or "1")
+except ValueError:
+    REPORT_INTERVAL_HOURS = 1.0
+
 # 프레임 축(하드 게이트) 가중치: 일봉 > 4시간 > 1시간
 FRAME_WEIGHTS = {"day": 3, "4h": 2, "1h": 1}
 FRAME_ORDER = ("day", "4h", "1h")  # 게이트를 타는 순서 (상위 -> 하위)
