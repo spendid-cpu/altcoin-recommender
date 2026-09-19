@@ -22,7 +22,11 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      # 실행이 다른 실행 뒤에서 기다렸다 시작되면 트리거 시점의 옛 커밋이 아니라 지금의 최신 master를 받아야 한다
+      # (안 그러면 앞선 실행이 커밋한 state.db와 충돌해 push가 실패한다)
       - uses: actions/checkout@v4
+        with:
+          ref: master
 
       - uses: actions/setup-python@v5
         with:
