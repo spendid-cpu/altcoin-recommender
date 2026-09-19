@@ -122,6 +122,13 @@ MIN_DAILY_TRADE_VALUE_KRW = 300_000_000  # 일봉 거래대금 3억원 미만은
 # 점수가 높을수록 성과가 좋아지는 관계는 확인되지 않았다 (추천 후 3일 평균: 3+ +2.00%, 13+ +1.62%, 16+ +1.51%).
 SCORE_GRADE_THRESHOLDS = {"A": 16, "B": 13}  # 이 값 이상이면 해당 등급, 미만이면 등급 없음("-")
 
+# 사이클 전략(사용자 판단 방식)을 기존 전략과 나란히 돌려 성과를 비교한다. 끄려면 저장소 변수 CYCLE_ENABLED=false.
+# 규칙은 cycle_signals.py 첫머리에 있고, 65일 백테스트에서 확정한 값 그대로다 (임의로 바꾸지 않는다 — 바꾸면 비교가 무의미해진다).
+CYCLE_ENABLED = os.environ.get("CYCLE_ENABLED", "true").strip().lower() != "false"
+CYCLE_STOP_PCT = 5.0  # 절반 매도 전 손절 (전량)
+CYCLE_TRAIL_PCT = 5.0  # 절반 매도 뒤 나머지 절반의 고점 대비 트레일링 폭
+CYCLE_H4_CANDLES = 450  # 4시간 이력 (백테스트와 같은 길이: 65일 + 여유)
+
 UPBIT_MARKET = "KRW-BTC"
 BINANCE_SYMBOL = "BTCUSDT"
 

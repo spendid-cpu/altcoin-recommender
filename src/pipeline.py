@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 
 import aiohttp
 
-from src import config, exits, macro_job, price_tracker, report, scan_log, state_store, telegram_client
+from src import config, cycle_exits, cycle_scanner, exits, macro_job, price_tracker, report, scan_log, state_store, telegram_client
 from src.exchanges import upbit_client
 from src.notifier import diff_alerts
 from src.scanner import check_btc_trend, scan_all
@@ -34,15 +34,19 @@ async def run_once(session: aiohttp.ClientSession) -> None:
         alerts, new_states = diff_alerts([])
         state_store.save_all(new_states)
         # 이미 발굴해 추적 중인 종목은 BTC 추세와 상관없이 끝까지 따라가고 현황도 계속 보낸다
+        price_tracker.save_cycle_states({})  # 사이클 전략도 새 추천은 멈춘다 (준비 현황을 비운다)
         prices = await _track_prices(session)
         await exits.process_exits(session, prices, [], btc_filter_on=False)
+        await _process_cycle_exits(session, prices)
         await report.maybe_send_report(session, prices, [], btc_filter_on=False)
         scan_log.record_scan(btc_favorable=False, candidates=0, alerts=0)
         await _send_heartbeat(session, f"💓 {now} 스캔 완료 — BTC 추세 불리, 스캔 건너뜀")
         return
 
     print("업비트 KRW 마켓 스캔 중...")
-    candidates = await scan_all(session)
+    markets = await upbit_client.fetch_markets(session)
+    candle_cache: dict = {}  # 기존 전략이 받은 캔들을 사이클 전략이 재사용한다
+    candidates = await scan_all(session, markets, candle_cache)
 
     if not candidates:
         print("일봉 게이트를 통과한 종목이 없습니다.")
@@ -73,14 +77,51 @@ async def run_once(session: aiohttp.ClientSession) -> None:
             c = candidate_by_market[a.market]
             price_tracker.record_entry(a.market, c.current_price, c.grade, round(c.total_score, 1), c.breakdown())
 
+    cycle_alerts = await _run_cycle_scan(session, markets, candle_cache)
+
     prices = await _track_prices(session)
     await exits.process_exits(session, prices, candidates, btc_filter_on=True)
+    await _process_cycle_exits(session, prices)
     await report.maybe_send_report(session, prices, candidates, btc_filter_on=True)
-    scan_log.record_scan(btc_favorable=True, candidates=len(candidates), alerts=len(alerts))
+    scan_log.record_scan(btc_favorable=True, candidates=len(candidates), alerts=len(alerts) + cycle_alerts)
 
     await _send_heartbeat(
         session, f"💓 {now} 스캔 완료 — 후보 {len(candidates)}개, 알림 {len(alerts)}건"
     )
+
+
+async def _run_cycle_scan(session: aiohttp.ClientSession, markets: list[str], cache: dict) -> int:
+    """사이클 전략 스캔과 새 추천 기록·알림. 이 전략에서 오류가 나도 기존 전략의 스캔 결과에는 영향을 주지 않는다."""
+    if not config.CYCLE_ENABLED:
+        return 0
+    try:
+        print("사이클 전략 스캔 중...")
+        signals, states = await cycle_scanner.scan_cycle(
+            session, markets, cache, set(price_tracker.recent_recommendation_markets("cycle"))
+        )
+        price_tracker.save_cycle_states(states)
+        print(f"사이클 전략: 준비 현황 {len(states)}종목, 새 추천 {len(signals)}건")
+        for sig in signals:
+            text = cycle_scanner.build_entry_message(sig)
+            print(f"  [cycle] {sig.market} {sig.tier}급")
+            if telegram_client.is_configured():
+                await telegram_client.send_message(session, text)
+            price_tracker.record_entry(
+                sig.market, sig.price, sig.tier, None, sig.detail, strategy="cycle", tier=sig.tier
+            )
+        return len(signals)
+    except Exception as exc:
+        print(f"사이클 전략 스캔 실패(기존 전략은 영향 없음): {exc!r}")
+        return 0
+
+
+async def _process_cycle_exits(session: aiohttp.ClientSession, prices: dict[str, float]) -> None:
+    if not config.CYCLE_ENABLED:
+        return
+    try:
+        await cycle_exits.process_cycle_exits(session, prices)
+    except Exception as exc:
+        print(f"사이클 전략 종료 처리 실패(다음 사이클에 다시): {exc!r}")
 
 
 async def _track_prices(session: aiohttp.ClientSession) -> dict[str, float]:

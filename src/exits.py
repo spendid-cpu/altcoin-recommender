@@ -1,4 +1,4 @@
-"""추천 종료 판단과 알림. 종료 규칙(익절, 손절, 고점 대비 되돌림, 기간 만료)에 걸린 추천은 최종 결과를
+"""기존 전략 추천의 종료 판단과 알림. 종료 규칙(익절, 손절, 고점 대비 되돌림, 기간 만료)에 걸린 추천은 최종 결과를
 텔레그램으로 알리고 추적을 끝낸다. 규칙의 값은 config.EXIT_* (저장소 변수)로 바꾼다.
 매도 권유가 아니라 정해둔 기준에 도달했다는 알림이다."""
 
@@ -72,8 +72,8 @@ async def process_exits(
     candidate_by_market = {c.market: c for c in candidates}
     closed = 0
     for rec in price_tracker.load_recommendations():
-        if rec["exit"] is not None:
-            continue
+        if rec["exit"] is not None or rec["strategy"] != "legacy":
+            continue  # 사이클 전략 추천은 cycle_exits가 다룬다
         age = now - rec["entered_at"]
         if age < timedelta(days=price_tracker.TRACK_DAYS):
             current = prices.get(rec["market"])

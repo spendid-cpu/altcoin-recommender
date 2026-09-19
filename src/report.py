@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 import aiohttp
 
 from src import config, price_tracker, state_store, telegram_client
-from src.formatting import fmt_pct, fmt_price, frames_text, grade_badge
+from src.formatting import fmt_pct, fmt_price, frames_text, strategy_tag
 from src.scoring import CandidateResult
 
 KST = ZoneInfo("Asia/Seoul")
@@ -68,12 +68,18 @@ def build_report(
         from_peak = (current / peak - 1) * 100 if peak else 0.0
         entered_kst = rec["entered_at"].astimezone(KST).strftime("%m-%d %H:%M")
 
+        if rec["strategy"] == "cycle":
+            half = rec["half"]
+            state_line = (f"✂️ 절반 매도 {fmt_price(half['price'])} ({(half['price'] / entry - 1) * 100:+.2f}%) · 나머지 트레일링 중"
+                          if half else "✂️ 절반 매도 신호 대기 (4시간 단기 80+ 와 거래량 폭발)")
+        else:
+            state_line = score_line(rec, candidate_by_market.get(rec["market"]), btc_filter_on)
         blocks.append(
-            f"{grade_badge(rec['grade'])}  {rec['market']}  {fmt_pct(ret)}\n"
+            f"{strategy_tag(rec)}  {rec['market']}  {fmt_pct(ret)}\n"
             f"🕐 {entered_kst} 추천 ({elapsed_text(now - rec['entered_at'])} 경과)\n"
             f"💰 {fmt_price(entry)} → {fmt_price(current)}\n"
             f"🏔 최고 {peak_ret:+.2f}% · 고점 대비 {from_peak:+.2f}%\n"
-            f"{score_line(rec, candidate_by_market.get(rec['market']), btc_filter_on)}"
+            f"{state_line}"
         )
 
     extra = f"\n\n외 {len(rows) - MAX_LISTED}종목은 대시보드에서 확인하세요." if len(rows) > MAX_LISTED else ""
