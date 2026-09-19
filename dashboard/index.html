@@ -287,7 +287,7 @@
               <button class="btn" type="button" data-bars="180" aria-pressed="true">1개월</button>
               <button class="btn" type="button" data-bars="540" aria-pressed="false">3개월</button>
               <button class="btn" type="button" data-bars="1080" aria-pressed="false">6개월</button>
-              <button class="btn" type="button" data-bars="365" data-view="long" aria-pressed="false">1년</button>
+              <button class="btn" type="button" data-bars="365" data-view="long" aria-pressed="false">1년 (일봉)</button>
             </div>
             <button class="btn" type="button" data-toggle="fib" aria-pressed="false">표로 보기</button>
           </div>
@@ -1133,6 +1133,7 @@ function renderFib(m) {
   $('#fib-legend').replaceChildren(...fibLegend());
 
   const v = macroViewData(m);
+  $('#h-fib').textContent = `지지·저항 (${macroView === 'long' ? '일봉 1년' : '4시간봉'})`;
   if (!v || !v.chart || !v.chart.ohlc || !v.chart.ohlc.length) {
     chartEl.replaceChildren(empty(macroView === 'long' ? '1년 차트는 다음 갱신(최대 15분) 뒤에 표시돼요.' : '4시간봉 데이터가 없어요.'));
     tableEl.replaceChildren();
