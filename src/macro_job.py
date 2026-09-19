@@ -115,7 +115,8 @@ def format_briefing(macro: dict, now: datetime) -> str:
     change_text = f" · 24시간 {change:+.2f}%" if change is not None else ""
     filter_text = (
         f"🟢 켜짐 (일봉 종가가 MA20 위 {trend['days_above']}일째)" if trend["favorable"]
-        else f"🔴 꺼짐 (MA20 위 {trend['days_above']}일째, 2일 유지 필요)"
+        else (f"🔴 꺼짐 (일봉 종가가 MA20 아래)" if trend["days_above"] == 0
+              else f"🔴 꺼짐 (MA20 위 {trend['days_above']}일째, {config.BTC_HOLD_DAYS}일 유지 필요)")
     )
 
     lines = [

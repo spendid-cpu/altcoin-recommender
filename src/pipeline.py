@@ -26,7 +26,7 @@ async def run_once(session: aiohttp.ClientSession) -> None:
     await macro_job.run(session)
 
     favorable = await check_btc_trend(session)
-    print(f"[BTC 추세] MA20 위 2일 이상 유지: {favorable}")
+    print(f"[BTC 추세] 일봉 종가 MA20 위 {config.BTC_HOLD_DAYS}일 이상 유지: {favorable}")
     if not favorable:
         print("BTC 추세 불리 -> 알트코인 추천 중지 (설계 문서: BTC 추세 필터)")
         # BTC 추세가 꺾이면 현재 후보는 모두 없는 것으로 본다. 추적 기간이 끝난 종목은 상태를 비워 다음에

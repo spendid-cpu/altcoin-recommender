@@ -60,6 +60,13 @@ MACRO_BRIEFING_HOUR: int | None = None if _raw_hour in ("off", "none", "false") 
     int(_raw_hour) if _raw_hour.isdigit() and 0 <= int(_raw_hour) <= 23 else 8
 )
 
+# BTC 추세 필터: 바이낸스 BTCUSDT 일봉 종가가 MA20 위에서 이 일수만큼 연속 마감돼야 알트코인 추천을 켠다.
+# 처음에는 2일이었지만 '종가가 MA20 위면 추천'으로 완화했다 (GitHub Actions 저장소 변수 BTC_HOLD_DAYS로 되돌릴 수 있다).
+try:
+    BTC_HOLD_DAYS = max(1, int(os.environ.get("BTC_HOLD_DAYS") or "1"))
+except ValueError:
+    BTC_HOLD_DAYS = 1
+
 # 프레임 축(하드 게이트) 가중치: 일봉 > 4시간 > 1시간
 FRAME_WEIGHTS = {"day": 3, "4h": 2, "1h": 1}
 FRAME_ORDER = ("day", "4h", "1h")  # 게이트를 타는 순서 (상위 -> 하위)

@@ -3,7 +3,7 @@
 2) 정한 기준에서 여러 종료 규칙(고정 익절/손절, 되돌림, 점수 하락, 조건 이탈)을 같은 진입들로 비교한다.
 
 사용법: python scripts/run_exit_backtest.py [--threshold 13] [--btc] [--limit N]
-  --btc: BTC 추세 필터(MA20 위 2일 연속)가 켜진 시점의 진입만 사용 (실제 서비스와 같은 조건, 표본은 줄어든다)
+  --btc: BTC 추세 필터(MA20 위 config.BTC_HOLD_DAYS일 연속)가 켜진 시점의 진입만 사용 (실제 서비스와 같은 조건, 표본은 줄어든다)
 """
 
 import argparse

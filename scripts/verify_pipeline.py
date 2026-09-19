@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import aiohttp
 
+from src import config
 from src.btc_trend import is_trend_favorable
 from src.exchanges import binance_client, upbit_client
 from src.indicators.stoch_rsi import stoch_rsi_all_periods
@@ -19,7 +20,7 @@ async def main() -> None:
     async with aiohttp.ClientSession() as session:
         binance_daily = await binance_client.fetch_klines(session, "BTCUSDT", "1d", 100)
         favorable = is_trend_favorable(binance_daily["close"])
-        print(f"[BTC 추세] 바이낸스 USDT-BTC 일봉 기준 MA20 위 2일 이상 유지: {favorable}")
+        print(f"[BTC 추세] 바이낸스 USDT-BTC 일봉 기준 MA20 위 {config.BTC_HOLD_DAYS}일 이상 유지: {favorable}")
 
         for timeframe in ("day", "4h", "1h"):
             df = await upbit_client.fetch_candles(session, "KRW-BTC", timeframe, count=100)

@@ -245,7 +245,9 @@ def trades_for_validity(signals: MarketSignals, validity_window_hours: float) ->
     return trades
 
 
-def btc_filter_asof(times15: pd.Series, btc_df: pd.DataFrame, ma_period: int = 20, hold_days: int = 2) -> pd.Series:
+def btc_filter_asof(
+    times15: pd.Series, btc_df: pd.DataFrame, ma_period: int = 20, hold_days: int = config.BTC_HOLD_DAYS
+) -> pd.Series:
     """각 15분 결정 시각에, 그 시각까지 마감된 BTC 일봉 기준으로 추천 필터(MA20 위 hold_days일 연속)가
     켜져 있었는지. btc_df는 binance_client.fetch_klines 결과(time = UTC 마감 시각)."""
     above = (btc_df["close"] > btc_df["close"].rolling(ma_period).mean()).astype(float)

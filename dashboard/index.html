@@ -181,7 +181,7 @@
       <div class="card-head">
         <div>
           <h2 id="h-btc">BTC 일봉 종가와 MA20</h2>
-          <p class="sub">종가가 MA20 위에서 2일 연속 유지되면 알트코인 추천이 켜져요</p>
+          <p id="btc-sub" class="sub">종가가 MA20 위에 있으면 알트코인 추천이 켜져요</p>
         </div>
         <button class="btn" type="button" data-toggle="btc" aria-pressed="false">표로 보기</button>
       </div>
@@ -591,7 +591,9 @@ function renderTiles(d) {
       `전일 대비 ${change >= 0 ? '▲ +' : '▼ '}${change.toFixed(2)}%${btc.last_candle_open ? ' · 오늘 캔들 진행 중' : ' · 일봉 마감 기준'}`,
       closes.length > 1 ? sparkline(closes) : null));
     tiles.push(tile('알트코인 추천', [statusIcon(btc.favorable ? 'on' : 'off'), btc.favorable ? '켜짐' : '꺼짐'],
-      `MA20 위 ${btc.days_above}일째 · ${btc.hold_days_required}일 연속이면 켜져요`));
+      btc.hold_days_required > 1
+      ? `MA20 위 ${btc.days_above}일째 · ${btc.hold_days_required}일 연속이면 켜져요`
+      : (btc.favorable ? `일봉 종가가 MA20 위 (${btc.days_above}일째)` : '일봉 종가가 MA20 아래라서 꺼져 있어요')));
   }
 
   const cands = d.candidates || [];
@@ -634,6 +636,9 @@ function renderBtc(btc) {
     note.textContent = ''; return null;
   }
   const pts = btc.series;
+  $('#btc-sub').textContent = btc.hold_days_required > 1
+    ? `종가가 MA20 위에서 ${btc.hold_days_required}일 연속 유지되면 알트코인 추천이 켜져요`
+    : '종가가 MA20 위에 있으면 알트코인 추천이 켜져요';
   const step = Math.max(1, Math.ceil(pts.length / 6));
   const chart = mountLineChart(chartEl, {
     ariaLabel: `BTC 일봉 종가와 20일 이동평균, 최근 ${pts.length}일`,

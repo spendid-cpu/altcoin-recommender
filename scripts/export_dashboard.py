@@ -41,7 +41,7 @@ async def build_btc(session: aiohttp.ClientSession) -> dict:
         "symbol": config.BINANCE_SYMBOL,
         "favorable": is_trend_favorable(df["close"]),
         "days_above": days_above_ma(df["close"]),
-        "hold_days_required": 2,
+        "hold_days_required": config.BTC_HOLD_DAYS,
         "close": round(float(df["close"].iloc[-1]), 2),
         "prev_close": round(float(df["close"].iloc[-2]), 2),
         "ma20": round(float(ma20.iloc[-1]), 2),
