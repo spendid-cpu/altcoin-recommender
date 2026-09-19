@@ -1,6 +1,6 @@
 """비트코인 매크로 분석 (대시보드 '비트코인 분석' 탭과 매일 아침 텔레그램 브리핑의 원본).
 
-1) 지지·저항 중첩: 4시간봉 최근 3개월의 큰 파동/작은 파동(고점-저점 쌍)마다 피보나치 라인을 긋고, 여기에 실제로 가격이
+1) 지지·저항 중첩: 4시간봉 최근 6개월의 큰 파동/작은 파동(고점-저점 쌍)마다 피보나치 라인을 긋고, 여기에 실제로 가격이
    반등했던 저점과 꺾였던 고점(가격 반응 자리)을 전부 모아 같이 묶는다. 현재가 아래(지지)/위(저항)에서 서로 다른 근거가
    몇 개나 겹치는지로 강조하고, 피보나치 라인과 가격 반응 자리가 겹치는 구간(◆)은 한 단계 더 강조한다.
    겹친 곳은 한 점이 아니라 겹친 범위(구간)로 표기한다.
@@ -25,10 +25,10 @@ from src.scoring import EPS, _crossed_up_series
 # ---------------- 피보나치 설정 ----------------
 FIB_RATIOS = (0.382, 0.5, 0.618)  # 0.236/0.786까지 늘리면 라인이 너무 촘촘해져 겹침 개수가 변별력을 잃는다
 FIB_EXTENSIONS = (1.272, 1.618)  # 가장 최근 파동의 확장 라인 (고점 위/저점 아래에 라인이 없을 때를 위해)
-CANDLES_4H = 540  # 4시간봉 540개 = 90일 = 최근 3개월
+CANDLES_4H = 1080  # 4시간봉 1080개 = 180일 = 최근 6개월 (분석과 차트가 같은 범위를 쓴다. 3개월이면 5월 고점 같은 큰 저항이 빠진다)
 PIVOT_BARS = {"large": 12, "small": 4}  # 좌우 몇 개 캔들보다 높/낮아야 고점/저점으로 보는지 (12개 = 2일, 4개 = 16시간)
 MIN_LEG_PCT = {"large": 10.0, "small": 3.0}  # 직전 극점에서 이만큼 움직이지 못한 반대 방향 움직임은 파동으로 치지 않는다
-LEGS_USED = {"large": 3, "small": 4}  # 라인을 그을 최근 파동 수
+LEGS_USED = {"large": 4, "small": 4}  # 라인을 그을 최근 파동 수
 CLUSTER_TOL_PCT = 0.5  # 이 폭 안에 들어온 라인들은 '겹친' 것으로 본다
 SWING_PIVOT_BARS = 6  # 가격 반응 자리: 좌우 이만큼(6개 = 24시간)의 캔들보다 높/낮은 캔들을 고점/저점으로 모은다 (지그재그로 걸러내지 않고 전부)
 SWING_MIN_MOVE_PCT = 1.0  # 그 고점/저점에서 반대로 최소 이만큼 움직였어야 '반응'으로 친다 (사소한 흔들림 제외)
@@ -46,7 +46,7 @@ EXTREME_LOOKBACK = 5  # 교차 직전 이 캔들 수 안에 저점권/고점권�
 OVERSOLD = float(config.OVERSOLD_THRESHOLD)
 OVERBOUGHT = 100.0 - OVERSOLD
 
-CHART_SHOWN_BARS = 1080  # 차트에 담는 4시간봉 (1080개 = 180일 = 6개월). 지지·저항/파동 분석은 여전히 최근 CANDLES_4H(3개월)만 쓴다
+CHART_SHOWN_BARS = CANDLES_4H  # 차트에 담는 4시간봉
 
 
 # =====================================================================================
@@ -252,6 +252,14 @@ def _level_points(legs_by_wave: dict[str, list[Leg]], swings: list[Pivot] | None
     return points
 
 
+def _strength(score: int) -> int:
+    """겹침 점수(피보나치 파동 수 + 가격 반응 횟수 + 피보나치·반응이 함께 겹치면 1) -> 강도 1~5단계.
+    6개월 동안 반응이 쌓인 자리는 점수가 커지므로, 4 이상은 넓게 묶어 '핵심'이 몇 곳에만 붙게 한다 (1·2·3은 그대로, 4~6은 4단계, 7 이상은 5단계)."""
+    if score <= 3:
+        return max(score, 1)
+    return 4 if score <= 6 else 5
+
+
 def build_zones(points: list[dict], price: float) -> list[dict]:
     """가격이 가까운 라인/자리끼리 묶어 '겹침 구간'을 만든다. 근거는 두 종류다 — 피보나치 라인(서로 다른 파동의 수로 센다.
     한 파동의 0.5와 0.618이 붙어 있는 것은 겹침으로 세지 않는다)과 가격 반응 자리(반등한 저점/꺾인 고점, 하나가 1회).
@@ -275,7 +283,7 @@ def build_zones(points: list[dict], price: float) -> list[dict]:
         swing_count = len({m["leg"] for m in members if m["kind"] == "swing"})
         count = fib_count + swing_count
         confluence = fib_count > 0 and swing_count > 0
-        strength = min(count + (1 if confluence else 0), 5)
+        strength = _strength(count + (1 if confluence else 0))
         zones.append({
             "price": round(center, 1),
             "low": round(min(prices), 1),
@@ -487,7 +495,7 @@ def analyse(
     day: pd.DataFrame, h4: pd.DataFrame, h1: pd.DataFrame, price: float, h4_chart: pd.DataFrame | None = None
 ) -> dict:
     """day/h4/h1은 fetch_ohlcv(closed_only=True) 결과, price는 실시간 현재가.
-    h4는 분석용(최근 3개월), h4_chart는 차트에 그릴 더 긴 4시간봉(6개월)이다. 없으면 h4를 그대로 그린다."""
+    h4는 분석용 4시간봉(최근 6개월), h4_chart는 차트에 그릴 4시간봉이다. 없으면 h4를 그대로 그린다."""
     day_close = day["close"]
     prev24 = float(h1["close"].iloc[-25]) if len(h1) >= 25 else None
     return {

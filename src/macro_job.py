@@ -44,12 +44,11 @@ async def fetch_4h_long(session: aiohttp.ClientSession, bars: int) -> pd.DataFra
 async def build_macro(session: aiohttp.ClientSession) -> dict:
     day, h4_long, h1, price = await asyncio.gather(
         binance_client.fetch_ohlcv(session, config.BINANCE_SYMBOL, "1d", 200),
-        fetch_4h_long(session, btc_macro.CHART_SHOWN_BARS),
+        fetch_4h_long(session, btc_macro.CANDLES_4H),
         binance_client.fetch_ohlcv(session, config.BINANCE_SYMBOL, "1h", 200),
         binance_client.fetch_price(session, config.BINANCE_SYMBOL),
     )
-    h4 = h4_long.tail(btc_macro.CANDLES_4H).reset_index(drop=True)  # 분석은 최근 3개월, 차트는 6개월
-    macro = btc_macro.analyse(day, h4, h1, price, h4_chart=h4_long)
+    macro = btc_macro.analyse(day, h4_long, h1, price)  # 분석과 차트 모두 최근 6개월 4시간봉
     macro["generated_at"] = datetime.now(timezone.utc).isoformat()
     return macro
 

@@ -280,7 +280,7 @@
         <div class="card-head">
           <div>
             <h2 id="h-fib">지지·저항 (4시간봉)</h2>
-            <p class="sub">최근 3개월의 피보나치 라인과 실제로 가격이 반등·꺾인 자리를 모아, 겹치는 곳을 구간으로 표시해요</p>
+            <p class="sub">최근 6개월의 피보나치 라인과 실제로 가격이 반등·꺾인 자리를 모아, 겹치는 곳을 구간으로 표시해요</p>
           </div>
           <div class="head-actions">
             <div id="m-range" class="seg" role="group" aria-label="차트 기간">
@@ -896,7 +896,7 @@ function renderMacroTiles(m) {
   host.replaceChildren(
     tile('BTC 현재가 (USDT)', [nf0.format(m.price)],
       ch == null ? '실시간 체결가' : `24시간 ${ch >= 0 ? '▲ +' : '▼ '}${ch.toFixed(2)}% · 실시간 체결가`),
-    waveTile('큰 파동 (3개월)', wv.large),
+    waveTile('큰 파동 (6개월)', wv.large),
     waveTile('작은 파동 (최근)', wv.small),
     tile('분석 갱신', stale ? [statusIcon('warn'), ago(m.generated_at)] : [ago(m.generated_at)],
       `${kst(m.generated_at)} KST${stale ? ' · 갱신이 늦어지고 있어요' : ' · 15분마다 갱신'}`),
@@ -1047,12 +1047,14 @@ function mountFibChart(host, m, bars) {
 
     // 오른쪽 구간 라벨 (좁은 화면에서는 아래 표가 대신함). 서로 12px 이상 떨어진 것만
     if (!narrow) {
-      const all = labels.map((l) => ({ y: l.y, text: `${priceRange(l.z)} ${STARS[l.z.strength]}${l.z.confluence ? ' ◆' : ''}` })).sort((a, b) => a.y - b.y);
-      let lastY = -99;
-      for (const l of all) {
-        if (l.y - lastY < 12) continue;
-        svg.append(s('text', { x: M.l + iw + 8, y: l.y + 4, style: 'fill:var(--ink2);font-size:11.5px;font-variant-numeric:tabular-nums' }, l.text));
-        lastY = l.y;
+      // 강한 구간부터 자리를 잡고, 이미 놓인 라벨과 12px 안에 겹치는 약한 구간의 라벨은 생략한다 (모든 구간은 아래 표에 있다)
+      const placed = [];
+      const ranked = [...labels].sort((a, b) => b.z.strength - a.z.strength || Math.abs(a.z.distance_pct) - Math.abs(b.z.distance_pct));
+      for (const l of ranked) {
+        if (placed.some((y) => Math.abs(y - l.y) < 12)) continue;
+        placed.push(l.y);
+        svg.append(s('text', { x: M.l + iw + 8, y: l.y + 4, style: 'fill:var(--ink2);font-size:11.5px;font-variant-numeric:tabular-nums' },
+          `${priceRange(l.z)} ${STARS[l.z.strength]}${l.z.confluence ? ' ◆' : ''}`));
       }
     }
 
@@ -1133,7 +1135,7 @@ function renderFib(m) {
   }).reverse();
   tableEl.replaceChildren(buildTable(['봉 시작(KST)', '시가', '고가', '저가', '종가'], rows));
   wireToggle('fib', chartEl, tableEl, () => fibChart && fibChart.render());
-  $('#fib-note').textContent = `마지막 마감 4시간봉 종가 ${nf0.format(m.fib.basis_close)} 기준으로 판단해요 (현재가는 실시간 체결가). 지지·저항 구간과 파동 분석은 최근 3개월 기준이라, 6개월 차트의 왼쪽 부분에는 구간의 근거 표시(▲▼)가 없어요.`;
+  $('#fib-note').textContent = `마지막 마감 4시간봉 종가 ${nf0.format(m.fib.basis_close)} 기준으로 판단해요 (현재가는 실시간 체결가). 지지·저항 구간과 파동 분석은 최근 6개월 4시간봉 기준이에요.`;
 }
 
 function positionBar(w) {
