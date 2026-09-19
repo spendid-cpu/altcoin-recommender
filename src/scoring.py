@@ -10,10 +10,21 @@ from src import config
 from src.indicators.stoch_rsi import stoch_rsi_all_periods
 
 
+# 단기 스토캐스틱 값은 40.0처럼 딱 떨어지는 값이 많고 K와 D가 같은 값에서 만나는 일이 흔하다. 이때 계산에 쓴
+# 캔들 수(이력 길이)에 따른 소수점 이하 미세 차이만으로 교차 여부가 뒤집히지 않도록 허용 오차를 둔다.
+EPS = 1e-4
+
+
 def _crossed_up_series(k: pd.Series, d: pd.Series) -> pd.Series:
-    """각 캔들에서 직전 대비 %K가 %D를 상향 돌파했는지 (벡터 버전, 전체 이력에 대해 한 번에 계산)."""
+    """각 캔들에서 직전 대비 %K가 %D를 상향 돌파했는지 (벡터 버전, 전체 이력에 대해 한 번에 계산).
+    직전에 같거나 아래였고(<=) 지금 확실히 위(>)면 교차. 둘 다 EPS 허용 오차 안에서 판단한다."""
     prev_k, prev_d = k.shift(1), d.shift(1)
-    return ((prev_k < prev_d) & (k > d)).fillna(False)
+    return ((prev_k <= prev_d + EPS) & (k > d + EPS)).fillna(False)
+
+
+def turned_up_series(k: pd.Series, d: pd.Series) -> pd.Series:
+    """%K가 %D 위에 있는 상태(상승 전환)인지. 같으면 위가 아니다."""
+    return (k > d + EPS).fillna(False)
 
 
 def golden_cross_series(
@@ -26,7 +37,7 @@ def golden_cross_series(
     내려갔던 적이 있어야 True. 그냥 오실레이션 중의 흔한 교차와 '바닥 찍고 반등'을 구분하기 위한
     조건이다 (과매도권 밖에서의 크로스는 무시) — 일봉/4시간/1시간 게이트에서 쓴다."""
     crossed = _crossed_up_series(k, d)
-    recent_oversold = k.rolling(from_oversold_lookback).min() <= threshold
+    recent_oversold = k.rolling(from_oversold_lookback).min() <= threshold + EPS
     return (crossed & recent_oversold).fillna(False)
 
 
@@ -44,7 +55,7 @@ def entry_signal(k: pd.Series, d: pd.Series) -> bool:
 def first_touch_series(k: pd.Series, threshold: int = config.OVERSOLD_THRESHOLD) -> pd.Series:
     """직전 캔들은 threshold 초과, 해당 캔들에서 처음 threshold 이하로 진입했는지 (벡터 버전)."""
     prev_k = k.shift(1)
-    return ((prev_k > threshold) & (k <= threshold)).fillna(False)
+    return ((prev_k > threshold + EPS) & (k <= threshold + EPS)).fillna(False)
 
 
 def has_volume_spike(df: pd.DataFrame, lookback: int = config.VOLUME_LOOKBACK,
@@ -92,8 +103,7 @@ def score_frame(frame: str, close: pd.Series, validity_hours: float | None = Non
 
     period_state = {}
     for name in ("mid", "long"):
-        k, d = periods[name]["k"], periods[name]["d"]
-        turned_up = bool(k.iloc[-1] > d.iloc[-1]) if not (pd.isna(k.iloc[-1]) or pd.isna(d.iloc[-1])) else False
+        turned_up = bool(turned_up_series(periods[name]["k"], periods[name]["d"]).iloc[-1])
         period_state[name] = turned_up
         if turned_up:
             score += config.PERIOD_BONUS_WEIGHTS[name]

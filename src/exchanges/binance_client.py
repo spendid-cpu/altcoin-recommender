@@ -10,9 +10,11 @@ BASE_URL = "https://data-api.binance.vision/api/v3"
 
 
 async def fetch_klines(
-    session: aiohttp.ClientSession, symbol: str = "BTCUSDT", interval: str = "1d", limit: int = 200
+    session: aiohttp.ClientSession, symbol: str = "BTCUSDT", interval: str = "1d", limit: int = 200,
+    closed_only: bool = True,
 ) -> pd.DataFrame:
-    """오래된 캔들이 먼저 오도록 반환한다 (바이낸스는 원래 오래된순이라 별도 정렬 불필요)."""
+    """오래된 캔들이 먼저 오도록 반환한다 (바이낸스는 원래 오래된순이라 별도 정렬 불필요).
+    closed_only=True(기본)면 아직 마감되지 않은 마지막 캔들은 버린다 (BTC 추세 필터는 '일봉 종가' 기준)."""
     params = {"symbol": symbol, "interval": interval, "limit": limit}
     async with session.get(f"{BASE_URL}/klines", params=params) as resp:
         resp.raise_for_status()
@@ -26,4 +28,6 @@ async def fetch_klines(
     )
     df["close"] = df["close"].astype(float)
     df["time"] = pd.to_datetime(df["close_time"], unit="ms")
+    if closed_only:
+        df = df[df["time"] <= pd.Timestamp.now(tz="UTC").tz_localize(None)].reset_index(drop=True)
     return df[["time", "close"]]

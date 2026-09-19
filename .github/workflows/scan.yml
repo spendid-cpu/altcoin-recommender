@@ -36,6 +36,11 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           HEARTBEAT: ${{ vars.HEARTBEAT }}
           REPORT_INTERVAL_HOURS: ${{ vars.REPORT_INTERVAL_HOURS }}
+          MIN_RECOMMEND_SCORE: ${{ vars.MIN_RECOMMEND_SCORE }}
+          EXIT_TAKE_PROFIT_PCT: ${{ vars.EXIT_TAKE_PROFIT_PCT }}
+          EXIT_STOP_LOSS_PCT: ${{ vars.EXIT_STOP_LOSS_PCT }}
+          EXIT_TRAIL_ARM_PCT: ${{ vars.EXIT_TRAIL_ARM_PCT }}
+          EXIT_TRAIL_DD_PCT: ${{ vars.EXIT_TRAIL_DD_PCT }}
 
       # 상태 저장을 대시보드보다 먼저 한다 — 대시보드 쪽 문제로 중복 알림 방지 상태가 유실되면 안 된다
       - name: 상태 파일(data/state.db) 변경사항 커밋

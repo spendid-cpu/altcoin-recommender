@@ -10,6 +10,10 @@ from src.btc_trend import is_trend_favorable
 from src.exchanges import binance_client, upbit_client
 from src.scoring import CandidateResult, FrameResult, check_entry, has_volume_spike, score_frame
 
+# 업비트 1회 요청 최대치. RSI는 지수이동평균이라 앞쪽 이력이 짧으면 값이 조금씩 달라지므로 충분히 길게 받는다
+# (백테스트가 쓰는 이력 길이 200 이상과 맞춘다).
+LOOKBACK_CANDLES = 200
+
 
 async def check_btc_trend(session: aiohttp.ClientSession) -> bool:
     daily = await binance_client.fetch_klines(session, config.BINANCE_SYMBOL, "1d", 100)
@@ -30,7 +34,9 @@ async def scan_market(
 
     for frame in config.FRAME_ORDER:
         async with semaphore, limiter:
-            candles = await upbit_client.fetch_candles(session, market, frame, count=100)
+            candles = await upbit_client.fetch_candles(session, market, frame, count=LOOKBACK_CANDLES)
+        if candles.empty:
+            break  # 방금 상장돼 마감된 캔들이 아직 없는 경우 등
         latest_price = float(candles["close"].iloc[-1])
 
         if frame == "day" and candles["value"].iloc[-1] < config.MIN_DAILY_TRADE_VALUE_KRW:
@@ -63,11 +69,23 @@ async def scan_market(
         # 일봉/4시간/1시간을 모두 통과한 종목만 15분봉 매수 타점을 확인한다
         # (조건 유효기간이 아직 없으므로 지금은 '이번 스캔 시점에 15분 신호가 있는가'만 본다)
         async with semaphore, limiter:
-            candles_15m = await upbit_client.fetch_candles(session, market, "15m", count=100)
-        result.entry_ready = check_entry(candles_15m["close"])
-        result.current_price = float(candles_15m["close"].iloc[-1])  # 더 최신 가격으로 갱신
+            candles_15m = await upbit_client.fetch_candles(session, market, "15m", count=LOOKBACK_CANDLES)
+        if not candles_15m.empty:
+            result.entry_ready = check_entry(candles_15m["close"])
+            result.current_price = float(candles_15m["close"].iloc[-1])  # 더 최신 가격으로 갱신
 
     return result
+
+
+async def _scan_market_safe(
+    market: str, session: aiohttp.ClientSession, limiter: AsyncLimiter, semaphore: asyncio.Semaphore
+) -> CandidateResult | None:
+    """한 종목의 조회 실패(429 재시도 초과, 일시적 네트워크 오류 등) 때문에 스캔 전체가 죽지 않게 한다."""
+    try:
+        return await scan_market(market, session, limiter, semaphore)
+    except Exception as exc:
+        print(f"  {market} 스캔 실패(이번 사이클은 건너뜀): {exc}")
+        return None
 
 
 async def scan_all(session: aiohttp.ClientSession) -> list[CandidateResult]:
@@ -75,8 +93,14 @@ async def scan_all(session: aiohttp.ClientSession) -> list[CandidateResult]:
     limiter = AsyncLimiter(config.UPBIT_RATE_LIMIT_PER_SEC, 1)
     semaphore = asyncio.Semaphore(config.UPBIT_CONCURRENCY)
 
-    tasks = [scan_market(m, session, limiter, semaphore) for m in markets]
+    tasks = [_scan_market_safe(m, session, limiter, semaphore) for m in markets]
     results = await asyncio.gather(*tasks)
     candidates = [r for r in results if r is not None]
     candidates.sort(key=lambda c: c.total_score, reverse=True)
+
+    # 캔들은 마감된 것만 쓰기 때문에 마지막 종가가 최대 하루 전 값이다. 발굴가·현재가는 실시간 시세로 채운다.
+    if candidates:
+        prices = await upbit_client.fetch_ticker_prices(session, [c.market for c in candidates])
+        for c in candidates:
+            c.current_price = prices.get(c.market, c.current_price)
     return candidates

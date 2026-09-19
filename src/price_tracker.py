@@ -33,6 +33,11 @@ def connect() -> sqlite3.Connection:
         conn.execute("ALTER TABLE price_history ADD COLUMN grade TEXT")
     if "score" not in columns:
         conn.execute("ALTER TABLE price_history ADD COLUMN score REAL")
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS rec_exits ("
+        "market TEXT, entered_at TEXT, ended_at TEXT, exit_price REAL, return_pct REAL, reason TEXT, "
+        "PRIMARY KEY (market, entered_at))"
+    )
     if not _deduped:
         _merge_duplicate_entries(conn)
         _deduped = True
@@ -75,12 +80,13 @@ def record_entry(market: str, price: float, grade: str = "-", score: float | Non
 
 
 def active_tracked_markets() -> list[str]:
-    """진입 기록이 TRACK_DAYS 이내인 종목만 반환한다 (그 이후는 추적 종료)."""
+    """지금 가격을 계속 따라가고 있는 종목: 진입 후 TRACK_DAYS 이내이고 아직 종료되지 않은 추천."""
     cutoff = (datetime.now(timezone.utc) - timedelta(days=TRACK_DAYS)).isoformat()
     conn = connect()
     try:
         rows = conn.execute(
-            "SELECT DISTINCT market FROM price_history WHERE is_entry = 1 AND recorded_at >= ?",
+            "SELECT DISTINCT p.market FROM price_history p WHERE p.is_entry = 1 AND p.recorded_at >= ? "
+            "AND NOT EXISTS (SELECT 1 FROM rec_exits e WHERE e.market = p.market AND e.entered_at = p.recorded_at)",
             (cutoff,),
         ).fetchall()
         return [r[0] for r in rows]
@@ -88,16 +94,57 @@ def active_tracked_markets() -> list[str]:
         conn.close()
 
 
+def recent_recommendation_markets() -> list[str]:
+    """최근 TRACK_DAYS 안에 추천한 적이 있는 종목 (종료 여부와 상관없이). 같은 종목을 이 기간 안에 다시 추천하지
+    않는 중복 방지 기준으로 쓴다 — 익절로 일찍 끝난 종목이 곧바로 또 추천되는 것도 막는다."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=TRACK_DAYS)).isoformat()
+    conn = connect()
+    try:
+        rows = conn.execute(
+            "SELECT DISTINCT market FROM price_history WHERE is_entry = 1 AND recorded_at >= ?", (cutoff,)
+        ).fetchall()
+        return [r[0] for r in rows]
+    finally:
+        conn.close()
+
+
+def record_exit(market: str, entered_at: datetime, exit_price: float, return_pct: float, reason: str) -> None:
+    """추천 종료를 기록하고 종료 시점 가격을 마지막 스냅샷으로 남긴다 (차트가 종료 지점까지 이어지게)."""
+    now = datetime.now(timezone.utc).isoformat()
+    conn = connect()
+    try:
+        conn.execute(
+            "INSERT OR REPLACE INTO rec_exits (market, entered_at, ended_at, exit_price, return_pct, reason) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (market, entered_at.isoformat(), now, exit_price, return_pct, reason),
+        )
+        conn.execute(
+            "INSERT OR REPLACE INTO price_history (market, recorded_at, price, is_entry) VALUES (?, ?, ?, 0)",
+            (market, now, exit_price),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def load_recommendations() -> list[dict]:
     """진입 기록(is_entry=1) 하나가 추천 하나. 이후 스냅샷을 붙여 시간순(오래된 것 먼저)으로 반환한다.
-    각 항목: market, entered_at(datetime), entry_price, grade, score, snaps[(datetime, price)]"""
+    각 항목: market, entered_at(datetime), entry_price, grade, score, snaps[(datetime, price)],
+    exit(종료된 추천이면 {ended_at, exit_price, return_pct, reason}, 아니면 None)"""
     conn = connect()
     try:
         rows = conn.execute(
             "SELECT market, recorded_at, price, is_entry, grade, score FROM price_history ORDER BY market, recorded_at"
         ).fetchall()
+        exit_rows = conn.execute(
+            "SELECT market, entered_at, ended_at, exit_price, return_pct, reason FROM rec_exits"
+        ).fetchall()
     finally:
         conn.close()
+    exits = {
+        (m, entered): {"ended_at": datetime.fromisoformat(ended), "exit_price": price, "return_pct": ret, "reason": reason}
+        for m, entered, ended, price, ret, reason in exit_rows
+    }
 
     recs: list[dict] = []
     current: dict | None = None
@@ -108,7 +155,7 @@ def load_recommendations() -> list[dict]:
         at = datetime.fromisoformat(recorded_at)
         if is_entry:
             current = {"market": market, "entered_at": at, "entry_price": price, "grade": grade or "-",
-                       "score": score, "snaps": []}
+                       "score": score, "snaps": [], "exit": exits.get((market, recorded_at))}
             recs.append(current)
         elif current is not None:
             current["snaps"].append((at, price))

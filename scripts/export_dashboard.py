@@ -80,7 +80,14 @@ def build_recommendations(now: datetime) -> list[dict]:
                 value = pct(near) if near is not None else None
             horizons[f"{hours}h"] = value
         age_hours = (now - entry_at).total_seconds() / 3600
+        ended = rec["exit"]
         out.append({
+            "exit": None if ended is None else {
+                "reason": ended["reason"],
+                "ended_at": ended["ended_at"].isoformat(),
+                "exit_price": ended["exit_price"],
+                "return_pct": round(ended["return_pct"], 2),
+            },
             "market": rec["market"],
             "entered_at": entry_at.isoformat(),
             "entry_price": entry_price,
@@ -90,7 +97,7 @@ def build_recommendations(now: datetime) -> list[dict]:
             "last_at": last_at.isoformat(),
             "return_pct": pct(last_price),
             "horizons": horizons,
-            "active": age_hours < price_tracker.TRACK_DAYS * 24,
+            "active": ended is None and age_hours < price_tracker.TRACK_DAYS * 24,
             "series": [[0, 0.0]] + [
                 [round((t - entry_at).total_seconds() / 3600, 2), pct(p)] for t, p in snaps
             ],

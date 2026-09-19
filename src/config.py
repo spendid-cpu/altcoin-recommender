@@ -21,14 +21,44 @@ try:
 except ValueError:
     REPORT_INTERVAL_HOURS = 1.0
 
+def _env_float(name: str, default: float | None) -> float | None:
+    """환경변수를 실수로 읽는다. 비어 있거나 0/off/none이면 '사용 안 함'(None)."""
+    raw = (os.environ.get(name) or "").strip().lower()
+    if raw == "":
+        return default
+    if raw in ("0", "off", "none", "false"):
+        return None
+    try:
+        return float(raw)
+    except ValueError:
+        return default
+
+
+# 추천으로 알리고 추적을 시작하는 최소 점수. 0이면 일봉 게이트를 통과한 후보는 전부 추천한다.
+# 마감 캔들 기준으로 바로잡은 백테스트(scripts/run_exit_backtest.py)에서 기준을 올려도 성과가 좋아지지는 않았고
+# (점수 3+ 평균 +2.00%, 13+ +1.62%, 16+ +1.51% / 추천 후 3일) 알림 수만 줄었다. 알림이 너무 많으면 이 값을 올린다
+# (GitHub Actions 저장소 변수 MIN_RECOMMEND_SCORE).
+MIN_RECOMMEND_SCORE = _env_float("MIN_RECOMMEND_SCORE", 0) or 0
+
+# 추천 종료 규칙 (종료 시 텔레그램으로 최종 결과를 알리고 추적을 끝낸다). 어느 것이든 저장소 변수로 바꾼다.
+# 백테스트(점수 13+ 추천 119건, 20일치 한 가지 장세): 익절 +5% 평균 +2.15% 승률 65.5% 평균보유 50시간,
+# 3일 보유 +1.62% 승률 55.5%. 다만 3일 보유와의 차이는 통계적으로 구분되지 않는 수준이다.
+# 점수 하락/조건 이탈로 종료하는 규칙은 평균 +0.06~+0.3%로 오히려 나빠서 넣지 않았다(신호가 약해져도 가격은 계속 올랐다).
+EXIT_TAKE_PROFIT_PCT = _env_float("EXIT_TAKE_PROFIT_PCT", 5.0)  # 추천가 대비 +X% 도달 시 종료 (0/off면 끔)
+EXIT_STOP_LOSS_PCT = _env_float("EXIT_STOP_LOSS_PCT", None)  # 추천가 대비 -X% 도달 시 종료 (기본 끔: -3~-5%는 평균을 낮췄다)
+EXIT_TRAIL_ARM_PCT = _env_float("EXIT_TRAIL_ARM_PCT", None)  # 최고 수익이 +X%를 넘으면 되돌림 감시 시작
+EXIT_TRAIL_DD_PCT = _env_float("EXIT_TRAIL_DD_PCT", None)  # 고점 대비 -Y% 되돌리면 종료 (ARM과 함께 지정)
+
 # 프레임 축(하드 게이트) 가중치: 일봉 > 4시간 > 1시간
 FRAME_WEIGHTS = {"day": 3, "4h": 2, "1h": 1}
 FRAME_ORDER = ("day", "4h", "1h")  # 게이트를 타는 순서 (상위 -> 하위)
 
-# 주기 축(프레임별 가산점) 가중치: 장기만 유효.
+# 주기 축(프레임별 가산점) 가중치.
 # 단기는 트리거 감지 역할이라 별도 가중치가 아니라 TRIGGER_BONUS로 취급.
-# 중기(mid)는 요인 분석(scripts/run_factor_analysis.py) 결과 뒷받침되지 않아 0으로 비활성화 —
-# 특히 일봉 중기 전환은 오히려 역효과였음(True 36.2%/-1.23% vs False 67.6%/+2.73%, 552건 기준).
+# 중기(mid)는 0으로 비활성화 — 일봉 중기 전환은 미래 정보를 걷어낸 백테스트에서도 일관되게 역효과였다
+# (True 34.3%/-0.98% vs False 72.9%/+3.37%, 유동성 필터 적용 481건 / 추천 후 3일).
+# 장기(long)와 골든크로스 보너스는 마감 시각 기준으로 바로잡은 백테스트에서 뚜렷한 효과가 확인되지 않았다.
+# 값은 그대로 두지만 근거가 약하다 (이전 백테스트의 효과는 미래 정보 누출이었다).
 PERIOD_BONUS_WEIGHTS = {"long": 3, "mid": 0}
 
 # 트리거(단기 스토)가 "최초 도달"이 아니라 "골든크로스"일 때 추가 점수
@@ -59,8 +89,8 @@ VOLUME_BONUS = 0
 # 보여도 실제 체결 슬리피지는 반영 안 된 수치라, 가산점 대신 아래 최소 유동성 '필터'로만 사용.
 MIN_DAILY_TRADE_VALUE_KRW = 300_000_000  # 일봉 거래대금 3억원 미만은 체결이 어려워 후보에서 제외
 
-# 점수 등급: 요인 분석(scripts/run_factor_analysis.py)의 점수 4분위 백테스트 결과 기준.
-# 13점 미만은 승률 46%대(사실상 동전던지기)라 등급 밖, 13점부터 승률/수익률이 뚜렷하게 갈림.
+# 점수 등급 표시(A/B/없음). 표시용 구분일 뿐 성과를 보장하지 않는다: 마감 시각 기준으로 바로잡은 백테스트에서
+# 점수가 높을수록 성과가 좋아지는 관계는 확인되지 않았다 (추천 후 3일 평균: 3+ +2.00%, 13+ +1.62%, 16+ +1.51%).
 SCORE_GRADE_THRESHOLDS = {"A": 16, "B": 13}  # 이 값 이상이면 해당 등급, 미만이면 등급 없음("-")
 
 UPBIT_MARKET = "KRW-BTC"

@@ -7,21 +7,15 @@ from zoneinfo import ZoneInfo
 import aiohttp
 
 from src import config, price_tracker, state_store, telegram_client
-from src.notifier import fmt_price
+from src.formatting import fmt_pct, fmt_price, frames_text, grade_badge
 from src.scoring import CandidateResult
 
 KST = ZoneInfo("Asia/Seoul")
 LAST_REPORT_KEY = "last_report_at"
 MAX_LISTED = 12  # 텔레그램 메시지 길이 제한(4096자) 안에서 보여줄 종목 수
-FRAME_LABEL = {"day": "일봉", "4h": "4시간", "1h": "1시간"}
 
 
-def _pct(value: float) -> str:
-    arrow = "▲" if value > 0 else "▼" if value < 0 else "■"
-    return f"{arrow} {value:+.2f}%"
-
-
-def _elapsed(delta: timedelta) -> str:
+def elapsed_text(delta: timedelta) -> str:
     minutes = int(delta.total_seconds() // 60)
     if minutes < 60:
         return f"{minutes}분"
@@ -31,9 +25,21 @@ def _elapsed(delta: timedelta) -> str:
     return f"{hours // 24}일 {hours % 24}시간"
 
 
+def score_line(rec: dict, cand: CandidateResult | None, btc_filter_on: bool) -> str:
+    """발굴 때 점수와 지금 점수의 변화 한 줄 (현황 리포트와 종료 알림에서 같이 쓴다)."""
+    start = f"{rec['score']:.1f}" if rec["score"] is not None else "—"
+    if cand is not None:
+        tail = f" · 타점 {'✅' if cand.entry_ready else '대기'}"
+        return f"📐 점수 {start} → {cand.total_score:.1f} ({cand.grade}) · {frames_text(cand.cleared_frames)}{tail}"
+    if btc_filter_on:
+        return f"📐 점수 {start} → ⚠️ 조건 이탈 (일봉 게이트 미통과)"
+    return f"📐 점수 {start} → 확인 불가 (BTC 필터 꺼짐)"
+
+
 def active_recommendations(now: datetime) -> list[dict]:
+    """지금 추적 중인 추천 (추적 기간 안이고 아직 종료되지 않은 것)."""
     cutoff = now - timedelta(days=price_tracker.TRACK_DAYS)
-    return [r for r in price_tracker.load_recommendations() if r["entered_at"] >= cutoff]
+    return [r for r in price_tracker.load_recommendations() if r["entered_at"] >= cutoff and r["exit"] is None]
 
 
 def build_report(
@@ -62,27 +68,16 @@ def build_report(
         from_peak = (current / peak - 1) * 100 if peak else 0.0
         entered_kst = rec["entered_at"].astimezone(KST).strftime("%m-%d %H:%M")
 
-        start = f"{rec['score']:.1f}" if rec["score"] is not None else "—"
-        cand = candidate_by_market.get(rec["market"])
-        if cand is not None:
-            frames = " › ".join(FRAME_LABEL.get(f, f) for f in cand.cleared_frames)
-            tail = f" · 15분 타점 {'✓' if cand.entry_ready else '대기'}"
-            score_line = f"점수 {start} → {cand.total_score:.1f} [{cand.grade}] · {frames}{tail}"
-        elif btc_filter_on:
-            score_line = f"점수 {start} → 조건 이탈 (일봉 게이트 미통과)"
-        else:
-            score_line = f"점수 {start} → 확인 불가 (BTC 필터 꺼짐)"
-
         blocks.append(
-            f"{rec['market']}  {_pct(ret)}\n"
-            f"  추천 {entered_kst} ({_elapsed(now - rec['entered_at'])} 경과)\n"
-            f"  {fmt_price(entry)} → {fmt_price(current)}\n"
-            f"  최고 {peak_ret:+.2f}% · 고점 대비 {from_peak:+.2f}%\n"
-            f"  {score_line}"
+            f"{grade_badge(rec['grade'])}  {rec['market']}  {fmt_pct(ret)}\n"
+            f"🕐 {entered_kst} 추천 ({elapsed_text(now - rec['entered_at'])} 경과)\n"
+            f"💰 {fmt_price(entry)} → {fmt_price(current)}\n"
+            f"🏔 최고 {peak_ret:+.2f}% · 고점 대비 {from_peak:+.2f}%\n"
+            f"{score_line(rec, candidate_by_market.get(rec['market']), btc_filter_on)}"
         )
 
     extra = f"\n\n외 {len(rows) - MAX_LISTED}종목은 대시보드에서 확인하세요." if len(rows) > MAX_LISTED else ""
-    header = f"[추천 현황] {now.astimezone(KST).strftime('%m-%d %H:%M')} KST · 추적 중 {len(rows)}종목"
+    header = f"📊 추천 현황 · {now.astimezone(KST).strftime('%m-%d %H:%M')} KST · 추적 {len(rows)}종목"
     return header + "\n\n" + "\n\n".join(blocks) + extra
 
 

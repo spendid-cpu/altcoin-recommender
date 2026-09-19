@@ -7,7 +7,8 @@ alerted_entry)를 따로 둔다. 추천 후 추적 기간(price_tracker.TRACK_DA
 
 from dataclasses import dataclass
 
-from src import price_tracker, state_store
+from src import config, price_tracker, state_store
+from src.formatting import fmt_price, frames_text, grade_badge
 from src.scoring import CandidateResult
 
 _EMPTY_STATE = {
@@ -23,14 +24,13 @@ class Alert:
     message: str
 
 
-def fmt_price(price: float | None) -> str:
-    if price is None:
-        return "—"
-    if price >= 100:
-        return f"{price:,.0f}원"
-    if price >= 1:
-        return f"{price:,.2f}원"
-    return f"{price:.4f}원"
+def _message(title: str, market: str, cur: dict) -> str:
+    score = f"{cur['score']:.1f}" if cur.get("score") is not None else "—"
+    return (
+        f"{title} · {grade_badge(cur['grade'])}\n"
+        f"{market} @ {fmt_price(cur['current_price'])}\n"
+        f"점수 {score} · 통과: {frames_text(cur['cleared_frames'])}"
+    )
 
 
 def _snapshot(candidate: CandidateResult) -> dict:
@@ -58,12 +58,12 @@ def _normalize(state: dict | None) -> dict:
 def diff_alerts(candidates: list[CandidateResult]) -> tuple[list[Alert], dict[str, dict]]:
     """이번 스캔 결과 vs 저장된 이전 상태를 비교해 (알림 목록, 다음에 저장할 전체 상태)를 반환한다.
 
-    - 신규 후보: 아직 아무것도 알리지 않은 종목이고, 추적 중인 추천이 아닐 때만 알린다.
+    - 신규 추천: 아직 아무것도 알리지 않은 종목이고, 최근 추천한 적이 없고, 점수가 MIN_RECOMMEND_SCORE 이상일 때만 알린다.
     - 프레임 확장 / 15분 타점: 이미 알린 단계보다 더 진행됐을 때만 알린다 (후보에서 빠졌다 돌아와도 반복 안 함).
-    - 후보에서 빠졌을 때: 추적 중이면 알린 단계를 유지하고, 추적이 끝났으면 초기화해서 다음 재진입을 새 추천으로 본다.
+    - 후보에서 빠졌을 때: 최근 추천한 종목이면 알린 단계를 유지하고, 아니면 초기화해서 다음 재진입을 새 추천으로 본다.
     """
     previous = state_store.load_all()
-    tracked = set(price_tracker.active_tracked_markets())
+    tracked = set(price_tracker.recent_recommendation_markets())
     current_by_market = {c.market: _snapshot(c) for c in candidates}
 
     alerts: list[Alert] = []
@@ -83,21 +83,22 @@ def diff_alerts(candidates: list[CandidateResult]) -> tuple[list[Alert], dict[st
 
         alerted_frames = prev["alerted_frames"]
         alerted_entry = prev["alerted_entry"]
-        price_str = fmt_price(cur["current_price"])
 
         if not alerted_frames:
+            if (cur["score"] or 0) < config.MIN_RECOMMEND_SCORE:
+                # 추천 기준에 못 미치는 후보는 대시보드에만 보이고, 알림 기준선도 만들지 않는다
+                # (나중에 점수가 기준을 넘으면 그때 신규 추천으로 알린다)
+                new_states[market] = {**cur, "alerted_frames": [], "alerted_entry": False}
+                continue
             if market not in tracked:
-                alerts.append(Alert(market, "new_candidate",
-                                    f"[{cur['grade']}] {market} 신규 후보 진입 @ {price_str} "
-                                    f"(프레임: {', '.join(cur['cleared_frames'])})"))
+                alerts.append(Alert(market, "new_candidate", _message("🆕 신규 추천", market, cur)))
             alerted_frames = cur["cleared_frames"]  # 알림을 생략해도 기준선은 갱신한다
         elif len(cur["cleared_frames"]) > len(alerted_frames):
-            alerts.append(Alert(market, "frame_advance",
-                                f"[{cur['grade']}] {market} 프레임 확장 @ {price_str}: {', '.join(cur['cleared_frames'])}"))
+            alerts.append(Alert(market, "frame_advance", _message("📈 단계 상승", market, cur)))
             alerted_frames = cur["cleared_frames"]
 
         if cur["entry_ready"] and not alerted_entry:
-            alerts.append(Alert(market, "entry_ready", f"[{cur['grade']}] {market} 15분봉 매수 타점 발생 @ {price_str}"))
+            alerts.append(Alert(market, "entry_ready", _message("🎯 15분 매수 타점", market, cur)))
             alerted_entry = True
 
         new_states[market] = {**cur, "alerted_frames": alerted_frames, "alerted_entry": alerted_entry}

@@ -15,6 +15,14 @@ _ENDPOINTS = {
     "15m": "candles/minutes/15",
 }
 
+# 프레임 이름 -> 캔들 1개의 길이 (마감 여부 판단, 백테스트에서 '정보가 확정되는 시각' 계산에 쓴다)
+FRAME_DELTA = {
+    "day": pd.Timedelta(days=1),
+    "4h": pd.Timedelta(hours=4),
+    "1h": pd.Timedelta(hours=1),
+    "15m": pd.Timedelta(minutes=15),
+}
+
 _MAX_RETRIES = 5
 _MAX_PER_REQUEST = 200  # 업비트 캔들 API 1회 최대 개수
 
@@ -31,11 +39,15 @@ async def _get_json(session: aiohttp.ClientSession, path: str, params: dict) -> 
 
 
 async def fetch_candles(
-    session: aiohttp.ClientSession, market: str, timeframe: str, count: int = 200
+    session: aiohttp.ClientSession, market: str, timeframe: str, count: int = 200, closed_only: bool = True
 ) -> pd.DataFrame:
     """timeframe: day / 4h / 1h / 15m. 오래된 캔들이 먼저 오도록 정렬해 반환한다.
     count가 200을 넘으면 to 파라미터로 과거로 페이지네이션한다 (백테스트용 장기 이력 조회).
-    429(rate limit)는 지수 백오프로 재시도한다."""
+    429(rate limit)는 지수 백오프로 재시도한다.
+
+    closed_only=True(기본)면 아직 마감되지 않은 마지막 캔들은 버린다. 진행 중인 캔들은 값이 계속 바뀌어서
+    (repainting) 스토캐스틱 신호와 점수가 스캔마다 흔들리기 때문이다 — 설계 문서의 '캔들 마감 확정 원칙'.
+    현재가가 필요하면 fetch_ticker_prices를 쓴다."""
     path = _ENDPOINTS[timeframe]
     all_rows: list[dict] = []
     to_param: str | None = None
@@ -60,6 +72,10 @@ async def fetch_candles(
         return pd.DataFrame(columns=["time", "close", "value"])
     df = df.drop_duplicates(subset="candle_date_time_utc")
     df = df.sort_values("candle_date_time_utc").reset_index(drop=True)  # 오래된순 정렬
+    if closed_only:
+        # candle_date_time_utc는 캔들 '시작' 시각(UTC). 시작 + 길이가 지금보다 뒤면 아직 진행 중이다.
+        ends = pd.to_datetime(df["candle_date_time_utc"]) + FRAME_DELTA[timeframe]
+        df = df[ends <= pd.Timestamp.now(tz="UTC").tz_localize(None)].reset_index(drop=True)
     df = df.rename(
         columns={
             "candle_date_time_kst": "time",

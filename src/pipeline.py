@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 
 import aiohttp
 
-from src import config, price_tracker, report, scan_log, state_store, telegram_client
+from src import config, exits, price_tracker, report, scan_log, state_store, telegram_client
 from src.exchanges import upbit_client
 from src.notifier import diff_alerts
 from src.scanner import check_btc_trend, scan_all
@@ -32,9 +32,10 @@ async def run_once(session: aiohttp.ClientSession) -> None:
         state_store.save_all(new_states)
         # 이미 발굴해 추적 중인 종목은 BTC 추세와 상관없이 끝까지 따라가고 현황도 계속 보낸다
         prices = await _track_prices(session)
+        await exits.process_exits(session, prices, [], btc_filter_on=False)
         await report.maybe_send_report(session, prices, [], btc_filter_on=False)
         scan_log.record_scan(btc_favorable=False, candidates=0, alerts=0)
-        await _send_heartbeat(session, f"[하트비트] {now} 스캔 완료 — BTC 추세 불리, 스캔 건너뜀")
+        await _send_heartbeat(session, f"💓 {now} 스캔 완료 — BTC 추세 불리, 스캔 건너뜀")
         return
 
     print("업비트 KRW 마켓 스캔 중...")
@@ -69,11 +70,12 @@ async def run_once(session: aiohttp.ClientSession) -> None:
             price_tracker.record_entry(a.market, c.current_price, c.grade, round(c.total_score, 1))
 
     prices = await _track_prices(session)
+    await exits.process_exits(session, prices, candidates, btc_filter_on=True)
     await report.maybe_send_report(session, prices, candidates, btc_filter_on=True)
     scan_log.record_scan(btc_favorable=True, candidates=len(candidates), alerts=len(alerts))
 
     await _send_heartbeat(
-        session, f"[하트비트] {now} 스캔 완료 — 후보 {len(candidates)}개, 알림 {len(alerts)}건"
+        session, f"💓 {now} 스캔 완료 — 후보 {len(candidates)}개, 알림 {len(alerts)}건"
     )
 
 

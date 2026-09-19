@@ -200,6 +200,7 @@ const DATA_URL = 'dashboard.json';
 const STALE_MINUTES = 45;
 const EXPECTED_GAP_MINUTES = 15;
 const FRAME_LABEL = { day: '일봉', '4h': '4시간', '1h': '1시간' };
+const EXIT_LABEL = { take_profit: '익절', stop_loss: '손절', trailing: '되돌림', expired: '기간 만료' };
 const $ = (sel, root = document) => root.querySelector(sel);
 
 let DATA = null;
@@ -469,7 +470,7 @@ function renderTiles(d) {
     const change = (btc.close / btc.prev_close - 1) * 100;
     const closes = btc.series.map((p) => p.close).slice(-30);
     tiles.push(tile('BTC 종가 (USDT)', [nf0.format(btc.close)],
-      `전일 대비 ${change >= 0 ? '▲ +' : '▼ '}${change.toFixed(2)}%${btc.last_candle_open ? ' · 오늘 캔들 진행 중' : ''}`,
+      `전일 대비 ${change >= 0 ? '▲ +' : '▼ '}${change.toFixed(2)}%${btc.last_candle_open ? ' · 오늘 캔들 진행 중' : ' · 일봉 마감 기준'}`,
       closes.length > 1 ? sparkline(closes) : null));
     tiles.push(tile('알트코인 추천', [statusIcon(btc.favorable ? 'on' : 'off'), btc.favorable ? '켜짐' : '꺼짐'],
       `MA20 위 ${btc.days_above}일째 · ${btc.hold_days_required}일 연속이면 켜져요`));
@@ -604,10 +605,11 @@ function renderHistory(d) {
     note.textContent = ''; return;
   }
   host.replaceChildren(buildTable(
-    ['발굴 시각', '종목', '등급', '발굴가', '+1시간', '+4시간', '+1일', '+3일', '최근'],
+    ['발굴 시각', '종목', '등급', '발굴가', '+1시간', '+4시간', '+1일', '+3일', '최근/최종', '상태'],
     recs.map((r) => [
       kst(r.entered_at), r.market, gradePill(r.grade), fmtKRW(r.entry_price),
       pct(r.horizons['1h']), pct(r.horizons['4h']), pct(r.horizons['24h']), pct(r.horizons['72h']), pct(r.return_pct),
+      r.exit ? `종료 · ${EXIT_LABEL[r.exit.reason] || r.exit.reason}` : (r.active ? '추적 중' : '기간 종료'),
     ]), 3));
   const sm = d.summary || {};
   const line = (label, n, win, avg) => (n
