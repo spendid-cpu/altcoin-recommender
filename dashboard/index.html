@@ -231,7 +231,7 @@
       <div class="card-head">
         <div>
           <h2 id="h-cand">현재 후보</h2>
-          <p class="sub">일봉 조건을 통과한 관찰 대상이에요. 4시간·1시간을 지나 15분봉이 저점에 오면 추천돼요. 이미 추천한 종목은 '이미 추천됨'으로 표시하고 결과는 성과 탭에서 봐요 (점수 높은 순)</p>
+          <p class="sub">일봉 조건을 통과한 관찰 대상이에요. 4시간·1시간을 지나 15분봉이 저점에 오면 추천돼요. 이미 추천한 종목은 빼고 보여줘요 (점수 높은 순)</p>
         </div>
       </div>
       <div id="cand" class="table-wrap"></div>
@@ -699,10 +699,11 @@ function renderTiles(d) {
       : (btc.favorable ? `일봉 종가가 MA20 위 (${btc.days_above}일째)` : '일봉 종가가 MA20 아래라서 꺼져 있어요')));
   }
 
-  const cands = d.candidates || [];
+  const hidden = (d.candidates || []).length - freshCandidates(d).length;  // 이미 추천해서 후보에서 뺀 종목
+  const cands = freshCandidates(d);
   const count = (g) => cands.filter((c) => c.grade === g).length;
   tiles.push(tile('현재 후보', [String(cands.length)],
-    `A ${count('A')} · B ${count('B')} · 등급 없음 ${cands.length - count('A') - count('B')} · 15분 저점 ${cands.filter((c) => c.low_15m).length}`));
+    `A ${count('A')} · B ${count('B')} · 등급 없음 ${cands.length - count('A') - count('B')} · 15분 저점 ${cands.filter((c) => c.low_15m).length}${hidden ? ` · 이미 추천 ${hidden}개 제외` : ''}`));
 
   if (d.last_scan_at) {
     const stale = minutesSince(d.last_scan_at) > STALE_MINUTES;
@@ -770,30 +771,35 @@ function renderBtc(btc) {
   return chart;
 }
 
+// 최근(추적 기간 안)에 이미 추천한 종목은 후보에서 빼고 '진행 중인 추천'과 완료 탭에서만 보여준다
+function isRecentlyRecommended(c, d) {
+  return !!c.entered_at && Date.now() - new Date(c.entered_at).getTime() < (d.track_days || 3) * 86400e3;
+}
+function freshCandidates(d) {
+  return (d.candidates || []).filter((c) => !isRecentlyRecommended(c, d));
+}
+
 function renderCandidates(d) {
   const host = $('#cand');
-  const cands = d.candidates || [];
+  const all = d.candidates || [];
+  const cands = freshCandidates(d);
   if (!cands.length) {
-    host.replaceChildren(empty(d.btc && d.btc.favorable === false
-      ? 'BTC 추세 필터가 꺼져 있어서 스캔을 건너뛰고 있어요.'
-      : '지금 조건을 통과한 종목이 없어요.'));
+    host.replaceChildren(empty(all.length
+      ? `새로 볼 후보가 없어요. 이미 추천한 ${all.length}개 종목은 아래 '진행 중인 추천'이나 완료 탭에서 볼 수 있어요.`
+      : (d.btc && d.btc.favorable === false
+        ? 'BTC 추세 필터가 꺼져 있어서 스캔을 건너뛰고 있어요.'
+        : '지금 조건을 통과한 종목이 없어요.')));
     return;
   }
-  // 추천됐는지 헷갈리지 않게 상태를 따로 보여준다: 최근(추적 기간 안)에 이미 추천한 종목 / 지금 추천 대상 / 아직 대기
-  const trackMs = (d.track_days || 3) * 86400e3;
-  const statusOf = (c) => {
-    const recent = c.entered_at && Date.now() - new Date(c.entered_at).getTime() < trackMs;
-    if (recent) return c.rec_exit ? `이미 추천됨 · ${EXIT_LABEL[c.rec_exit] || c.rec_exit}로 종료` : '이미 추천됨 · 추적 중';
-    return c.recommendable ? '추천 대상' : '대기 · 15분 저점을 기다려요';
-  };
   host.replaceChildren(buildTable(
-    ['종목', '상태', '등급', '점수', '통과 프레임', '15분 저점', '발굴가', '현재가', '발굴 후'],
+    ['종목', '상태', '등급', '점수', '통과 프레임', '15분 저점', '현재가'],
     cands.map((c) => [
-      c.market, h('span', { class: statusOf(c).startsWith('이미') ? '' : 'muted', text: statusOf(c) }),
+      c.market,
+      h('span', { class: c.recommendable ? '' : 'muted', text: c.recommendable ? '추천 대상' : '대기 · 15분 저점을 기다려요' }),
       gradePill(c.grade), c.score == null ? '—' : c.score.toFixed(1),
       c.frames.map((f) => FRAME_LABEL[f] || f).join(' › '),
       c.low_15m ? h('span', { class: 'flag', text: c.entry_ready ? '✓ 저점 · 타점' : '✓ 저점' }) : h('span', { class: 'muted', text: '대기' }),
-      fmtKRW(c.entry_price), fmtKRW(c.current_price), pct(c.return_pct),
+      fmtKRW(c.current_price),
     ]), 3));
 }
 
