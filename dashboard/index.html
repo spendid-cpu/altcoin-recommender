@@ -1,0 +1,683 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>알트코인 추천 대시보드</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7; --surface: #fcfcfb;
+    --ink: #0b0b0b; --ink2: #52514e; --muted: #898781;
+    --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11, 11, 11, 0.10);
+    --good: #006300; --bad: #d03b3b; --warn: #fab219;
+    --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
+    --s5: #e87ba4; --s6: #008300; --s7: #4a3aa7; --s8: #e34948;
+    --other: #898781;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --page: #0d0d0d; --surface: #1a1a19;
+      --ink: #ffffff; --ink2: #c3c2b7; --muted: #898781;
+      --grid: #2c2c2a; --axis: #383835; --border: rgba(255, 255, 255, 0.10);
+      --good: #0ca30c; --bad: #d03b3b;
+      --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+      --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19;
+    --ink: #ffffff; --ink2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255, 255, 255, 0.10);
+    --good: #0ca30c; --bad: #d03b3b;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+    --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+  }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0; background: var(--page); color: var(--ink);
+    font: 14px/1.5 system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    word-break: keep-all;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 24px 16px 64px; }
+  .top { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+  h1 { font-size: 22px; font-weight: 650; margin: 0 0 2px; }
+  .sub { margin: 0; color: var(--ink2); font-size: 13px; }
+  .muted { color: var(--muted); }
+  .top-actions { display: flex; align-items: center; gap: 12px; font-size: 12.5px; }
+
+  .btn {
+    font: inherit; font-size: 12.5px; color: var(--ink2); background: transparent;
+    border: 1px solid var(--border); border-radius: 8px; padding: 5px 10px; cursor: pointer;
+  }
+  .btn:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+  .btn[aria-pressed="true"] { color: var(--ink); border-color: var(--ink2); }
+  .btn:focus-visible, svg:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
+
+  main { transition: opacity .15s; }
+  body.loading main { opacity: .6; }
+
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .tile, .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+  .tile { padding: 14px 16px; min-width: 0; }
+  .tile .label { color: var(--ink2); font-size: 13px; }
+  .tile .value { display: flex; align-items: center; gap: 8px; font-size: 28px; font-weight: 650; line-height: 1.25; margin: 4px 0 2px; }
+  .tile .note { color: var(--ink2); font-size: 12.5px; }
+  .tile .spark { margin-top: 8px; }
+  .status-icon { flex: none; }
+
+  .card { padding: 16px; margin-bottom: 16px; }
+  .card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .card h2 { font-size: 16px; font-weight: 650; margin: 0; }
+  .card-note { margin: 10px 0 0; color: var(--ink2); font-size: 12.5px; }
+
+  .chart-host { position: relative; width: 100%; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0 0 8px; font-size: 12.5px; color: var(--ink2); }
+  .legend .key { display: inline-block; width: 14px; height: 2px; border-radius: 1px; vertical-align: middle; margin-right: 6px; }
+  svg text { font-family: inherit; }
+
+  .tooltip {
+    position: absolute; z-index: 5; pointer-events: none; min-width: 150px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 10px; font-size: 12.5px; box-shadow: 0 4px 16px rgba(0, 0, 0, .14);
+  }
+  .tooltip .t-title { color: var(--ink2); margin-bottom: 4px; }
+  .tooltip .t-row { display: flex; align-items: center; gap: 8px; }
+  .tooltip .t-row .key { width: 12px; height: 2px; border-radius: 1px; flex: none; }
+  .tooltip .t-row .name { color: var(--ink2); }
+  .tooltip .t-row .val { margin-left: auto; padding-left: 12px; color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .tooltip .t-foot { color: var(--ink2); margin-top: 4px; }
+
+  .table-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { padding: 8px 10px; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--grid); }
+  th { color: var(--ink2); font-weight: 500; font-size: 12px; }
+  tr:last-child td { border-bottom: 0; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .delta.up { color: var(--good); }
+  .delta.down { color: var(--bad); }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; border: 1px solid var(--border); color: var(--ink2); }
+  .pill.A { background: color-mix(in srgb, var(--s1) 18%, transparent); color: var(--ink); border-color: transparent; font-weight: 600; }
+  .pill.B { background: color-mix(in srgb, var(--s1) 9%, transparent); color: var(--ink); border-color: transparent; }
+  .flag { display: inline-flex; align-items: center; gap: 4px; }
+
+  .empty { padding: 28px 8px; text-align: center; color: var(--ink2); }
+  .error { margin-bottom: 12px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; color: var(--ink2); }
+  footer { margin-top: 24px; color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>알트코인 추천 대시보드</h1>
+      <p class="sub">업비트 KRW 마켓 스캔 · BTC 추세 필터(바이낸스 USDT 일봉)</p>
+    </div>
+    <div class="top-actions">
+      <span id="updated" class="muted"></span>
+      <button id="theme" class="btn" type="button">화면 모드 전환</button>
+    </div>
+  </header>
+
+  <div id="error" class="error" role="status" hidden>데이터를 불러오지 못했어요. 잠시 후 다시 시도할게요.</div>
+
+  <main id="main">
+    <section id="tiles" class="tiles" aria-label="핵심 지표"></section>
+
+    <section class="card" aria-labelledby="h-btc">
+      <div class="card-head">
+        <div>
+          <h2 id="h-btc">BTC 일봉 종가와 MA20</h2>
+          <p class="sub">종가가 MA20 위에서 2일 연속 유지되면 알트코인 추천이 켜져요</p>
+        </div>
+        <button class="btn" type="button" data-toggle="btc" aria-pressed="false">표로 보기</button>
+      </div>
+      <div id="btc-chart"></div>
+      <div id="btc-table" class="table-wrap" hidden></div>
+      <p id="btc-note" class="card-note"></p>
+    </section>
+
+    <section class="card" aria-labelledby="h-cand">
+      <div class="card-head">
+        <div>
+          <h2 id="h-cand">현재 후보</h2>
+          <p class="sub">이번 스캔에서 조건을 통과한 종목 (점수 높은 순)</p>
+        </div>
+      </div>
+      <div id="cand" class="table-wrap"></div>
+    </section>
+
+    <section class="card" aria-labelledby="h-track">
+      <div class="card-head">
+        <div>
+          <h2 id="h-track">발굴 후 가격 추적</h2>
+          <p class="sub">발굴 시점을 0%로 맞춘 이후 수익률 (최대 3일)</p>
+        </div>
+        <button class="btn" type="button" data-toggle="track" aria-pressed="false">표로 보기</button>
+      </div>
+      <div id="track-chart"></div>
+      <div id="track-table" class="table-wrap" hidden></div>
+    </section>
+
+    <section class="card" aria-labelledby="h-hist">
+      <div class="card-head">
+        <div>
+          <h2 id="h-hist">발굴 이력과 성과</h2>
+          <p class="sub">발굴 후 1시간·4시간·1일·3일 시점의 수익률</p>
+        </div>
+      </div>
+      <div id="hist" class="table-wrap"></div>
+      <p id="hist-note" class="card-note"></p>
+    </section>
+
+    <section class="card" aria-labelledby="h-scan">
+      <div class="card-head">
+        <div>
+          <h2 id="h-scan">스캔 기록</h2>
+          <p class="sub">실제 실행 간격이 15분에 얼마나 가까운지 확인해요</p>
+        </div>
+      </div>
+      <div id="scan" class="table-wrap"></div>
+      <p id="scan-note" class="card-note"></p>
+    </section>
+  </main>
+
+  <footer>자동 스캔 결과를 정리한 참고 자료이며 투자 권유가 아닙니다. 표시 시각은 모두 한국시간(KST)이에요.</footer>
+</div>
+
+<noscript>대시보드를 보려면 JavaScript가 필요해요.</noscript>
+
+<script>
+(() => {
+'use strict';
+
+const NS = 'http://www.w3.org/2000/svg';
+const DATA_URL = 'dashboard.json';
+const STALE_MINUTES = 45;
+const EXPECTED_GAP_MINUTES = 15;
+const FRAME_LABEL = { day: '일봉', '4h': '4시간', '1h': '1시간' };
+const $ = (sel, root = document) => root.querySelector(sel);
+
+let DATA = null;
+let charts = [];
+
+/* ---------- DOM helpers (모든 표시 문자열은 textContent로만 삽입) ---------- */
+function h(tag, props = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (v == null || v === false) continue;
+    if (k === 'class') e.className = v;
+    else if (k === 'text') e.textContent = v;
+    else if (k === 'style') e.setAttribute('style', v);
+    else e.setAttribute(k, v === true ? '' : v);
+  }
+  for (const kid of kids.flat()) if (kid != null && kid !== false) e.append(kid instanceof Node ? kid : String(kid));
+  return e;
+}
+function s(tag, attrs = {}, ...kids) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) if (v != null) e.setAttribute(k, v);
+  for (const kid of kids.flat()) if (kid != null && kid !== false) e.append(kid instanceof Node ? kid : String(kid));
+  return e;
+}
+
+/* ---------- 포맷 ---------- */
+const nf0 = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
+const nf2 = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function fmtKRW(p) {
+  if (p == null) return '—';
+  if (p >= 100) return nf0.format(p) + '원';
+  if (p >= 1) return nf2.format(p) + '원';
+  return p.toFixed(4) + '원';
+}
+function kst(iso, withDate = true) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).formatToParts(new Date(iso));
+  const g = (t) => parts.find((p) => p.type === t).value;
+  return (withDate ? `${g('month')}-${g('day')} ` : '') + `${g('hour')}:${g('minute')}`;
+}
+function minutesSince(iso) { return Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000)); }
+function ago(iso) {
+  const m = minutesSince(iso);
+  if (m < 1) return '방금 전';
+  if (m < 60) return `${m}분 전`;
+  const hh = Math.floor(m / 60);
+  return hh < 48 ? `${hh}시간 ${m % 60}분 전` : `${Math.floor(hh / 24)}일 전`;
+}
+// 부호와 화살표를 함께 써서 색에만 의존하지 않는다
+function pct(v) {
+  if (v == null) return h('span', { class: 'muted', text: '—' });
+  const arrow = v > 0 ? '▲ ' : v < 0 ? '▼ ' : '';
+  const sign = v > 0 ? '+' : '';
+  return h('span', { class: 'delta ' + (v > 0 ? 'up' : v < 0 ? 'down' : ''), text: `${arrow}${sign}${v.toFixed(2)}%` });
+}
+function gradePill(g) { return h('span', { class: 'pill ' + (g === 'A' || g === 'B' ? g : ''), text: g && g !== '-' ? `${g}등급` : '등급 없음' }); }
+function empty(text) { return h('div', { class: 'empty', text }); }
+
+/* ---------- 차트 ---------- */
+function niceTicks(min, max, n = 5) {
+  const raw = (max - min) / (n - 1);
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const norm = raw / mag;
+  const step = (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10) * mag;
+  const start = Math.floor(min / step) * step;
+  const end = Math.ceil(max / step) * step;
+  const ticks = [];
+  for (let v = start; v <= end + step / 2; v += step) ticks.push(+v.toFixed(10));
+  return ticks;
+}
+
+function mountLineChart(host, cfg) {
+  const H = cfg.height || 260;
+  const tip = h('div', { class: 'tooltip', hidden: true });
+  const svgHost = h('div', { class: 'chart-host' });
+  const legend = cfg.series.length >= 2
+    ? h('div', { class: 'legend' }, cfg.series.map((sr) =>
+        h('span', {}, h('span', { class: 'key', style: `background:${sr.color}` }), sr.name)))
+    : null;
+  host.replaceChildren(...[legend, svgHost].filter(Boolean));
+  svgHost.append(tip);
+
+  const allX = [...new Set(cfg.series.flatMap((sr) => sr.points.map((p) => p.x)))].sort((a, b) => a - b);
+  let scale = null;
+  let focusIdx = null;
+  let hoverLayer = null;
+
+  function render() {
+    const W = svgHost.clientWidth;
+    if (W < 80) return;
+    svgHost.querySelector('svg')?.remove();
+    // 좁은 화면에서는 직접 라벨용 오른쪽 여백을 줄이고(범례가 대신함) 눈금을 솎아낸다
+    const narrow = W < 460;
+    const M = { l: cfg.marginLeft || (narrow ? 48 : 58), r: narrow ? 14 : 72, t: 10, b: 30 };
+    const iw = W - M.l - M.r, ih = H - M.t - M.b;
+    const all = cfg.series.flatMap((sr) => sr.points);
+    if (!all.length) return;
+
+    const xMin = cfg.xDomain ? cfg.xDomain[0] : allX[0];
+    const xMax = cfg.xDomain ? cfg.xDomain[1] : allX[allX.length - 1];
+    let yLo = Math.min(...all.map((p) => p.y)), yHi = Math.max(...all.map((p) => p.y));
+    if (cfg.zero) { yLo = Math.min(yLo, 0); yHi = Math.max(yHi, 0); }
+    if (yLo === yHi) { yLo -= 1; yHi += 1; }
+    const padY = (yHi - yLo) * 0.08;
+    const yTicks = niceTicks(yLo - padY, yHi + padY, 5);
+    const y0 = yTicks[0], y1 = yTicks[yTicks.length - 1];
+    const sx = (x) => M.l + (xMax === xMin ? iw / 2 : ((x - xMin) / (xMax - xMin)) * iw);
+    const sy = (y) => M.t + ih - ((y - y0) / (y1 - y0)) * ih;
+    scale = { sx, sy, W, iw, xMin, xMax };
+
+    const svg = s('svg', {
+      viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: 'img', tabindex: '0', 'aria-label': cfg.ariaLabel,
+    });
+
+    for (const t of yTicks) {
+      const y = sy(t);
+      svg.append(s('line', { x1: M.l, x2: M.l + iw, y1: y, y2: y, style: 'stroke:var(--grid);stroke-width:1' }));
+      svg.append(s('text', { x: M.l - 8, y: y + 4, 'text-anchor': 'end', style: 'fill:var(--muted);font-size:11px;font-variant-numeric:tabular-nums' }, cfg.yFmt(t)));
+    }
+    if (cfg.zero) {
+      svg.append(s('line', { x1: M.l, x2: M.l + iw, y1: sy(0), y2: sy(0), style: 'stroke:var(--axis);stroke-width:1' }));
+    } else {
+      svg.append(s('line', { x1: M.l, x2: M.l + iw, y1: M.t + ih, y2: M.t + ih, style: 'stroke:var(--axis);stroke-width:1' }));
+    }
+    let xTicks = cfg.xTicks.filter((t) => t >= xMin && t <= xMax);
+    const maxTicks = Math.max(2, Math.floor(iw / 58));
+    if (xTicks.length > maxTicks) {
+      const k = Math.ceil(xTicks.length / maxTicks);
+      xTicks = xTicks.filter((_, i) => (xTicks.length - 1 - i) % k === 0);
+    }
+    for (const t of xTicks) {
+      svg.append(s('text', { x: sx(t), y: H - 8, 'text-anchor': 'middle', style: 'fill:var(--muted);font-size:11px' }, cfg.xFmt(t)));
+    }
+
+    for (const sr of cfg.series) {
+      if (!sr.points.length) continue;
+      const d = sr.points.map((p, i) => `${i ? 'L' : 'M'}${sx(p.x).toFixed(1)} ${sy(p.y).toFixed(1)}`).join('');
+      svg.append(s('path', { d, style: `fill:none;stroke:${sr.color};stroke-width:2;stroke-linejoin:round;stroke-linecap:round` }));
+    }
+    // 끝점: 2px 표면색 링으로 선과 겹쳐도 또렷하게
+    const ends = cfg.series.filter((sr) => sr.points.length).map((sr) => {
+      const p = sr.points[sr.points.length - 1];
+      svg.append(s('circle', { cx: sx(p.x), cy: sy(p.y), r: 4, style: `fill:${sr.color};stroke:var(--surface);stroke-width:2` }));
+      return { sr, y: sy(p.y), x: sx(p.x) };
+    });
+    // 직접 라벨은 4개 이하이고 서로 겹치지 않을 때만 (겹치면 범례+툴팁이 담당)
+    if (cfg.series.length <= 4 && !narrow) {
+      const sorted = [...ends].sort((a, b) => a.y - b.y);
+      if (sorted.every((e, i) => i === 0 || e.y - sorted[i - 1].y >= 14)) {
+        for (const e of ends) {
+          svg.append(s('text', { x: e.x + 8, y: e.y + 4, style: 'fill:var(--ink2);font-size:11.5px' }, e.sr.name));
+        }
+      }
+    }
+
+    const cross = s('line', { y1: M.t, y2: M.t + ih, style: 'stroke:var(--axis);stroke-width:1', visibility: 'hidden' });
+    const dots = cfg.series.map((sr) => s('circle', { r: 4, visibility: 'hidden', style: `fill:${sr.color};stroke:var(--surface);stroke-width:2` }));
+    svg.append(cross, ...dots);
+    const hit = s('rect', { x: M.l - 8, y: 0, width: iw + 16, height: H, fill: 'transparent' });
+    svg.append(hit);
+    hoverLayer = { cross, dots };
+    svgHost.insertBefore(svg, tip);
+
+    const nearestIndex = (clientX) => {
+      const rect = svg.getBoundingClientRect();
+      const xv = xMin + ((clientX - rect.left - M.l) / iw) * (xMax - xMin);
+      let best = 0;
+      for (let i = 1; i < allX.length; i++) if (Math.abs(allX[i] - xv) < Math.abs(allX[best] - xv)) best = i;
+      return best;
+    };
+    hit.addEventListener('pointermove', (ev) => show(nearestIndex(ev.clientX)));
+    hit.addEventListener('pointerleave', hide);
+    svg.addEventListener('focus', () => { focusIdx = allX.length - 1; show(focusIdx); });
+    svg.addEventListener('blur', hide);
+    svg.addEventListener('keydown', (ev) => {
+      if (ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') {
+        ev.preventDefault();
+        focusIdx = Math.min(allX.length - 1, Math.max(0, (focusIdx ?? allX.length - 1) + (ev.key === 'ArrowLeft' ? -1 : 1)));
+        show(focusIdx);
+      } else if (ev.key === 'Escape') hide();
+    });
+  }
+
+  function show(i) {
+    if (!scale || !hoverLayer) return;
+    const xv = allX[i];
+    const X = scale.sx(xv);
+    hoverLayer.cross.setAttribute('x1', X); hoverLayer.cross.setAttribute('x2', X);
+    hoverLayer.cross.setAttribute('visibility', 'visible');
+
+    tip.replaceChildren(h('div', { class: 't-title', text: cfg.tipTitle(xv) }));
+    cfg.series.forEach((sr, k) => {
+      let best = null;
+      for (const p of sr.points) if (best === null || Math.abs(p.x - xv) < Math.abs(best.x - xv)) best = p;
+      const ok = best && Math.abs(best.x - xv) <= (cfg.tol ?? 0);
+      const dot = hoverLayer.dots[k];
+      if (ok) {
+        dot.setAttribute('cx', scale.sx(best.x)); dot.setAttribute('cy', scale.sy(best.y)); dot.setAttribute('visibility', 'visible');
+      } else dot.setAttribute('visibility', 'hidden');
+      tip.append(h('div', { class: 't-row' },
+        h('span', { class: 'key', style: `background:${sr.color}` }),
+        h('span', { class: 'name', text: sr.name }),
+        h('span', { class: 'val', text: ok ? cfg.valFmt(best.y) : '—' })));
+    });
+    const foot = cfg.tipFoot ? cfg.tipFoot(xv) : null;
+    if (foot) tip.append(h('div', { class: 't-foot', text: foot }));
+    tip.hidden = false;
+    const tw = tip.offsetWidth;
+    let left = X + 14;
+    if (left + tw > scale.W - 4) left = X - 14 - tw;
+    tip.style.left = Math.max(4, left) + 'px';
+    tip.style.top = '14px';
+  }
+  function hide() {
+    tip.hidden = true;
+    if (hoverLayer) {
+      hoverLayer.cross.setAttribute('visibility', 'hidden');
+      hoverLayer.dots.forEach((d) => d.setAttribute('visibility', 'hidden'));
+    }
+  }
+
+  const ro = new ResizeObserver(() => requestAnimationFrame(render));
+  ro.observe(svgHost);
+  render();
+  return { render, destroy: () => ro.disconnect() };
+}
+
+function sparkline(values) {
+  const W = 200, H = 36, pad = 4;
+  const lo = Math.min(...values), hi = Math.max(...values);
+  const sx = (i) => pad + (i / (values.length - 1)) * (W - pad * 2);
+  const sy = (v) => H - pad - (hi === lo ? 0.5 : (v - lo) / (hi - lo)) * (H - pad * 2);
+  const d = values.map((v, i) => `${i ? 'L' : 'M'}${sx(i).toFixed(1)} ${sy(v).toFixed(1)}`).join('');
+  const last = values.length - 1;
+  return s('svg', { viewBox: `0 0 ${W} ${H}`, width: '100%', height: H, preserveAspectRatio: 'none', 'aria-hidden': 'true', class: 'spark' },
+    s('path', { d, style: 'fill:none;stroke:var(--muted);stroke-width:2;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke' }),
+    s('circle', { cx: sx(last), cy: sy(values[last]), r: 4, style: 'fill:var(--s1);stroke:var(--surface);stroke-width:2' }));
+}
+
+function statusIcon(kind) {
+  // 색만으로 상태를 전달하지 않도록 아이콘 + 라벨을 항상 같이 쓴다
+  const common = { viewBox: '0 0 24 24', width: 22, height: 22, class: 'status-icon', 'aria-hidden': 'true' };
+  if (kind === 'on') return s('svg', common, s('circle', { cx: 12, cy: 12, r: 10, style: 'fill:var(--good)' }),
+    s('path', { d: 'M7 12.5l3.2 3.2L17 9', style: 'fill:none;stroke:#fff;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round' }));
+  if (kind === 'warn') return s('svg', common, s('path', { d: 'M12 2.5l10 18H2z', style: 'fill:var(--warn)' }),
+    s('path', { d: 'M12 9v5M12 17.2v.3', style: 'fill:none;stroke:#0b0b0b;stroke-width:2.2;stroke-linecap:round' }));
+  return s('svg', common, s('circle', { cx: 12, cy: 12, r: 10, style: 'fill:var(--muted)' }),
+    s('path', { d: 'M9.5 8v8M14.5 8v8', style: 'fill:none;stroke:#fff;stroke-width:2.4;stroke-linecap:round' }));
+}
+
+/* ---------- 섹션 렌더 ---------- */
+function tile(label, valueNodes, note, extra) {
+  return h('div', { class: 'tile' }, h('div', { class: 'label', text: label }),
+    h('div', { class: 'value' }, valueNodes), h('div', { class: 'note', text: note }), extra);
+}
+
+function renderTiles(d) {
+  const btc = d.btc || {};
+  const host = $('#tiles');
+  const tiles = [];
+
+  if (btc.error || btc.close == null) {
+    tiles.push(tile('BTC 종가 (USDT)', ['—'], '바이낸스 데이터를 불러오지 못했어요'));
+    tiles.push(tile('알트코인 추천', [statusIcon('off'), '알 수 없음'], 'BTC 데이터가 없어 판단할 수 없어요'));
+  } else {
+    const change = (btc.close / btc.prev_close - 1) * 100;
+    const closes = btc.series.map((p) => p.close).slice(-30);
+    tiles.push(tile('BTC 종가 (USDT)', [nf0.format(btc.close)],
+      `전일 대비 ${change >= 0 ? '▲ +' : '▼ '}${change.toFixed(2)}%${btc.last_candle_open ? ' · 오늘 캔들 진행 중' : ''}`,
+      closes.length > 1 ? sparkline(closes) : null));
+    tiles.push(tile('알트코인 추천', [statusIcon(btc.favorable ? 'on' : 'off'), btc.favorable ? '켜짐' : '꺼짐'],
+      `MA20 위 ${btc.days_above}일째 · ${btc.hold_days_required}일 연속이면 켜져요`));
+  }
+
+  const cands = d.candidates || [];
+  const count = (g) => cands.filter((c) => c.grade === g).length;
+  tiles.push(tile('현재 후보', [String(cands.length)],
+    `A ${count('A')} · B ${count('B')} · 등급 없음 ${cands.length - count('A') - count('B')} · 15분 타점 ${cands.filter((c) => c.entry_ready).length}`));
+
+  if (d.last_scan_at) {
+    const stale = minutesSince(d.last_scan_at) > STALE_MINUTES;
+    tiles.push(tile('마지막 스캔', stale ? [statusIcon('warn'), ago(d.last_scan_at)] : [ago(d.last_scan_at)],
+      `${kst(d.last_scan_at)} KST${stale ? ` · ${STALE_MINUTES}분 넘게 스캔이 없어요` : ''}`));
+  } else {
+    tiles.push(tile('마지막 스캔', ['—'], '스캔 기록이 아직 없어요'));
+  }
+  host.replaceChildren(...tiles);
+}
+
+function wireToggle(name, chartEl, tableEl, onShowChart) {
+  const btn = $(`[data-toggle="${name}"]`);
+  btn.onclick = () => {
+    const showTable = btn.getAttribute('aria-pressed') !== 'true';
+    btn.setAttribute('aria-pressed', String(showTable));
+    btn.textContent = showTable ? '차트로 보기' : '표로 보기';
+    chartEl.hidden = showTable; tableEl.hidden = !showTable;
+    if (!showTable && onShowChart) requestAnimationFrame(onShowChart);
+  };
+}
+
+function buildTable(head, rows, numFrom = 1) {
+  return h('table', {},
+    h('thead', {}, h('tr', {}, head.map((t, i) => h('th', { class: i >= numFrom ? 'num' : '', text: t })))),
+    h('tbody', {}, rows.map((r) => h('tr', {}, r.map((c, i) => h('td', { class: i >= numFrom ? 'num' : '' }, c))))));
+}
+
+function renderBtc(btc) {
+  const chartEl = $('#btc-chart'), tableEl = $('#btc-table'), note = $('#btc-note');
+  chartEl.replaceChildren(); tableEl.replaceChildren();
+  if (!btc || btc.error || !btc.series || !btc.series.length) {
+    chartEl.append(empty('바이낸스 BTC 데이터를 불러오지 못했어요.'));
+    note.textContent = ''; return null;
+  }
+  const pts = btc.series;
+  const step = Math.max(1, Math.ceil(pts.length / 6));
+  const chart = mountLineChart(chartEl, {
+    ariaLabel: `BTC 일봉 종가와 20일 이동평균, 최근 ${pts.length}일`,
+    series: [
+      { name: '종가', color: 'var(--s1)', points: pts.map((p, i) => ({ x: i, y: p.close })) },
+      { name: 'MA20', color: 'var(--s2)', points: pts.map((p, i) => ({ x: i, y: p.ma20 })) },
+    ],
+    xTicks: pts.map((_, i) => i).filter((i) => (pts.length - 1 - i) % step === 0),
+    xFmt: (i) => pts[i].date.slice(5),
+    yFmt: (v) => nf0.format(v),
+    valFmt: (v) => nf0.format(v),
+    tipTitle: (i) => `${pts[i].date} (UTC 일봉)`,
+    tipFoot: (i) => {
+      const diff = (pts[i].close / pts[i].ma20 - 1) * 100;
+      return `MA20 ${diff >= 0 ? '위' : '아래'} ${Math.abs(diff).toFixed(2)}%`;
+    },
+    tol: 0,
+  });
+  charts.push(chart);
+  tableEl.append(buildTable(['날짜(UTC)', '종가', 'MA20', 'MA20 대비'],
+    [...pts].reverse().map((p) => [p.date, nf2.format(p.close), nf2.format(p.ma20), pct((p.close / p.ma20 - 1) * 100)])));
+  wireToggle('btc', chartEl, tableEl, chart.render);
+  note.textContent = btc.last_candle_open
+    ? '가장 오른쪽 점은 아직 마감되지 않은 오늘 캔들의 현재 값이에요. 바이낸스 일봉은 한국시간 오전 9시에 마감돼요.'
+    : '';
+  return chart;
+}
+
+function renderCandidates(d) {
+  const host = $('#cand');
+  const cands = d.candidates || [];
+  if (!cands.length) {
+    host.replaceChildren(empty(d.btc && d.btc.favorable === false
+      ? 'BTC 추세 필터가 꺼져 있어서 스캔을 건너뛰고 있어요.'
+      : '지금 조건을 통과한 종목이 없어요.'));
+    return;
+  }
+  host.replaceChildren(buildTable(
+    ['종목', '등급', '점수', '통과 프레임', '15분 타점', '발굴가', '현재가', '발굴 후'],
+    cands.map((c) => [
+      c.market, gradePill(c.grade), c.score == null ? '—' : c.score.toFixed(1),
+      c.frames.map((f) => FRAME_LABEL[f] || f).join(' › '),
+      c.entry_ready ? h('span', { class: 'flag', text: '✓ 발생' }) : h('span', { class: 'muted', text: '대기' }),
+      fmtKRW(c.entry_price), fmtKRW(c.current_price), pct(c.return_pct),
+    ]), 2));
+}
+
+function renderTracking(d) {
+  const chartEl = $('#track-chart'), tableEl = $('#track-table');
+  chartEl.replaceChildren(); tableEl.replaceChildren();
+  const recs = (d.recommendations || []).filter((r) => r.series && r.series.length).slice(0, 8);
+  if (!recs.length) {
+    chartEl.append(empty('아직 발굴된 종목이 없어요. 신규 후보가 뜨면 여기에 가격 흐름이 그려져요.'));
+    return null;
+  }
+  // 색은 종목(추천)을 따라가고 순위를 따르지 않는다: 오래된 추천부터 고정 슬롯을 배정
+  const ordered = [...recs].sort((a, b) => a.entered_at.localeCompare(b.entered_at));
+  const dupes = new Set(ordered.map((r) => r.market).filter((m, i, arr) => arr.indexOf(m) !== i));
+  const series = ordered.map((r, i) => ({
+    name: dupes.has(r.market) ? `${r.market} (${kst(r.entered_at)})` : r.market,
+    color: `var(--s${i + 1})`,
+    points: r.series.filter((p) => p[1] != null).map((p) => ({ x: p[0], y: p[1] })),
+  }));
+  const maxH = (d.track_days || 3) * 24;
+  const ticks = []; for (let t = 0; t <= maxH; t += 12) ticks.push(t);
+  const chart = mountLineChart(chartEl, {
+    ariaLabel: `발굴 후 경과 시간별 수익률, ${series.length}개 종목`,
+    series, zero: true, xDomain: [0, maxH], xTicks: ticks,
+    xFmt: (v) => `${v}h`, yFmt: (v) => `${v > 0 ? '+' : ''}${v}%`,
+    valFmt: (v) => `${v > 0 ? '+' : ''}${v.toFixed(2)}%`,
+    tipTitle: (x) => `발굴 후 ${x.toFixed(1)}시간`, tol: 3, marginLeft: 52,
+  });
+  charts.push(chart);
+
+  const rows = [];
+  for (const r of [...ordered].reverse()) for (const p of [...r.series].reverse()) if (p[1] != null) rows.push([r.market, p[0].toFixed(1), pct(p[1])]);
+  tableEl.append(buildTable(['종목', '발굴 후(시간)', '수익률'], rows.slice(0, 300)));
+  wireToggle('track', chartEl, tableEl, chart.render);
+  return chart;
+}
+
+function renderHistory(d) {
+  const host = $('#hist'), note = $('#hist-note');
+  const recs = d.recommendations || [];
+  if (!recs.length) {
+    host.replaceChildren(empty('아직 발굴 이력이 없어요.'));
+    note.textContent = ''; return;
+  }
+  host.replaceChildren(buildTable(
+    ['발굴 시각', '종목', '등급', '발굴가', '+1시간', '+4시간', '+1일', '+3일', '최근'],
+    recs.map((r) => [
+      kst(r.entered_at), r.market, gradePill(r.grade), fmtKRW(r.entry_price),
+      pct(r.horizons['1h']), pct(r.horizons['4h']), pct(r.horizons['24h']), pct(r.horizons['72h']), pct(r.return_pct),
+    ]), 3));
+  const sm = d.summary || {};
+  const line = (label, n, win, avg) => (n ? `${label} ${n}건 중 수익 ${win}% · 평균 ${avg > 0 ? '+' : ''}${avg}%` : `${label} 아직 없음`);
+  const small = Math.max(sm.n_1d || 0, sm.n_3d || 0) < 10 ? ' 표본이 적어서 참고만 하세요.' : '';
+  note.textContent = `발굴 ${sm.total}건. ${line('+1일 결과가 나온', sm.n_1d, sm.win_rate_1d, sm.avg_1d)}, ${line('+3일 결과가 나온', sm.n_3d, sm.win_rate_3d, sm.avg_3d)}.${small}`;
+}
+
+function renderScans(d) {
+  const host = $('#scan'), note = $('#scan-note');
+  const scans = (d.scans || []).slice(0, 12);
+  if (!scans.length) {
+    host.replaceChildren(empty('스캔 기록이 아직 없어요.'));
+    note.textContent = ''; return;
+  }
+  const gaps = scans.map((sc, i) => (i + 1 < scans.length ? (new Date(sc.ran_at) - new Date(scans[i + 1].ran_at)) / 60000 : null));
+  host.replaceChildren(buildTable(
+    ['시각', '이전 스캔과 간격', 'BTC 필터', '후보', '알림'],
+    scans.map((sc, i) => [
+      kst(sc.ran_at),
+      gaps[i] == null ? h('span', { class: 'muted', text: '—' })
+        : h('span', { class: 'flag', text: `${gaps[i] > EXPECTED_GAP_MINUTES * 2 ? '⚠ 지연 ' : ''}${Math.round(gaps[i])}분` }),
+      sc.btc_favorable ? '켜짐' : '꺼짐', String(sc.candidates), String(sc.alerts),
+    ]), 1));
+  const known = gaps.filter((g) => g != null);
+  note.textContent = known.length
+    ? `최근 ${known.length}번의 평균 간격은 ${Math.round(known.reduce((a, b) => a + b, 0) / known.length)}분이에요 (목표 ${EXPECTED_GAP_MINUTES}분).`
+    : '';
+}
+
+function renderAll() {
+  charts.forEach((c) => c && c.destroy());
+  charts = [];
+  const d = DATA;
+  $('#updated').textContent = d.generated_at ? `데이터 생성 ${kst(d.generated_at)} KST` : '';
+  renderTiles(d);
+  renderBtc(d.btc);
+  renderCandidates(d);
+  renderTracking(d);
+  renderHistory(d);
+  renderScans(d);
+}
+
+/* ---------- 테마, 로딩 ---------- */
+const root = document.documentElement;
+try { const saved = localStorage.getItem('theme'); if (saved) root.setAttribute('data-theme', saved); } catch (e) { /* 저장소를 못 쓰는 환경이면 시스템 설정을 따른다 */ }
+$('#theme').addEventListener('click', () => {
+  const cur = root.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  root.setAttribute('data-theme', next);
+  try { localStorage.setItem('theme', next); } catch (e) { /* 무시 */ }
+});
+
+async function load() {
+  document.body.classList.add('loading');
+  try {
+    const res = await fetch(`${DATA_URL}?t=${Date.now()}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error(String(res.status));
+    DATA = await res.json();
+    $('#error').hidden = true;
+    renderAll();
+  } catch (e) {
+    $('#error').hidden = false;
+  } finally {
+    document.body.classList.remove('loading');
+  }
+}
+load();
+setInterval(load, 5 * 60 * 1000);
+setInterval(() => { if (DATA) renderTiles(DATA); }, 30 * 1000);
+})();
+</script>
+</body>
+</html>

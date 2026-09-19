@@ -3,9 +3,9 @@
 가격 움직임을 계속 추적 — 이 추적 데이터가 곧 백테스트 검증의 원본 데이터가 된다'를 구현한 것.
 
 같은 SQLite 파일(state_store.DB_PATH)에 price_history 테이블을 둔다. 신규 후보 알림이 뜬
-시점을 '진입가'로 한 번 기록하고, 이후 매 스캔 사이클(15분)마다 진입 후 TRACK_DAYS 이내인
-종목의 현재가를 계속 스냅샷으로 남긴다. 이 데이터로 나중에 실제 라이브 신호의 +1h/+4h/+1d/+3d
-수익률을 계산해 백테스트 결과와 비교할 수 있다.
+시점을 '진입가'로 한 번 기록하고(그때의 등급/점수도 함께), 이후 매 스캔 사이클마다
+진입 후 TRACK_DAYS 이내인 종목의 현재가를 계속 스냅샷으로 남긴다. 이 데이터로 실제 라이브 신호의
++1h/+4h/+1d/+3d 수익률을 계산해 백테스트 결과와 비교할 수 있다.
 """
 
 import sqlite3
@@ -16,24 +16,31 @@ from src import state_store
 TRACK_DAYS = 3  # 진입 후 이 기간까지만 계속 추적 (백테스트 관찰 기간과 동일)
 
 
-def _connect() -> sqlite3.Connection:
+def connect() -> sqlite3.Connection:
     conn = state_store.connect_db()  # 테이블 생성 등 초기화 로직 재사용
     conn.execute(
         "CREATE TABLE IF NOT EXISTS price_history ("
         "market TEXT, recorded_at TEXT, price REAL, is_entry INTEGER, "
         "PRIMARY KEY (market, recorded_at))"
     )
+    # 예전 버전(등급/점수 컬럼 없음)으로 만든 DB도 그대로 쓸 수 있게 컬럼을 추가한다
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(price_history)")}
+    if "grade" not in columns:
+        conn.execute("ALTER TABLE price_history ADD COLUMN grade TEXT")
+    if "score" not in columns:
+        conn.execute("ALTER TABLE price_history ADD COLUMN score REAL")
     return conn
 
 
-def record_entry(market: str, price: float) -> None:
-    """신규 후보 발굴 시점의 가격을 '진입가'로 기록한다."""
+def record_entry(market: str, price: float, grade: str = "-", score: float | None = None) -> None:
+    """신규 후보 발굴 시점의 가격(과 그때의 등급/점수)을 '진입가'로 기록한다."""
     now = datetime.now(timezone.utc).isoformat()
-    conn = _connect()
+    conn = connect()
     try:
         conn.execute(
-            "INSERT OR REPLACE INTO price_history (market, recorded_at, price, is_entry) VALUES (?, ?, ?, 1)",
-            (market, now, price),
+            "INSERT OR REPLACE INTO price_history (market, recorded_at, price, is_entry, grade, score) "
+            "VALUES (?, ?, ?, 1, ?, ?)",
+            (market, now, price, grade, score),
         )
         conn.commit()
     finally:
@@ -43,7 +50,7 @@ def record_entry(market: str, price: float) -> None:
 def active_tracked_markets() -> list[str]:
     """진입 기록이 TRACK_DAYS 이내인 종목만 반환한다 (그 이후는 추적 종료)."""
     cutoff = (datetime.now(timezone.utc) - timedelta(days=TRACK_DAYS)).isoformat()
-    conn = _connect()
+    conn = connect()
     try:
         rows = conn.execute(
             "SELECT DISTINCT market FROM price_history WHERE is_entry = 1 AND recorded_at >= ?",
@@ -59,7 +66,7 @@ def record_snapshots(prices: dict[str, float]) -> None:
     if not prices:
         return
     now = datetime.now(timezone.utc).isoformat()
-    conn = _connect()
+    conn = connect()
     try:
         conn.executemany(
             "INSERT OR REPLACE INTO price_history (market, recorded_at, price, is_entry) VALUES (?, ?, ?, 0)",

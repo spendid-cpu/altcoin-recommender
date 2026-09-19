@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from src import state_store
 from src.scoring import CandidateResult
 
-_EMPTY_STATE = {"cleared_frames": [], "entry_ready": False, "grade": "-", "current_price": 0.0}
+_EMPTY_STATE = {"cleared_frames": [], "entry_ready": False, "grade": "-", "current_price": 0.0, "score": None}
 
 
 @dataclass
@@ -29,6 +29,7 @@ def _snapshot(candidate: CandidateResult) -> dict:
         "entry_ready": candidate.entry_ready,
         "grade": candidate.grade,
         "current_price": candidate.current_price,
+        "score": round(candidate.total_score, 1),
     }
 
 

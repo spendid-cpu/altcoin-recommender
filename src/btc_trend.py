@@ -8,3 +8,14 @@ def is_trend_favorable(daily_close: pd.Series, ma_period: int = 20, hold_days: i
     ma = daily_close.rolling(ma_period).mean()
     above = daily_close > ma
     return bool(above.tail(hold_days).all())
+
+
+def days_above_ma(daily_close: pd.Series, ma_period: int = 20) -> int:
+    """가장 최근 일봉부터 거꾸로, 종가가 MA20 위였던 연속 일수 (대시보드 표시용)."""
+    ma = daily_close.rolling(ma_period).mean()
+    count = 0
+    for flag in reversed((daily_close > ma).tolist()):
+        if not flag:
+            break
+        count += 1
+    return count
