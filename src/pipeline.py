@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 
 import aiohttp
 
-from src import config, exits, price_tracker, report, scan_log, state_store, telegram_client
+from src import config, exits, macro_job, price_tracker, report, scan_log, state_store, telegram_client
 from src.exchanges import upbit_client
 from src.notifier import diff_alerts
 from src.scanner import check_btc_trend, scan_all
@@ -21,6 +21,9 @@ async def _send_heartbeat(session: aiohttp.ClientSession, text: str) -> None:
 
 async def run_once(session: aiohttp.ClientSession) -> None:
     now = datetime.now(KST).strftime("%H:%M KST")
+
+    # 비트코인 매크로 분석 갱신(시간당 1회)과 아침 브리핑. 알트코인 추천/추적과는 독립이라 BTC 추세와 상관없이 돈다.
+    await macro_job.run(session)
 
     favorable = await check_btc_trend(session)
     print(f"[BTC 추세] MA20 위 2일 이상 유지: {favorable}")

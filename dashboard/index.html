@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>알트코인 추천 대시보드</title>
+<title>알트코인 투자 매크로</title>
 <style>
   :root {
     color-scheme: light;
@@ -108,14 +108,58 @@
   .empty { padding: 28px 8px; text-align: center; color: var(--ink2); }
   .error { margin-bottom: 12px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; color: var(--ink2); }
   footer { margin-top: 24px; color: var(--muted); font-size: 12px; }
+  /* 탭 */
+  .tabs { display: flex; gap: 4px; margin: 0 0 16px; border-bottom: 1px solid var(--border); }
+  .tab {
+    font: inherit; font-size: 14px; color: var(--ink2); background: none; border: 0;
+    border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 8px 14px; cursor: pointer;
+  }
+  .tab:hover { color: var(--ink); }
+  .tab[aria-selected="true"] { color: var(--ink); font-weight: 650; border-bottom-color: var(--ink); }
+  .tab:focus-visible { outline: 2px solid var(--s1); outline-offset: -2px; border-radius: 6px; }
+
+  /* 비트코인 분석 탭 */
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .seg .btn { border: 0; border-radius: 0; }
+  .seg .btn + .btn { border-left: 1px solid var(--border); }
+  .head-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .legend .swatch { display: inline-block; width: 18px; height: 0; border-top: 2px solid var(--ink2); vertical-align: middle; margin-right: 6px; }
+  .wave-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+  .wave { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; min-width: 0; }
+  .wave-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .wave-name { color: var(--ink2); font-size: 13px; }
+  .verdict { font-weight: 650; font-size: 16px; }
+  .verdict.bull { color: var(--good); }
+  .verdict.bear { color: var(--bad); }
+  .wave-text { margin: 6px 0 10px; }
+  .facts { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 10px 0 0; font-size: 12.5px; }
+  .facts dt { color: var(--ink2); }
+  .facts dd { margin: 0; font-variant-numeric: tabular-nums; }
+  td.members { white-space: normal; min-width: 220px; color: var(--ink2); font-size: 12.5px; }
+  tr.divider td { background: color-mix(in srgb, var(--ink) 6%, transparent); font-weight: 600; text-align: center; }
+  tr.zone-3 td:not(.members), tr.zone-4 td:not(.members) { font-weight: 650; }
+  tr.zone-3 td, tr.zone-4 td { background: color-mix(in srgb, var(--s1) 8%, transparent); }
+  .stoch-frame { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
+  .stoch-frame h3 { margin: 0 0 8px; font-size: 14px; font-weight: 650; }
+  .stoch-cells { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+  .cell { min-width: 0; }
+  .cell .cell-name { color: var(--ink2); font-size: 12px; }
+  .cell .cell-state { font-weight: 600; font-size: 13.5px; }
+  .cell.bull .cell-state { color: var(--good); }
+  .cell.bear .cell-state { color: var(--bad); }
+  .cell .cell-num { color: var(--ink2); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .stoch-read { margin: 10px 0 0; color: var(--ink); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .howto { margin: 0; padding-left: 18px; color: var(--ink2); font-size: 12.5px; }
+  .howto li { margin: 4px 0; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header class="top">
     <div>
-      <h1>알트코인 추천 대시보드</h1>
-      <p class="sub">업비트 KRW 마켓 스캔 · BTC 추세 필터(바이낸스 USDT 일봉)</p>
+      <h1>알트코인 투자 매크로</h1>
+      <p class="sub">업비트 KRW 마켓 스캔 · 비트코인 분석(바이낸스 USDT)</p>
     </div>
     <div class="top-actions">
       <span id="updated" class="muted"></span>
@@ -125,7 +169,12 @@
 
   <div id="error" class="error" role="status" hidden>데이터를 불러오지 못했어요. 잠시 후 다시 시도할게요.</div>
 
-  <main id="main">
+  <nav class="tabs" role="tablist" aria-label="화면 선택">
+    <button id="tab-recs" class="tab" role="tab" type="button" data-tab="recs" aria-controls="view-recs" aria-selected="true">알트코인 추천</button>
+    <button id="tab-macro" class="tab" role="tab" type="button" data-tab="macro" aria-controls="view-macro" aria-selected="false">비트코인 분석</button>
+  </nav>
+
+  <main id="view-recs" role="tabpanel" aria-labelledby="tab-recs">
     <section id="tiles" class="tiles" aria-label="핵심 지표"></section>
 
     <section class="card" aria-labelledby="h-btc">
@@ -184,6 +233,75 @@
       <div id="scan" class="table-wrap"></div>
       <p id="scan-note" class="card-note"></p>
     </section>
+  </main>
+
+  <main id="view-macro" role="tabpanel" aria-labelledby="tab-macro" hidden>
+    <div id="m-empty" class="card empty" hidden>비트코인 분석이 아직 만들어지지 않았어요. 다음 스캔이 끝나면 표시돼요.</div>
+    <div id="m-body">
+      <section id="m-tiles" class="tiles" aria-label="비트코인 핵심 지표"></section>
+
+      <section class="card" aria-labelledby="h-fib">
+        <div class="card-head">
+          <div>
+            <h2 id="h-fib">피보나치 지지·저항 (4시간봉)</h2>
+            <p class="sub">최근 3개월의 큰 파동·작은 파동에서 그은 라인이 겹칠수록 굵고 진하게 표시돼요</p>
+          </div>
+          <div class="head-actions">
+            <div id="m-range" class="seg" role="group" aria-label="차트 기간">
+              <button class="btn" type="button" data-bars="180" aria-pressed="true">1개월</button>
+              <button class="btn" type="button" data-bars="540" aria-pressed="false">3개월</button>
+            </div>
+            <button class="btn" type="button" data-toggle="fib" aria-pressed="false">표로 보기</button>
+          </div>
+        </div>
+        <div id="fib-legend" class="legend"></div>
+        <div id="fib-chart"></div>
+        <div id="fib-table" class="table-wrap" hidden></div>
+        <p id="fib-note" class="card-note"></p>
+      </section>
+
+      <section class="card" aria-labelledby="h-wave">
+        <div class="card-head">
+          <div>
+            <h2 id="h-wave">파동 판단</h2>
+            <p class="sub">직전 저점과 고점을 기준으로 4시간봉 종가가 피보나치 라인 어디에 있는지 봐요</p>
+          </div>
+        </div>
+        <div id="m-waves" class="wave-grid"></div>
+        <p id="m-read" class="card-note"></p>
+      </section>
+
+      <section class="card" aria-labelledby="h-zone">
+        <div class="card-head">
+          <div>
+            <h2 id="h-zone">지지·저항 구간</h2>
+            <p class="sub">현재가 기준으로 위쪽은 저항, 아래쪽은 지지예요. 겹침은 서로 다른 파동에서 온 라인의 수예요</p>
+          </div>
+        </div>
+        <div id="m-zones" class="table-wrap"></div>
+      </section>
+
+      <section class="card" aria-labelledby="h-stoch">
+        <div class="card-head">
+          <div>
+            <h2 id="h-stoch">스토캐스틱 RSI 현황</h2>
+            <p class="sub">일봉·4시간봉·1시간봉의 단기·중기·장기 (마감된 캔들 기준)</p>
+          </div>
+        </div>
+        <div id="m-stoch"></div>
+      </section>
+
+      <section class="card" aria-labelledby="h-how">
+        <div class="card-head"><h2 id="h-how">이 분석을 읽는 법</h2></div>
+        <ul class="howto">
+          <li>피보나치 라인은 저점을 0, 고점을 1로 놓고 계산해요. 상승 파동에서는 0.618 라인 위를 지키면 상승 지속, 종가가 0.382 라인 아래로 마감되면 상승이 무마된 것으로 봐요. 하락 파동은 반대로 봐요.</li>
+          <li>겹침이 많은 구간일수록 여러 파동이 같은 가격을 가리키는 자리라 반응이 나올 가능성이 커요. 다만 확률을 보장하지는 않아요.</li>
+          <li>스토캐스틱 RSI에서 %K가 20 이하면 저점권, 80 이상이면 고점권이에요. %K가 %D를 위로 뚫으면 골든크로스, 아래로 뚫으면 데드크로스예요 (최근 3개 캔들 안에 나온 것만 표시).</li>
+          <li>모든 판단은 마감된 캔들 기준이에요. 현재가는 라인까지의 거리를 재는 데만 써요. 일봉은 한국시간 오전 9시에, 4시간봉은 9·13·17·21·1·5시에 마감돼요.</li>
+          <li>이 탭은 시간당 한 번 갱신되고, 같은 내용이 매일 오전 8시에 텔레그램으로도 와요.</li>
+        </ul>
+      </section>
+    </div>
   </main>
 
   <footer>자동 스캔 결과를 정리한 참고 자료이며 투자 권유가 아닙니다. 표시 시각은 모두 한국시간(KST)이에요.</footer>
@@ -652,7 +770,383 @@ function renderAll() {
   renderTracking(d);
   renderHistory(d);
   renderScans(d);
+  renderMacro(d);
 }
+
+/* ---------- 비트코인 분석 탭 ---------- */
+const STARS = { 1: '★', 2: '★★', 3: '★★★', 4: '★★★★' };
+const BIAS_MARK = { bull: '▲', neutral: '■', bear: '▼' };
+const STATE_MARK = { golden: '▲', dead: '▼', up: '↗', down: '↘' };
+const FRAME_FULL = { day: '일봉', '4h': '4시간봉', '1h': '1시간봉' };
+const PERIOD_FULL = { short: '단기', mid: '중기', long: '장기' };
+const PERIOD_SET = { short: '3·3·5·5', mid: '6·6·10·10', long: '12·12·20·20' };
+const MACRO_STALE_MINUTES = 90;
+let macroBars = 180;
+
+const utcMs = (iso) => Date.parse(/Z|[+-]\d\d:\d\d$/.test(iso) ? iso : iso + 'Z');
+// 4시간봉의 time은 '마감 시각(UTC)'이라, 캔들이 시작된 한국시간으로 바꿔 보여준다
+function candleStartKst(closeMs) {
+  const d = new Date(closeMs - 4 * 3600e3 + 9 * 3600e3).toISOString();
+  return { date: d.slice(5, 10), hm: d.slice(11, 16) };
+}
+function priceRange(z) { return z.low === z.high ? nf0.format(z.price) : `${nf0.format(z.low)} ~ ${nf0.format(z.high)}`; }
+
+function renderMacroTiles(m) {
+  const host = $('#m-tiles');
+  const wv = m.fib.waves;
+  const waveTile = (label, w) => (w
+    ? tile(label, [`${BIAS_MARK[w.bias]} ${w.label}`],
+        `${nf0.format(w.start.price)} → ${nf0.format(w.end.price)} · 0.618 라인 ${nf0.format(w.lines['0.618'])}`)
+    : tile(label, ['—'], '파동을 찾지 못했어요'));
+  const ch = m.change_24h_pct;
+  const stale = minutesSince(m.generated_at) > MACRO_STALE_MINUTES;
+  host.replaceChildren(
+    tile('BTC 현재가 (USDT)', [nf0.format(m.price)],
+      ch == null ? '실시간 체결가' : `24시간 ${ch >= 0 ? '▲ +' : '▼ '}${ch.toFixed(2)}% · 실시간 체결가`),
+    waveTile('큰 파동 (3개월)', wv.large),
+    waveTile('작은 파동 (최근)', wv.small),
+    tile('분석 갱신', stale ? [statusIcon('warn'), ago(m.generated_at)] : [ago(m.generated_at)],
+      `${kst(m.generated_at)} KST${stale ? ' · 갱신이 늦어지고 있어요' : ' · 시간당 한 번 갱신'}`),
+  );
+}
+
+function fibLegend() {
+  const sw = (style, text) => h('span', {}, h('span', { class: 'swatch', style }), text);
+  return [
+    sw('border-top:3px solid var(--s1)', '지지 구간'),
+    sw('border-top:3px solid var(--s2)', '저항 구간'),
+    h('span', { text: '굵을수록 겹침 많음 · 점선은 겹침 1개' }),
+    sw('border-top:2px dashed var(--ink)', '큰 파동'),
+    sw('border-top:2px dotted var(--ink2)', '작은 파동'),
+    sw('border-top:1px solid var(--ink)', '현재가'),
+  ];
+}
+
+function mountFibChart(host, m, bars) {
+  const H = 400;
+  const tip = h('div', { class: 'tooltip', hidden: true });
+  const box = h('div', { class: 'chart-host' });
+  host.replaceChildren(box);
+  box.append(tip);
+
+  const c = m.chart, step = c.step_seconds;
+  const n = Math.min(bars, c.ohlc.length), off = c.ohlc.length - n;
+  const candles = c.ohlc.slice(off);
+  const closeMs = (i) => (c.first_close_ts + (off + i) * step) * 1000;
+  const zones = [...m.fib.supports, ...m.fib.resistances];
+  const nearest = { support: m.fib.supports[0], resistance: m.fib.resistances[0] };
+  // 축 범위에는 겹침 2개 이상이거나 각 방향에서 가장 가까운 구간만 반영 (먼 약한 라인 때문에 캔들이 납작해지지 않게)
+  const relevant = zones.filter((z) => Math.abs(z.distance_pct) <= 12 && (z.count >= 2 || z === nearest[z.side]));
+  let scale = null, hover = null, focusIdx = null;
+
+  function render() {
+    const W = box.clientWidth;
+    if (W < 120) return;
+    box.querySelector('svg')?.remove();
+    const narrow = W < 520;
+    const M = { l: 58, r: narrow ? 12 : 132, t: 12, b: 28 };
+    const iw = W - M.l - M.r, ih = H - M.t - M.b;
+
+    let lo = Math.min(...candles.map((k) => k[2])), hi = Math.max(...candles.map((k) => k[1]));
+    for (const z of relevant) { lo = Math.min(lo, z.low); hi = Math.max(hi, z.high); }
+    lo = Math.min(lo, m.price); hi = Math.max(hi, m.price);
+    const pad = (hi - lo) * 0.05;
+    const ticks = niceTicks(lo - pad, hi + pad, 6);
+    const y0 = ticks[0], y1 = ticks[ticks.length - 1];
+    const sx = (i) => M.l + ((i + 0.5) / n) * iw;
+    const sy = (v) => M.t + ih - ((v - y0) / (y1 - y0)) * ih;
+    scale = { sx, W, M, iw, n };
+
+    const svg = s('svg', {
+      viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: 'img', tabindex: '0',
+      'aria-label': `비트코인 4시간봉 최근 ${n}개와 피보나치 지지·저항 구간`,
+    });
+    svg.append(s('defs', {}, s('clipPath', { id: 'fib-clip' }, s('rect', { x: M.l, y: M.t, width: iw, height: ih }))));
+
+    for (const t of ticks) {
+      svg.append(s('line', { x1: M.l, x2: M.l + iw, y1: sy(t), y2: sy(t), style: 'stroke:var(--grid);stroke-width:1' }));
+      svg.append(s('text', { x: M.l - 8, y: sy(t) + 4, 'text-anchor': 'end', style: 'fill:var(--muted);font-size:11px;font-variant-numeric:tabular-nums' }, nf0.format(t)));
+    }
+    svg.append(s('line', { x1: M.l, x2: M.l + iw, y1: M.t + ih, y2: M.t + ih, style: 'stroke:var(--axis);stroke-width:1' }));
+
+    // x축: 한국시간 날짜가 바뀌는 캔들에 눈금
+    const dates = candles.map((_, i) => candleStartKst(closeMs(i)).date);
+    let xTicks = dates.map((dt, i) => (i === 0 || dt !== dates[i - 1] ? i : -1)).filter((i) => i >= 0);
+    const maxTicks = Math.max(2, Math.floor(iw / 64));
+    if (xTicks.length > maxTicks) {
+      const k = Math.ceil(xTicks.length / maxTicks);
+      xTicks = xTicks.filter((_, j) => (xTicks.length - 1 - j) % k === 0);
+    }
+    for (const i of xTicks) svg.append(s('text', { x: sx(i), y: H - 8, 'text-anchor': 'middle', style: 'fill:var(--muted);font-size:11px' }, dates[i]));
+
+    // 지지·저항 구간: 캔들 뒤에 깔아 캔들이 가리지 않게 한다
+    const labels = [];
+    for (const z of zones) {
+      if (z.price < y0 || z.price > y1) continue;
+      const color = z.side === 'support' ? 'var(--s1)' : 'var(--s2)';
+      const yc = sy(z.price), band = Math.max(3, sy(z.low) - sy(z.high));
+      svg.append(s('rect', { x: M.l, y: yc - band / 2, width: iw, height: band, style: `fill:${color};opacity:${0.07 + 0.05 * z.strength}` }));
+      svg.append(s('line', {
+        x1: M.l, x2: M.l + iw, y1: yc, y2: yc,
+        style: `stroke:${color};stroke-width:${[0, 1, 1.6, 2.4, 3.4][z.strength]};opacity:${[0, 0.6, 0.78, 0.92, 1][z.strength]}`
+          + (z.count === 1 ? ';stroke-dasharray:4 3' : ''),
+      }));
+      labels.push({ y: yc, z });
+    }
+
+    // 캔들 (화면 전체와 같은 상승=초록/하락=빨강. 값은 툴팁과 표에서 확인)
+    const bw = Math.max(1, Math.min(8, (iw / n) * 0.62));
+    candles.forEach(([o, hh, ll, cc], i) => {
+      const col = cc >= o ? 'var(--good)' : 'var(--bad)';
+      const x = sx(i);
+      svg.append(s('line', { x1: x, x2: x, y1: sy(hh), y2: sy(ll), style: `stroke:${col};stroke-width:1` }));
+      const top = sy(Math.max(o, cc));
+      svg.append(s('rect', { x: x - bw / 2, y: top, width: bw, height: Math.max(1, sy(Math.min(o, cc)) - top), style: `fill:${col}` }));
+    });
+
+    // 큰/작은 파동의 고점-저점 연결선 (창 밖으로 나가는 부분은 잘라낸다)
+    const legs = s('g', { 'clip-path': 'url(#fib-clip)' });
+    for (const [wave, dash, colr] of [['large', '7 4', 'var(--ink)'], ['small', '2 3', 'var(--ink2)']]) {
+      const pts = (m.fib.pivots[wave] || []).map((p) => ({
+        x: sx(Math.round((utcMs(p.time) / 1000 - c.first_close_ts) / step - off)), y: sy(p.price),
+      }));
+      if (pts.length > 1) {
+        legs.append(s('path', { d: pts.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(''),
+          style: `fill:none;stroke:${colr};stroke-width:1.6;stroke-dasharray:${dash}` }));
+      }
+      for (const p of pts) legs.append(s('circle', { cx: p.x, cy: p.y, r: 3.5, style: `fill:${colr};stroke:var(--surface);stroke-width:2` }));
+    }
+    svg.append(legs);
+
+    // 현재가
+    const yp = sy(m.price);
+    svg.append(s('line', { x1: M.l, x2: M.l + iw, y1: yp, y2: yp, style: 'stroke:var(--ink);stroke-width:1' }));
+
+    // 오른쪽 라벨 (좁은 화면에서는 아래 표가 대신함). 서로 12px 이상 떨어진 것만
+    if (!narrow) {
+      const all = [...labels.map((l) => ({ y: l.y, text: `${nf0.format(l.z.price)} ${STARS[l.z.strength]}`, weight: 400 })),
+        { y: yp, text: `현재 ${nf0.format(m.price)}`, weight: 700 }].sort((a, b) => a.y - b.y);
+      let lastY = -99;
+      for (const l of all) {
+        if (l.y - lastY < 12 && l.weight !== 700) continue;
+        svg.append(s('text', { x: M.l + iw + 8, y: l.y + 4, style: `fill:var(--ink2);font-size:11.5px;font-weight:${l.weight};font-variant-numeric:tabular-nums` }, l.text));
+        lastY = l.y;
+      }
+    }
+
+    const cross = s('line', { y1: M.t, y2: M.t + ih, style: 'stroke:var(--axis);stroke-width:1', visibility: 'hidden' });
+    svg.append(cross);
+    const hit = s('rect', { x: M.l, y: 0, width: iw, height: H, fill: 'transparent' });
+    svg.append(hit);
+    hover = { cross };
+    box.insertBefore(svg, tip);
+
+    const idxAt = (clientX) => {
+      const rect = svg.getBoundingClientRect();
+      return Math.max(0, Math.min(n - 1, Math.floor(((clientX - rect.left - M.l) / iw) * n)));
+    };
+    hit.addEventListener('pointermove', (ev) => show(idxAt(ev.clientX)));
+    hit.addEventListener('pointerleave', hide);
+    svg.addEventListener('focus', () => { focusIdx = n - 1; show(focusIdx); });
+    svg.addEventListener('blur', hide);
+    svg.addEventListener('keydown', (ev) => {
+      if (ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') {
+        ev.preventDefault();
+        focusIdx = Math.min(n - 1, Math.max(0, (focusIdx ?? n - 1) + (ev.key === 'ArrowLeft' ? -1 : 1)));
+        show(focusIdx);
+      } else if (ev.key === 'Escape') hide();
+    });
+  }
+
+  function show(i) {
+    if (!scale || !hover) return;
+    const X = scale.sx(i);
+    hover.cross.setAttribute('x1', X); hover.cross.setAttribute('x2', X);
+    hover.cross.setAttribute('visibility', 'visible');
+    const [o, hh, ll, cc] = candles[i];
+    const st = candleStartKst(closeMs(i));
+    const row = (name, v) => h('div', { class: 't-row' }, h('span', { class: 'name', text: name }), h('span', { class: 'val', text: nf0.format(v) }));
+    tip.replaceChildren(h('div', { class: 't-title', text: `${st.date} ${st.hm} 봉 (한국시간 시작)` }),
+      row('시가', o), row('고가', hh), row('저가', ll), row('종가', cc),
+      h('div', { class: 't-foot', text: `봉 등락 ${cc >= o ? '▲ +' : '▼ '}${((cc / o - 1) * 100).toFixed(2)}%` }));
+    tip.hidden = false;
+    const tw = tip.offsetWidth;
+    let left = X + 14;
+    if (left + tw > scale.W - 4) left = X - 14 - tw;
+    tip.style.left = Math.max(4, left) + 'px';
+    tip.style.top = '14px';
+  }
+  function hide() {
+    tip.hidden = true;
+    if (hover) hover.cross.setAttribute('visibility', 'hidden');
+  }
+
+  const ro = new ResizeObserver(() => requestAnimationFrame(render));
+  ro.observe(box);
+  render();
+  return { render, destroy: () => ro.disconnect() };
+}
+
+let fibChart = null;
+function renderFib(m) {
+  const chartEl = $('#fib-chart'), tableEl = $('#fib-table');
+  fibChart?.destroy();
+  chartEl.hidden = false; tableEl.hidden = true;
+  const toggle = $('[data-toggle="fib"]');
+  toggle.setAttribute('aria-pressed', 'false'); toggle.textContent = '표로 보기';
+  $('#fib-legend').replaceChildren(...fibLegend());
+
+  if (!m.chart || !m.chart.ohlc || !m.chart.ohlc.length) {
+    chartEl.replaceChildren(empty('4시간봉 데이터가 없어요.'));
+    fibChart = null; return;
+  }
+  fibChart = mountFibChart(chartEl, m, macroBars);
+  charts.push(fibChart);
+
+  const c = m.chart;
+  const rows = c.ohlc.slice(-72).map((k, j, arr) => {
+    const i = c.ohlc.length - arr.length + j;
+    const st = candleStartKst((c.first_close_ts + i * c.step_seconds) * 1000);
+    return [`${st.date} ${st.hm}`, ...k.map((v) => nf0.format(v))];
+  }).reverse();
+  tableEl.replaceChildren(buildTable(['봉 시작(KST)', '시가', '고가', '저가', '종가'], rows));
+  wireToggle('fib', chartEl, tableEl, () => fibChart && fibChart.render());
+  $('#fib-note').textContent = `마지막 마감 4시간봉 종가 ${nf0.format(m.fib.basis_close)} 기준으로 판단해요 (현재가는 실시간 체결가).`;
+}
+
+function positionBar(w) {
+  // 저점=0, 고점=1 눈금 위에 0.382·0.5·0.618 라인과 현재 종가 위치를 그린다. 낮은 쪽은 약세, 높은 쪽은 강세 영역.
+  const W = 260, H = 34, x = (v) => 6 + Math.max(0, Math.min(1, v)) * (W - 12);
+  const f = w.position;
+  const svg = s('svg', { viewBox: `0 0 ${W} ${H}`, width: '100%', height: H, 'aria-hidden': 'true', style: 'max-width:340px' },
+    s('rect', { x: x(0), y: 8, width: x(0.382) - x(0), height: 8, style: 'fill:color-mix(in srgb, var(--bad) 28%, transparent)' }),
+    s('rect', { x: x(0.382), y: 8, width: x(0.618) - x(0.382), height: 8, style: 'fill:var(--grid)' }),
+    s('rect', { x: x(0.618), y: 8, width: x(1) - x(0.618), height: 8, style: 'fill:color-mix(in srgb, var(--good) 28%, transparent)' }));
+  for (const r of [0, 0.382, 0.5, 0.618, 1]) {
+    svg.append(s('line', { x1: x(r), x2: x(r), y1: 6, y2: 18, style: 'stroke:var(--axis);stroke-width:1' }));
+    svg.append(s('text', { x: x(r), y: 30, 'text-anchor': 'middle', style: 'fill:var(--muted);font-size:10.5px' }, String(r)));
+  }
+  svg.append(s('circle', { cx: x(f), cy: 12, r: 5, style: 'fill:var(--ink);stroke:var(--surface);stroke-width:2' }));
+  return svg;
+}
+
+function renderWaves(m) {
+  const host = $('#m-waves');
+  const items = [['large', '큰 파동'], ['small', '작은 파동']].filter(([k]) => m.fib.waves[k]);
+  if (!items.length) { host.replaceChildren(empty('파동을 충분히 찾지 못했어요.')); $('#m-read').textContent = ''; return; }
+  host.replaceChildren(...items.map(([key, name]) => {
+    const w = m.fib.waves[key];
+    const lowHigh = (p) => `${nf0.format(p.price)} (${candleStartKst(utcMs(p.time)).date})`;
+    const ends = w.direction === 'up' ? ['저점', '고점'] : ['고점', '저점'];
+    return h('div', { class: 'wave' },
+      h('div', { class: 'wave-head' },
+        h('span', { class: 'wave-name', text: `${name} · ${w.direction === 'up' ? '상승' : '하락'} 파동` }),
+        h('span', { class: `verdict ${w.bias}`, text: `${BIAS_MARK[w.bias]} ${w.label}` })),
+      h('p', { class: 'wave-text', text: w.text }),
+      positionBar(w),
+      h('dl', { class: 'facts' },
+        h('dt', { text: ends[0] }), h('dd', { text: lowHigh(w.start) }),
+        h('dt', { text: ends[1] }), h('dd', { text: lowHigh(w.end) + (w.end.provisional ? ' · 진행 중' : '') }),
+        h('dt', { text: '0.618 라인' }), h('dd', { text: nf0.format(w.lines['0.618']) }),
+        h('dt', { text: '0.5 라인' }), h('dd', { text: nf0.format(w.lines['0.5']) }),
+        h('dt', { text: '0.382 라인' }), h('dd', { text: nf0.format(w.lines['0.382']) }),
+        h('dt', { text: '종가 위치' }), h('dd', { text: `${w.position.toFixed(2)} (저점 0 · 고점 1 기준)` })));
+  }));
+  $('#m-read').textContent = m.fib.read;
+}
+
+function renderZones(m) {
+  const host = $('#m-zones');
+  const res = [...m.fib.resistances].reverse();   // 위쪽부터 (가격 높은 순)
+  const sup = m.fib.supports;                      // 현재가에 가까운 순 = 가격 높은 순
+  if (!res.length && !sup.length) { host.replaceChildren(empty('현재가 주변에 겹치는 라인이 없어요.')); return; }
+  const memberText = (z) => [...new Set(z.members.map((mm) => `${mm.desc} · ${mm.ratio}${mm.kind === 'ext' ? ' 확장' : ''}`))].join(' / ');
+  const zoneRow = (z, label) => h('tr', { class: `zone-${z.strength}` },
+    h('td', { text: label }),
+    h('td', { class: 'num', text: priceRange(z) }),
+    h('td', { class: 'num', text: `${z.distance_pct > 0 ? '+' : ''}${z.distance_pct.toFixed(2)}%` }),  // 위/아래 방향일 뿐이라 색을 쓰지 않는다
+    h('td', { text: `${STARS[z.strength]} ${z.strength_label} (${z.count}개 겹침)` }),
+    h('td', { class: 'members', text: memberText(z) }));
+  host.replaceChildren(h('table', {},
+    h('thead', {}, h('tr', {}, ['구분', '가격(USDT)', '현재가 대비', '겹침', '구성 라인'].map((t, i) => h('th', { class: i === 1 || i === 2 ? 'num' : '', text: t })))),
+    h('tbody', {},
+      res.map((z) => zoneRow(z, '저항')),
+      h('tr', { class: 'divider' }, h('td', { colspan: 5, text: `현재가 ${nf0.format(m.price)}` })),
+      sup.map((z) => zoneRow(z, '지지')))));
+}
+
+function gauge(cell) {
+  const W = 150, H = 18, x = (v) => 4 + (Math.max(0, Math.min(100, v)) / 100) * (W - 8);
+  return s('svg', { viewBox: `0 0 ${W} ${H}`, width: W, height: H, 'aria-hidden': 'true' },
+    s('rect', { x: 4, y: 6, width: W - 8, height: 6, rx: 3, style: 'fill:var(--grid)' }),
+    s('rect', { x: x(0), y: 6, width: x(20) - x(0), height: 6, style: 'fill:color-mix(in srgb, var(--s1) 40%, transparent)' }),
+    s('rect', { x: x(80), y: 6, width: x(100) - x(80), height: 6, style: 'fill:color-mix(in srgb, var(--s2) 40%, transparent)' }),
+    s('circle', { cx: x(cell.d), cy: 9, r: 4, style: 'fill:var(--surface);stroke:var(--ink);stroke-width:1.5' }),
+    s('circle', { cx: x(cell.k), cy: 9, r: 4, style: 'fill:var(--ink);stroke:var(--surface);stroke-width:2' }));
+}
+
+function renderStoch(m) {
+  const host = $('#m-stoch');
+  const st = m.stoch;
+  const blocks = ['day', '4h', '1h'].map((frame) => {
+    const fr = st.frames[frame];
+    const cells = ['short', 'mid', 'long'].map((name) => {
+      const c = fr.cells[name];
+      if (!c) return h('div', { class: 'cell' }, h('div', { class: 'cell-name', text: PERIOD_FULL[name] }), h('div', { class: 'muted', text: '데이터 부족' }));
+      const when = c.bars_ago == null ? '' : ` · ${c.bars_ago === 0 ? '방금 마감된 캔들' : `${c.bars_ago}개 캔들 전`}`;
+      return h('div', { class: `cell ${c.bias}` },
+        h('div', { class: 'cell-name', text: `${PERIOD_FULL[name]} (${PERIOD_SET[name]})` }),
+        h('div', { class: 'cell-state', text: `${STATE_MARK[c.state]} ${c.text}` }),
+        gauge(c),
+        h('div', { class: 'cell-num', text: `%K ${c.k.toFixed(1)} · %D ${c.d.toFixed(1)}${when}` }));
+    });
+    return h('div', { class: 'stoch-frame' }, h('h3', { text: FRAME_FULL[frame] }),
+      h('div', { class: 'stoch-cells' }, cells), h('p', { class: 'stoch-read', text: fr.read }));
+  });
+  const chips = (st.highlights || []).map((t) => h('span', { class: 'pill', text: t }));
+  host.replaceChildren(...blocks,
+    h('p', { class: 'card-note', text: `${st.overall} 게이지의 ● 는 %K, ○ 는 %D이고 파란 칸은 저점권(20 이하), 주황 칸은 고점권(80 이상)이에요.` }),
+    chips.length ? h('div', { class: 'chips', 'aria-label': '주목할 신호' }, chips) : null);
+}
+
+function renderMacro(d) {
+  const m = d.macro;
+  $('#m-empty').hidden = !!m;
+  $('#m-body').hidden = !m;
+  if (!m) return;
+  renderMacroTiles(m);
+  renderFib(m);
+  renderWaves(m);
+  renderZones(m);
+  renderStoch(m);
+}
+
+/* ---------- 탭 ---------- */
+function selectTab(name, updateHash = true) {
+  $('#view-recs').hidden = name !== 'recs';
+  $('#view-macro').hidden = name !== 'macro';
+  document.querySelectorAll('.tab').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
+  if (updateHash) {
+    try { history.replaceState(null, '', name === 'macro' ? '#macro' : location.pathname + location.search); } catch (e) { /* 무시 */ }
+  }
+}
+document.querySelectorAll('.tab').forEach((b) => {
+  b.addEventListener('click', () => selectTab(b.dataset.tab));
+  b.addEventListener('keydown', (ev) => {
+    if (ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight') return;
+    const next = b.dataset.tab === 'recs' ? 'macro' : 'recs';
+    selectTab(next); $(`#tab-${next}`).focus();
+  });
+});
+selectTab(location.hash === '#macro' ? 'macro' : 'recs', false);
+
+$('#m-range').addEventListener('click', (ev) => {
+  const btn = ev.target.closest('button[data-bars]');
+  if (!btn || !DATA || !DATA.macro) return;
+  macroBars = Number(btn.dataset.bars);
+  document.querySelectorAll('#m-range button').forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
+  renderFib(DATA.macro);
+});
 
 /* ---------- 테마, 로딩 ---------- */
 const root = document.documentElement;
@@ -680,7 +1174,7 @@ async function load() {
 }
 load();
 setInterval(load, 5 * 60 * 1000);
-setInterval(() => { if (DATA) renderTiles(DATA); }, 30 * 1000);
+setInterval(() => { if (DATA) { renderTiles(DATA); if (DATA.macro) renderMacroTiles(DATA.macro); } }, 30 * 1000);
 })();
 </script>
 </body>

@@ -49,6 +49,17 @@ EXIT_STOP_LOSS_PCT = _env_float("EXIT_STOP_LOSS_PCT", None)  # 추천가 대비 
 EXIT_TRAIL_ARM_PCT = _env_float("EXIT_TRAIL_ARM_PCT", None)  # 최고 수익이 +X%를 넘으면 되돌림 감시 시작
 EXIT_TRAIL_DD_PCT = _env_float("EXIT_TRAIL_DD_PCT", None)  # 고점 대비 -Y% 되돌리면 종료 (ARM과 함께 지정)
 
+# 비트코인 매크로 분석(피보나치 지지·저항 + 스토캐스틱 RSI 현황). 대시보드용 분석은 이 간격(분)마다 새로 계산한다
+# (스캔이 15분마다 돌아도 분석은 시간당 한 번 — 4시간봉/1시간봉이 그 이상 자주 바뀌지 않는다).
+# 발송 시각 정각에 딱 맞춰 돌지는 않아서 55분으로 잡아 실제 갱신이 시간당 한 번이 되게 한다.
+MACRO_REFRESH_MINUTES = _env_float("MACRO_REFRESH_MINUTES", 55) or 55
+# 매일 이 시각(한국시간, 시) 이후 첫 스캔에서 비트코인 매크로 브리핑을 텔레그램으로 보낸다 (기본 8시).
+# 끄려면 값을 'off'로 둔다 (GitHub Actions 저장소 변수 MACRO_BRIEFING_HOUR). 숫자가 아닌 값은 기본값으로 본다.
+_raw_hour = (os.environ.get("MACRO_BRIEFING_HOUR") or "").strip().lower()
+MACRO_BRIEFING_HOUR: int | None = None if _raw_hour in ("off", "none", "false") else (
+    int(_raw_hour) if _raw_hour.isdigit() and 0 <= int(_raw_hour) <= 23 else 8
+)
+
 # 프레임 축(하드 게이트) 가중치: 일봉 > 4시간 > 1시간
 FRAME_WEIGHTS = {"day": 3, "4h": 2, "1h": 1}
 FRAME_ORDER = ("day", "4h", "1h")  # 게이트를 타는 순서 (상위 -> 하위)

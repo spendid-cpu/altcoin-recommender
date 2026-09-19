@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import aiohttp
 import pandas as pd
 
-from src import config, price_tracker, scan_log
+from src import config, macro_job, price_tracker, scan_log
 from src.btc_trend import days_above_ma, is_trend_favorable
 from src.exchanges import binance_client
 
@@ -161,6 +161,7 @@ async def main(out_path: Path) -> None:
         "generated_at": now.astimezone(KST).isoformat(),
         "last_scan_at": scans[0]["ran_at"] if scans else state_updated_at,
         "btc": btc,
+        "macro": macro_job.load_cached(),  # 비트코인 분석 탭 (스캔이 시간당 한 번 갱신해 둔 저장본)
         "candidates": candidates,
         "recommendations": recs,
         "summary": build_summary(recs),
