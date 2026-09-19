@@ -21,7 +21,7 @@ import pandas as pd
 
 from src import config
 from src.btc_trend import days_above_ma, is_trend_favorable
-from src.indicators.stoch_rsi import stoch_rsi_all_periods
+from src.indicators.stoch_rsi import rsi as rsi_series, stoch_rsi_all_periods
 from src.scoring import EPS, _crossed_up_series
 
 # ---------------- 피보나치 설정 ----------------
@@ -56,6 +56,13 @@ OVERSOLD = float(config.OVERSOLD_THRESHOLD)
 OVERBOUGHT = 100.0 - OVERSOLD
 
 CHART_SHOWN_BARS = CANDLES_4H  # 차트에 담는 4시간봉
+
+# ---------------- 멀티 차트 (일봉/4시간/1시간을 나란히: 캔들 + 이동평균선 + 스토캐스틱 3종 + RSI) ----------------
+PANEL_BARS = 150  # 프레임마다 그리는 캔들 수
+MA_LENGTHS = (5, 20, 60, 120)
+RSI_LENGTH = 14
+# 일반 스토캐스틱(가격 기준) 설정 (길이, 스무스K, 스무스D) — 업비트/인베스팅 차트 강의 영상에서 쓰는 값
+PLAIN_STOCH = {"short": (5, 3, 3), "mid": (10, 6, 6), "long": (20, 12, 12)}
 
 
 # =====================================================================================
@@ -529,6 +536,34 @@ def _chart(df: pd.DataFrame, bars: int = CHART_SHOWN_BARS, step_hours: int = 4) 
     }
 
 
+def stoch_plain(df: pd.DataFrame, length: int, smooth_k: int, smooth_d: int) -> pd.DataFrame:
+    """일반 스토캐스틱(가격 기준, 트레이딩뷰 Stoch(길이, 스무스K, 스무스D))."""
+    lowest, highest = df["low"].rolling(length).min(), df["high"].rolling(length).max()
+    k = ((df["close"] - lowest) / (highest - lowest) * 100).rolling(smooth_k).mean()
+    return pd.DataFrame({"k": k, "d": k.rolling(smooth_d).mean()})
+
+
+def _tail_list(series: pd.Series, bars: int, digits: int = 1) -> list:
+    """차트에 담을 마지막 bars개 값. 계산 불가(NaN)는 None으로 둔다."""
+    return [None if pd.isna(v) else round(float(v), digits) for v in series.tail(bars)]
+
+
+def build_panel(df: pd.DataFrame, step_hours: int) -> dict:
+    """한 프레임(일봉/4시간/1시간)의 멀티 차트 데이터. 지표는 전체 이력으로 계산한 뒤 마지막 PANEL_BARS개만 담는다."""
+    close = df["close"]
+    srsi = stoch_rsi_all_periods(close)
+    return {
+        **_chart(df, PANEL_BARS, step_hours),
+        "ma": {str(n): _tail_list(close.rolling(n).mean(), PANEL_BARS, 0) for n in MA_LENGTHS},
+        "srsi": {name: {"k": _tail_list(v["k"], PANEL_BARS), "d": _tail_list(v["d"], PANEL_BARS)} for name, v in srsi.items()},
+        "stoch": {
+            name: {"k": _tail_list(s["k"], PANEL_BARS), "d": _tail_list(s["d"], PANEL_BARS)}
+            for name, params in PLAIN_STOCH.items() for s in [stoch_plain(df, *params)]
+        },
+        "rsi": _tail_list(rsi_series(close, RSI_LENGTH), PANEL_BARS),
+    }
+
+
 def analyse(
     day: pd.DataFrame, h4: pd.DataFrame, h1: pd.DataFrame, price: float, h4_chart: pd.DataFrame | None = None
 ) -> dict:
@@ -550,4 +585,5 @@ def analyse(
         "chart": _chart(h4_chart if h4_chart is not None else h4),
         "fib_long": analyse_long(day, price),
         "chart_long": _chart(day, DAILY_CANDLES, 24),
+        "panels": {"day": build_panel(day, 24), "4h": build_panel(h4, 4), "1h": build_panel(h1, 1)},
     }

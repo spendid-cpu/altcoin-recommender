@@ -157,6 +157,10 @@
   .why-body { margin-top: 6px; line-height: 1.55; }
   .why-body ul { margin: 4px 0 4px; padding-left: 18px; }
   .ref-box { margin: 10px 0 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 12.5px; color: var(--ink2); }
+  /* 비트코인 멀티 차트 */
+  .mc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+  .mc-col { min-width: 0; border: 1px solid var(--border); border-radius: 10px; padding: 8px 6px 2px; }
+  .mc-title { font-size: 13px; margin: 0 0 4px 6px; }
   .stoch-frame { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
   .stoch-frame h3 { margin: 0 0 8px; font-size: 14px; font-weight: 650; }
   .stoch-cells { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
@@ -209,6 +213,7 @@
     <button id="tab-done" class="tab" role="tab" type="button" data-tab="done" aria-controls="view-done" aria-selected="false">완료</button>
     <button id="tab-perf" class="tab" role="tab" type="button" data-tab="perf" aria-controls="view-perf" aria-selected="false">성과 (익절·손절)</button>
     <button id="tab-macro" class="tab" role="tab" type="button" data-tab="macro" aria-controls="view-macro" aria-selected="false">비트코인 분석</button>
+    <button id="tab-chart" class="tab" role="tab" type="button" data-tab="chart" aria-controls="view-chart" aria-selected="false">비트코인 차트</button>
   </nav>
 
   <main id="view-recs" role="tabpanel" aria-labelledby="tab-recs">
@@ -392,6 +397,24 @@
         <li>익절선과 손절선을 같은 폭으로 두면 아무 종목이나 골랐을 때도 승률이 50% 안팎으로 나와요. 그래서 실제 승률이 그보다 뚜렷하게 높은지가 프로그램의 쓸모를 보는 기준이에요. 종료된 추천이 30건쯤 쌓이기 전에는 우연일 수 있어요.</li>
         <li>투자 권유가 아니에요. 정해 둔 기준에 도달했는지를 기록하는 화면이에요.</li>
       </ul>
+    </section>
+  </main>
+
+  <main id="view-chart" role="tabpanel" aria-labelledby="tab-chart" hidden>
+    <section class="card" aria-labelledby="h-mc">
+      <div class="card-head">
+        <div>
+          <h2 id="h-mc">비트코인 멀티 차트</h2>
+          <p class="sub">일봉·4시간봉·1시간봉을 나란히 보고, 이동평균선(5·20·60·120)과 스토캐스틱 3종(단기·중기·장기), RSI를 함께 봐요</p>
+        </div>
+        <div id="mc-mode" class="seg" role="group" aria-label="스토캐스틱 종류">
+          <button class="btn" type="button" data-mode="srsi" aria-pressed="true">스토캐스틱 RSI (분석 기준)</button>
+          <button class="btn" type="button" data-mode="stoch" aria-pressed="false">일반 스토캐스틱 (5·3·3 등)</button>
+        </div>
+      </div>
+      <div id="mc-legend" class="legend"></div>
+      <div id="mc-grid" class="mc-grid"></div>
+      <p id="mc-note" class="card-note"></p>
     </section>
   </main>
 
@@ -931,6 +954,7 @@ function renderAll() {
   renderScans(d);
   renderMacro(d);
   renderPerf(d);
+  renderMultiChart(d);
 }
 
 /* ---------- 비트코인 분석 탭 ---------- */
@@ -1439,8 +1463,215 @@ function renderPerf(d) {
     h('tbody', {}, rows)));
 }
 
+/* ---------- 비트코인 멀티 차트 (일봉·4시간·1시간 + 이동평균선 + 스토캐스틱 3종 + RSI) ---------- */
+const MC_FRAMES = [['day', '일봉'], ['4h', '4시간봉'], ['1h', '1시간봉']];
+const MC_MA = [['5', 'var(--s4)'], ['20', 'var(--s1)'], ['60', 'var(--s2)'], ['120', 'var(--s7)']];
+const MC_OSC = {
+  srsi: { short: '스토RSI 단기 K3·D3·RSI5·스토5', mid: '스토RSI 중기 K6·D6·RSI10·스토10', long: '스토RSI 장기 K12·D12·RSI20·스토20' },
+  stoch: { short: 'Stoch 단기 5·3·3', mid: 'Stoch 중기 10·6·6', long: 'Stoch 장기 20·12·12' },
+};
+let mcMode = 'srsi';
+let mcCharts = [];
+
+function mountMultiChart(host, p, mode, frameLabel) {
+  const barHours = p.step_seconds / 3600;
+  const n = p.ohlc.length;
+  const closeMs = (i) => (p.first_close_ts + i * p.step_seconds) * 1000;
+  const tip = h('div', { class: 'tooltip', hidden: true });
+  const box = h('div', { class: 'chart-host' });
+  host.replaceChildren(box);
+  box.append(tip);
+
+  const PANELS = [{ key: 'price', h: 210 }, { key: 'short', h: 58 }, { key: 'mid', h: 58 }, { key: 'long', h: 58 }, { key: 'rsi', h: 58 }];
+  const GAP = 6, M = { l: 46, r: 6, t: 6, b: 22 };
+  let scale = null, cross = null, focusIdx = null;
+
+  function render() {
+    const W = box.clientWidth;
+    if (W < 200) return;
+    box.querySelector('svg')?.remove();
+    const iw = W - M.l - M.r;
+    let y = M.t;
+    const pos = {};
+    for (const pn of PANELS) { pos[pn.key] = { top: y, h: pn.h }; y += pn.h + GAP; }
+    const H = y - GAP + M.b;
+    const sx = (i) => M.l + ((i + 0.5) / n) * iw;
+    scale = { sx, W, iw, n, H };
+    const svg = s('svg', {
+      viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: 'img', tabindex: '0',
+      'aria-label': `비트코인 ${frameLabel} 차트: 캔들, 이동평균선, 스토캐스틱 3종, RSI`,
+    });
+    const frame = (pn) => svg.append(s('rect', { x: M.l, y: pn.top, width: iw, height: pn.h, style: 'fill:none;stroke:var(--grid);stroke-width:1' }));
+    const pathOf = (arr, sy) => {
+      let d = '', pen = false;
+      arr.forEach((v, i) => {
+        if (v == null) { pen = false; return; }
+        d += `${pen ? 'L' : 'M'}${sx(i).toFixed(1)} ${sy(v).toFixed(1)}`;
+        pen = true;
+      });
+      return d;
+    };
+
+    // 가격 패널: 캔들 + 이동평균선
+    const vals = [];
+    p.ohlc.forEach((k) => { vals.push(k[1], k[2]); });
+    for (const [len] of MC_MA) p.ma[len].forEach((v) => { if (v != null) vals.push(v); });
+    const lo = Math.min(...vals), hi = Math.max(...vals), pad = (hi - lo) * 0.04;
+    const ticks = niceTicks(lo - pad, hi + pad, 5);
+    const y0 = ticks[0], y1 = ticks[ticks.length - 1];
+    const pr = pos.price;
+    const syP = (v) => pr.top + pr.h - ((v - y0) / (y1 - y0)) * pr.h;
+    frame(pr);
+    for (const tk of ticks) {
+      svg.append(s('line', { x1: M.l, x2: M.l + iw, y1: syP(tk), y2: syP(tk), style: 'stroke:var(--grid);stroke-width:1' }));
+      svg.append(s('text', { x: M.l - 6, y: syP(tk) + 3.5, 'text-anchor': 'end', style: 'fill:var(--muted);font-size:10px;font-variant-numeric:tabular-nums' }, nf0.format(tk)));
+    }
+    const bw = Math.max(1, Math.min(7, (iw / n) * 0.62));
+    p.ohlc.forEach(([o, hh, ll, cc], i) => {
+      const col = cc >= o ? 'var(--good)' : 'var(--bad)';
+      const x = sx(i), top = syP(Math.max(o, cc));
+      svg.append(s('line', { x1: x, x2: x, y1: syP(hh), y2: syP(ll), style: `stroke:${col};stroke-width:1` }));
+      svg.append(s('rect', { x: x - bw / 2, y: top, width: bw, height: Math.max(1, syP(Math.min(o, cc)) - top), style: `fill:${col}` }));
+    });
+    for (const [len, color] of MC_MA) {
+      svg.append(s('path', { d: pathOf(p.ma[len], syP), style: `fill:none;stroke:${color};stroke-width:1.4;stroke-linejoin:round` }));
+    }
+
+    // 스토캐스틱 3종 (단기·중기·장기)
+    for (const key of ['short', 'mid', 'long']) {
+      const pn = pos[key], sy = (v) => pn.top + pn.h - (v / 100) * pn.h;
+      frame(pn);
+      for (const g of [20, 80]) {
+        svg.append(s('line', { x1: M.l, x2: M.l + iw, y1: sy(g), y2: sy(g), style: 'stroke:var(--axis);stroke-width:1;stroke-dasharray:3 3' }));
+        svg.append(s('text', { x: M.l - 6, y: sy(g) + 3.5, 'text-anchor': 'end', style: 'fill:var(--muted);font-size:10px' }, String(g)));
+      }
+      const osc = p[mode][key];
+      svg.append(s('path', { d: pathOf(osc.d, sy), style: 'fill:none;stroke:var(--s2);stroke-width:1.4;stroke-linejoin:round' }));
+      svg.append(s('path', { d: pathOf(osc.k, sy), style: 'fill:none;stroke:var(--s1);stroke-width:1.4;stroke-linejoin:round' }));
+      svg.append(s('text', { x: M.l + 6, y: pn.top + 11, style: 'fill:var(--ink2);font-size:10.5px;paint-order:stroke;stroke:var(--surface);stroke-width:3px;stroke-linejoin:round' }, MC_OSC[mode][key]));
+    }
+
+    // RSI
+    const rp = pos.rsi, syR = (v) => rp.top + rp.h - (v / 100) * rp.h;
+    frame(rp);
+    for (const g of [30, 70]) {
+      svg.append(s('line', { x1: M.l, x2: M.l + iw, y1: syR(g), y2: syR(g), style: 'stroke:var(--axis);stroke-width:1;stroke-dasharray:3 3' }));
+      svg.append(s('text', { x: M.l - 6, y: syR(g) + 3.5, 'text-anchor': 'end', style: 'fill:var(--muted);font-size:10px' }, String(g)));
+    }
+    svg.append(s('path', { d: pathOf(p.rsi, syR), style: 'fill:none;stroke:var(--s7);stroke-width:1.4;stroke-linejoin:round' }));
+    svg.append(s('text', { x: M.l + 6, y: rp.top + 11, style: 'fill:var(--ink2);font-size:10.5px;paint-order:stroke;stroke:var(--surface);stroke-width:3px;stroke-linejoin:round' }, 'RSI 14'));
+
+    // x축 (일봉은 월 단위, 4시간·1시간봉은 날짜 단위)
+    const dates = p.ohlc.map((_, i) => candleStartKst(closeMs(i), barHours).date);
+    const monthly = barHours >= 24;
+    const keyOf = (dt) => (monthly ? dt.slice(0, 2) : dt);
+    let xTicks = dates.map((dt, i) => (i === 0 || keyOf(dt) !== keyOf(dates[i - 1]) ? i : -1)).filter((i) => i >= 0);
+    const maxTicks = Math.max(2, Math.floor(iw / 56));
+    if (xTicks.length > maxTicks) {
+      const k = Math.ceil(xTicks.length / maxTicks);
+      xTicks = xTicks.filter((_, j) => (xTicks.length - 1 - j) % k === 0);
+    }
+    for (const i of xTicks) svg.append(s('text', { x: sx(i), y: H - 7, 'text-anchor': 'middle', style: 'fill:var(--muted);font-size:10.5px' }, monthly ? `${Number(dates[i].slice(0, 2))}월` : dates[i]));
+
+    cross = s('line', { y1: M.t, y2: H - M.b, style: 'stroke:var(--axis);stroke-width:1', visibility: 'hidden' });
+    svg.append(cross);
+    const hit = s('rect', { x: M.l, y: 0, width: iw, height: H, fill: 'transparent' });
+    svg.append(hit);
+    box.insertBefore(svg, tip);
+
+    const idxAt = (clientX) => {
+      const rect = svg.getBoundingClientRect();
+      return Math.max(0, Math.min(n - 1, Math.floor(((clientX - rect.left - M.l) / iw) * n)));
+    };
+    hit.addEventListener('pointermove', (ev) => show(idxAt(ev.clientX)));
+    hit.addEventListener('pointerleave', hide);
+    svg.addEventListener('focus', () => { focusIdx = n - 1; show(focusIdx); });
+    svg.addEventListener('blur', hide);
+    svg.addEventListener('keydown', (ev) => {
+      if (ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') {
+        ev.preventDefault();
+        focusIdx = Math.min(n - 1, Math.max(0, (focusIdx ?? n - 1) + (ev.key === 'ArrowLeft' ? -1 : 1)));
+        show(focusIdx);
+      } else if (ev.key === 'Escape') hide();
+    });
+  }
+
+  function show(i) {
+    if (!scale || !cross) return;
+    const X = scale.sx(i);
+    cross.setAttribute('x1', X); cross.setAttribute('x2', X); cross.setAttribute('visibility', 'visible');
+    const [o, hh, ll, cc] = p.ohlc[i];
+    const st = candleStartKst(closeMs(i), barHours);
+    const fmt1 = (v) => (v == null ? '—' : v.toFixed(1));
+    const row = (name, v) => h('div', { class: 't-row' }, h('span', { class: 'name', text: name }), h('span', { class: 'val', text: v }));
+    const kd = (key) => `${fmt1(p[mode][key].k[i])} / ${fmt1(p[mode][key].d[i])}`;
+    tip.replaceChildren(
+      h('div', { class: 't-title', text: barHours >= 24 ? `${st.date} 일봉` : `${st.date} ${st.hm} 봉 (한국시간 시작)` }),
+      row('시가', nf0.format(o)), row('고가', nf0.format(hh)), row('저가', nf0.format(ll)), row('종가', nf0.format(cc)),
+      ...MC_MA.map(([len]) => row(`이평 ${len}`, p.ma[len][i] == null ? '—' : nf0.format(p.ma[len][i]))),
+      row('단기 %K / %D', kd('short')), row('중기 %K / %D', kd('mid')), row('장기 %K / %D', kd('long')),
+      row('RSI 14', fmt1(p.rsi[i])));
+    tip.hidden = false;
+    const tw = tip.offsetWidth;
+    let left = X + 14;
+    if (left + tw > scale.W - 4) left = X - 14 - tw;
+    tip.style.left = Math.max(4, left) + 'px';
+    tip.style.top = '14px';
+  }
+  function hide() {
+    tip.hidden = true;
+    if (cross) cross.setAttribute('visibility', 'hidden');
+  }
+
+  const ro = new ResizeObserver(() => requestAnimationFrame(render));
+  ro.observe(box);
+  render();
+  return { render, destroy: () => ro.disconnect() };
+}
+
+function renderMultiChart(d) {
+  const grid = $('#mc-grid');
+  mcCharts.forEach((c) => c.destroy());
+  mcCharts = [];
+  const m = d.macro;
+  $('#mc-legend').replaceChildren(
+    ...MC_MA.map(([len, color]) => h('span', {}, h('span', { class: 'swatch', style: `border-top:2px solid ${color}` }), `이동평균 ${len}`)),
+    h('span', {}, h('span', { class: 'swatch', style: 'border-top:2px solid var(--s1)' }), '%K'),
+    h('span', {}, h('span', { class: 'swatch', style: 'border-top:2px solid var(--s2)' }), '%D'),
+    h('span', {}, h('span', { class: 'swatch', style: 'border-top:2px solid var(--s7)' }), 'RSI 14'));
+  if (!m || !m.panels) {
+    grid.replaceChildren(empty('멀티 차트는 다음 갱신(최대 15분) 뒤에 표시돼요.'));
+    $('#mc-note').textContent = '';
+    return;
+  }
+  const cols = MC_FRAMES.map(([key, label]) => {
+    const p = m.panels[key];
+    const host = h('div', {});
+    const col = h('div', { class: 'mc-col' },
+      h('div', { class: 'mc-title' }, h('strong', { text: label }),
+        h('span', { class: 'muted', text: ` · 종가 ${nf0.format(p.ohlc[p.ohlc.length - 1][3])} · 최근 ${p.ohlc.length}개` })),
+      host);
+    return { col, host, p, label };
+  });
+  grid.replaceChildren(...cols.map((c) => c.col));
+  for (const c of cols) {
+    const chart = mountMultiChart(c.host, c.p, mcMode, c.label);
+    mcCharts.push(chart);
+    charts.push(chart);
+  }
+  $('#mc-note').textContent = '마감된 캔들 기준이에요 (트레이딩뷰는 진행 중인 캔들까지 그려서 마지막 봉이 다를 수 있어요). '
+    + '스토캐스틱 RSI는 대시보드 분석·추천에 쓰는 지표(RSI 기준)이고, 일반 스토캐스틱은 5·3·3 / 10·6·6 / 20·12·12 설정(가격 기준)이에요. 봉 위에 마우스를 올리면 값이 보여요.';
+}
+$('#mc-mode').addEventListener('click', (ev) => {
+  const btn = ev.target.closest('button[data-mode]');
+  if (!btn || !DATA) return;
+  mcMode = btn.dataset.mode;
+  document.querySelectorAll('#mc-mode button').forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
+  renderMultiChart(DATA);
+});
+
 /* ---------- 탭 ---------- */
-const TABS = ['recs', 'done', 'perf', 'macro'];
+const TABS = ['recs', 'done', 'perf', 'macro', 'chart'];
 function selectTab(name, updateHash = true) {
   for (const key of TABS) $(`#view-${key}`).hidden = key !== name;
   document.querySelectorAll('.tab').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
