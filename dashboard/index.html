@@ -137,8 +137,9 @@
   .facts dd { margin: 0; font-variant-numeric: tabular-nums; }
   td.members { white-space: normal; min-width: 220px; color: var(--ink2); font-size: 12.5px; }
   tr.divider td { background: color-mix(in srgb, var(--ink) 6%, transparent); font-weight: 600; text-align: center; }
-  tr.zone-3 td:not(.members), tr.zone-4 td:not(.members) { font-weight: 650; }
+  tr.zone-3 td:not(.members), tr.zone-4 td:not(.members), tr.zone-5 td:not(.members) { font-weight: 650; }
   tr.zone-3 td, tr.zone-4 td { background: color-mix(in srgb, var(--s1) 8%, transparent); }
+  tr.zone-5 td { background: color-mix(in srgb, var(--s1) 14%, transparent); }
   .stoch-frame { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
   .stoch-frame h3 { margin: 0 0 8px; font-size: 14px; font-weight: 650; }
   .stoch-cells { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
@@ -260,8 +261,8 @@
       <section class="card" aria-labelledby="h-fib">
         <div class="card-head">
           <div>
-            <h2 id="h-fib">피보나치 지지·저항 (4시간봉)</h2>
-            <p class="sub">최근 3개월의 큰 파동·작은 파동에서 그은 라인이 겹칠수록 굵고 진하게 표시돼요</p>
+            <h2 id="h-fib">지지·저항 (4시간봉)</h2>
+            <p class="sub">최근 3개월의 피보나치 라인과 실제로 가격이 반등·꺾인 자리를 모아, 겹치는 곳을 구간으로 표시해요</p>
           </div>
           <div class="head-actions">
             <div id="m-range" class="seg" role="group" aria-label="차트 기간">
@@ -292,7 +293,7 @@
         <div class="card-head">
           <div>
             <h2 id="h-zone">지지·저항 구간</h2>
-            <p class="sub">현재가 기준으로 위쪽은 저항, 아래쪽은 지지예요. 겹침은 서로 다른 파동에서 온 라인의 수예요</p>
+            <p class="sub">현재가 위쪽은 저항, 아래쪽은 지지예요. 겹침은 피보나치 라인과 가격 반응 자리의 개수이고, ◆는 둘이 함께 겹친 구간이에요</p>
           </div>
         </div>
         <div id="m-zones" class="table-wrap"></div>
@@ -312,7 +313,8 @@
         <div class="card-head"><h2 id="h-how">이 분석을 읽는 법</h2></div>
         <ul class="howto">
           <li>피보나치 라인은 저점을 0, 고점을 1로 놓고 계산해요. 상승 파동에서는 0.618 라인 위를 지키면 상승 지속, 종가가 0.382 라인 아래로 마감되면 상승이 무마된 것으로 봐요. 하락 파동은 반대로 봐요.</li>
-          <li>겹침이 많은 구간일수록 여러 파동이 같은 가격을 가리키는 자리라 반응이 나올 가능성이 커요. 다만 확률을 보장하지는 않아요.</li>
+          <li>가격 반응 자리는 4시간봉에서 24시간 동안 가장 높거나 낮았고 그 뒤 1% 이상 반대로 움직인 고점·저점이에요. 이런 자리와 피보나치 라인이 겹치면(◆) 한 단계 더 강하게 봐요. 정확히 같은 가격이 아니어도 가까이 모이면 하나의 구간으로 묶어요.</li>
+          <li>겹침이 많은 구간일수록 여러 근거가 같은 가격대를 가리키는 자리라 반응이 나올 가능성이 커요. 다만 확률을 보장하지는 않아요.</li>
           <li>스토캐스틱 RSI에서 %K가 20 이하면 저점권, 80 이상이면 고점권이에요. %K가 %D를 위로 뚫으면 골든크로스, 아래로 뚫으면 데드크로스예요 (최근 3개 캔들 안에 나온 것만 표시).</li>
           <li>모든 판단은 마감된 캔들 기준이에요. 현재가는 라인까지의 거리를 재는 데만 써요. 일봉은 한국시간 오전 9시에, 4시간봉은 9·13·17·21·1·5시에 마감돼요.</li>
           <li>이 탭은 시간당 한 번 갱신되고, 같은 내용이 매일 오전 8시에 텔레그램으로도 와요.</li>
@@ -808,7 +810,7 @@ function renderAll() {
 }
 
 /* ---------- 비트코인 분석 탭 ---------- */
-const STARS = { 1: '★', 2: '★★', 3: '★★★', 4: '★★★★' };
+const STARS = { 1: '★', 2: '★★', 3: '★★★', 4: '★★★★', 5: '★★★★★' };
 const BIAS_MARK = { bull: '▲', neutral: '■', bear: '▼' };
 const STATE_MARK = { golden: '▲', dead: '▼', up: '↗', down: '↘' };
 const FRAME_FULL = { day: '일봉', '4h': '4시간봉', '1h': '1시간봉' };
@@ -849,7 +851,7 @@ function fibLegend() {
   return [
     sw('border-top:3px solid var(--s1)', '지지 구간'),
     sw('border-top:3px solid var(--s2)', '저항 구간'),
-    h('span', { text: '굵을수록 겹침 많음 · 점선은 겹침 1개' }),
+    h('span', { text: '굵고 진할수록 겹침 많음 · 점선은 근거 1개 · ◆ 피보나치와 가격 반응이 겹친 구간 · ▲▼ 가격이 반등/꺾인 자리' }),
     sw('border-top:2px dashed var(--ink)', '큰 파동'),
     sw('border-top:2px dotted var(--ink2)', '작은 파동'),
     sw('border-top:1px solid var(--ink)', '현재가'),
@@ -878,7 +880,7 @@ function mountFibChart(host, m, bars) {
     if (W < 120) return;
     box.querySelector('svg')?.remove();
     const narrow = W < 520;
-    const M = { l: 58, r: narrow ? 12 : 132, t: 12, b: 28 };
+    const M = { l: 58, r: narrow ? 12 : 176, t: 12, b: 28 };
     const iw = W - M.l - M.r, ih = H - M.t - M.b;
 
     let lo = Math.min(...candles.map((k) => k[2])), hi = Math.max(...candles.map((k) => k[1]));
@@ -918,11 +920,15 @@ function mountFibChart(host, m, bars) {
     for (const z of zones) {
       if (z.price < y0 || z.price > y1) continue;
       const color = z.side === 'support' ? 'var(--s1)' : 'var(--s2)';
-      const yc = sy(z.price), band = Math.max(3, sy(z.low) - sy(z.high));
-      svg.append(s('rect', { x: M.l, y: yc - band / 2, width: iw, height: band, style: `fill:${color};opacity:${0.07 + 0.05 * z.strength}` }));
+      const yc = sy(z.price);
+      if (z.count >= 2) {  // 겹친 곳만 구간(띠)으로 그린다. 근거가 하나뿐이면 얇은 점선 하나
+        const yTop = sy(z.high), yBot = sy(z.low), band = Math.max(4, yBot - yTop);
+        svg.append(s('rect', { x: M.l, y: (yTop + yBot) / 2 - band / 2, width: iw, height: band,
+          style: `fill:${color};opacity:${0.06 + 0.05 * z.strength + (z.confluence ? 0.04 : 0)}` }));
+      }
       svg.append(s('line', {
         x1: M.l, x2: M.l + iw, y1: yc, y2: yc,
-        style: `stroke:${color};stroke-width:${[0, 1, 1.6, 2.4, 3.4][z.strength]};opacity:${[0, 0.6, 0.78, 0.92, 1][z.strength]}`
+        style: `stroke:${color};stroke-width:${[0, 1, 1.6, 2.4, 3.4, 4.2][z.strength]};opacity:${[0, 0.55, 0.75, 0.88, 0.95, 1][z.strength]}`
           + (z.count === 1 ? ';stroke-dasharray:4 3' : ''),
       }));
       labels.push({ y: yc, z });
@@ -952,18 +958,43 @@ function mountFibChart(host, m, bars) {
     }
     svg.append(legs);
 
+    // 가격이 반등했던 저점(▲)과 꺾였던 고점(▼): 구간의 근거가 된 자리들
+    const marks = s('g', { 'clip-path': 'url(#fib-clip)' });
+    for (const pv of m.fib.swings || []) {
+      const i = Math.round((utcMs(pv.time) / 1000 - c.first_close_ts) / step - off);
+      if (i < 0 || i >= n) continue;
+      const x = sx(i), y = sy(pv.price);
+      const d = pv.kind === 'L'
+        ? `M${x - 3.5} ${y + 9}L${x + 3.5} ${y + 9}L${x} ${y + 3}Z`
+        : `M${x - 3.5} ${y - 9}L${x + 3.5} ${y - 9}L${x} ${y - 3}Z`;
+      marks.append(s('path', { d, style: 'fill:var(--ink2);opacity:.55' }));
+    }
+    svg.append(marks);
+
+    // 피보나치와 가격 반응이 겹친 구간(◆)은 왼쪽 끝에 마름모를 하나 더 붙인다
+    for (const l of labels) {
+      if (!l.z.confluence) continue;
+      const x = M.l + 9, y = l.y;
+      svg.append(s('path', { d: `M${x} ${y - 5.5}L${x + 5.5} ${y}L${x} ${y + 5.5}L${x - 5.5} ${y}Z`,
+        style: `fill:${l.z.side === 'support' ? 'var(--s1)' : 'var(--s2)'};stroke:var(--surface);stroke-width:1.5` }));
+    }
+
     // 현재가
     const yp = sy(m.price);
     svg.append(s('line', { x1: M.l, x2: M.l + iw, y1: yp, y2: yp, style: 'stroke:var(--ink);stroke-width:1' }));
 
-    // 오른쪽 라벨 (좁은 화면에서는 아래 표가 대신함). 서로 12px 이상 떨어진 것만
+    // 현재가 라벨은 차트 안쪽 오른쪽 끝에 (구간 라벨과 겹치지 않게)
+    svg.append(s('text', { x: M.l + iw - 6, y: yp - 5, 'text-anchor': 'end',
+      style: 'fill:var(--ink);font-size:11.5px;font-weight:700;paint-order:stroke;stroke:var(--surface);stroke-width:3px;stroke-linejoin:round;font-variant-numeric:tabular-nums' },
+    `현재 ${nf0.format(m.price)}`));
+
+    // 오른쪽 구간 라벨 (좁은 화면에서는 아래 표가 대신함). 서로 12px 이상 떨어진 것만
     if (!narrow) {
-      const all = [...labels.map((l) => ({ y: l.y, text: `${nf0.format(l.z.price)} ${STARS[l.z.strength]}`, weight: 400 })),
-        { y: yp, text: `현재 ${nf0.format(m.price)}`, weight: 700 }].sort((a, b) => a.y - b.y);
+      const all = labels.map((l) => ({ y: l.y, text: `${priceRange(l.z)} ${STARS[l.z.strength]}${l.z.confluence ? ' ◆' : ''}` })).sort((a, b) => a.y - b.y);
       let lastY = -99;
       for (const l of all) {
-        if (l.y - lastY < 12 && l.weight !== 700) continue;
-        svg.append(s('text', { x: M.l + iw + 8, y: l.y + 4, style: `fill:var(--ink2);font-size:11.5px;font-weight:${l.weight};font-variant-numeric:tabular-nums` }, l.text));
+        if (l.y - lastY < 12) continue;
+        svg.append(s('text', { x: M.l + iw + 8, y: l.y + 4, style: 'fill:var(--ink2);font-size:11.5px;font-variant-numeric:tabular-nums' }, l.text));
         lastY = l.y;
       }
     }
@@ -1094,12 +1125,16 @@ function renderZones(m) {
   const res = [...m.fib.resistances].reverse();   // 위쪽부터 (가격 높은 순)
   const sup = m.fib.supports;                      // 현재가에 가까운 순 = 가격 높은 순
   if (!res.length && !sup.length) { host.replaceChildren(empty('현재가 주변에 겹치는 라인이 없어요.')); return; }
-  const memberText = (z) => [...new Set(z.members.map((mm) => `${mm.desc} · ${mm.ratio}${mm.kind === 'ext' ? ' 확장' : ''}`))].join(' / ');
+  const memberText = (z) => {
+    const fibs = [...new Set(z.members.filter((mm) => mm.kind !== 'swing').map((mm) => `${mm.desc} · ${mm.ratio}${mm.kind === 'ext' ? ' 확장' : ''}`))];
+    const swings = z.members.filter((mm) => mm.kind === 'swing').map((mm) => mm.desc);
+    return [...fibs, ...(swings.length ? [`가격 반응 ${swings.length}회 (${swings.join(', ')})`] : [])].join(' / ');
+  };
   const zoneRow = (z, label) => h('tr', { class: `zone-${z.strength}` },
     h('td', { text: label }),
     h('td', { class: 'num', text: priceRange(z) }),
     h('td', { class: 'num', text: `${z.distance_pct > 0 ? '+' : ''}${z.distance_pct.toFixed(2)}%` }),  // 위/아래 방향일 뿐이라 색을 쓰지 않는다
-    h('td', { text: `${STARS[z.strength]} ${z.strength_label} (${z.count}개 겹침)` }),
+    h('td', { text: `${STARS[z.strength]} ${z.strength_label}${z.confluence ? ' ◆' : ''} (피보나치 ${z.fib_count} + 가격 반응 ${z.swing_count})` }),
     h('td', { class: 'members', text: memberText(z) }));
   host.replaceChildren(h('table', {},
     h('thead', {}, h('tr', {}, ['구분', '가격(USDT)', '현재가 대비', '겹침', '구성 라인'].map((t, i) => h('th', { class: i === 1 || i === 2 ? 'num' : '', text: t })))),

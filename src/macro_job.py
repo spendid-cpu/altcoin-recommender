@@ -22,7 +22,7 @@ MACRO_KEY = "macro_json"
 LAST_SENT_KEY = "macro_last_sent_date"
 BRIEFING_REFRESH_MINUTES = 10  # 발송 직전에는 이보다 오래된 분석을 쓰지 않는다
 WEEKDAY = "월화수목금토일"
-STAR = {1: "★", 2: "★★", 3: "★★★", 4: "★★★★"}
+STAR = {1: "★", 2: "★★", 3: "★★★", 4: "★★★★", 5: "★★★★★"}
 STATE_ICON = {"golden": "🟢", "dead": "🔴", "up": "📈", "down": "📉"}
 WAVE_ICON = {"bull": "🟢", "neutral": "🟡", "bear": "🔴"}
 
@@ -76,15 +76,26 @@ def _pivot_day(iso: str) -> str:
 def _members_text(zone: dict) -> str:
     parts = []
     for m in zone["members"]:
+        if m["kind"] == "swing":
+            continue
         tag = ("큰" if m["wave"] == "large" else "작") + (f"{m['ratio']}" if m["kind"] == "ret" else f"확장{m['ratio']}")
         if tag not in parts:
             parts.append(tag)
+    if zone.get("swing_count"):
+        parts.append(f"반응{zone['swing_count']}회")
     return "·".join(parts)
 
 
+def _range_text(zone: dict) -> str:
+    """겹친 구간은 범위로(79,154~79,499), 근거가 하나뿐이거나 범위가 없으면 한 가격으로."""
+    if round(zone["low"]) != round(zone["high"]):
+        return f"{_fmt(zone['low'])}~{_fmt(zone['high'])}"
+    return _fmt(zone["price"])
+
+
 def pick_zones(zones: list[dict], limit: int = 4) -> list[dict]:
-    """현재가에서 가까운 순으로 정렬된 구간 중 보여줄 것: 겹침 2개 이상 우선, 최소 2개는 채운다."""
-    strong = [z for z in zones if z["count"] >= 2][:limit]
+    """보여줄 구간: 현재가에서 가까운 순으로 겹침 2개 이상(강도 2 이상)을 우선하고, 모자라면 가까운 것으로 최소 2개를 채운다."""
+    strong = [z for z in zones if z["strength"] >= 2][:limit]
     if len(strong) >= 2:
         return sorted(strong, key=lambda z: abs(z["distance_pct"]))
     return zones[:max(2, len(strong))]
@@ -92,7 +103,8 @@ def pick_zones(zones: list[dict], limit: int = 4) -> list[dict]:
 
 def _zone_line(z: dict, icon: str) -> str:
     stars = STAR[z["strength"]]
-    return f"{icon} {_fmt(z['price'])} ({z['distance_pct']:+.1f}%) {stars} {z['strength_label']} · {_members_text(z)}"
+    diamond = " ◆" if z.get("confluence") else ""
+    return f"{icon} {_range_text(z)} ({z['distance_pct']:+.1f}%) {stars} {z['strength_label']}{diamond} · {_members_text(z)}"
 
 
 def _wave_block(name: str, w: dict) -> str:
@@ -134,10 +146,10 @@ def format_briefing(macro: dict, now: datetime) -> str:
     lines.append(f"🧭 {fib['read']}")
     lines.append("")
 
-    lines.append("🟢 지지 (현재가 아래, 겹칠수록 강함)")
+    lines.append("🟢 지지 (현재가 아래 · 겹칠수록 강함 · ◆=피보나치+가격 반응 겹침)")
     picked = pick_zones(fib["supports"])
     lines += [_zone_line(z, "▫️") for z in picked] or ["   (범위 안에 라인이 없어요)"]
-    lines.append("🔴 저항 (현재가 위)")
+    lines.append("🔴 저항 (현재가 위 · 반응=가격이 반등/꺾였던 자리)")
     picked = pick_zones(fib["resistances"])
     lines += [_zone_line(z, "▫️") for z in picked] or ["   (범위 안에 라인이 없어요)"]
     lines.append("")

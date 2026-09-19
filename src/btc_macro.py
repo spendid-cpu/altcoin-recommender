@@ -1,7 +1,9 @@
 """비트코인 매크로 분석 (대시보드 '비트코인 분석' 탭과 매일 아침 텔레그램 브리핑의 원본).
 
-1) 피보나치 지지·저항 중첩: 4시간봉 최근 3개월의 큰 파동/작은 파동(고점-저점 쌍)마다 피보나치 라인을 긋고,
-   현재가 아래(지지)/위(저항)에서 라인이 몇 개나 겹치는지로 강조한다.
+1) 지지·저항 중첩: 4시간봉 최근 3개월의 큰 파동/작은 파동(고점-저점 쌍)마다 피보나치 라인을 긋고, 여기에 실제로 가격이
+   반등했던 저점과 꺾였던 고점(가격 반응 자리)을 전부 모아 같이 묶는다. 현재가 아래(지지)/위(저항)에서 서로 다른 근거가
+   몇 개나 겹치는지로 강조하고, 피보나치 라인과 가격 반응 자리가 겹치는 구간(◆)은 한 단계 더 강조한다.
+   겹친 곳은 한 점이 아니라 겹친 범위(구간)로 표기한다.
    라인은 모두 '저점=0, 고점=1'로 놓고 계산한다 (TradingView 피보나치 도구를 저점→고점으로 그은 값과 같다).
    상승 파동 규칙: 0.618 라인 위를 지키면 상승 지속, 0.382 라인 아래로 종가가 내려가면 상승 무마.
    하락 파동은 이를 거울로 뒤집는다 (반등이 0.382 아래에 머물면 하락 지속, 0.618 위로 오르면 하락 무마).
@@ -28,8 +30,10 @@ PIVOT_BARS = {"large": 12, "small": 4}  # 좌우 몇 개 캔들보다 높/낮아
 MIN_LEG_PCT = {"large": 10.0, "small": 3.0}  # 직전 극점에서 이만큼 움직이지 못한 반대 방향 움직임은 파동으로 치지 않는다
 LEGS_USED = {"large": 3, "small": 4}  # 라인을 그을 최근 파동 수
 CLUSTER_TOL_PCT = 0.5  # 이 폭 안에 들어온 라인들은 '겹친' 것으로 본다
+SWING_PIVOT_BARS = 6  # 가격 반응 자리: 좌우 이만큼(6개 = 24시간)의 캔들보다 높/낮은 캔들을 고점/저점으로 모은다 (지그재그로 걸러내지 않고 전부)
+SWING_MIN_MOVE_PCT = 1.0  # 그 고점/저점에서 반대로 최소 이만큼 움직였어야 '반응'으로 친다 (사소한 흔들림 제외)
 LEVEL_RANGE_PCT = 15.0  # 현재가에서 이 범위 밖의 라인은 다루지 않는다
-STRENGTH_LABEL = {1: "약함", 2: "중간", 3: "강함", 4: "매우 강함"}
+STRENGTH_LABEL = {1: "약함", 2: "중간", 3: "강함", 4: "매우 강함", 5: "핵심"}
 WAVE_LABEL = {"large": "큰 파동", "small": "작은 파동"}
 
 # ---------------- 스토캐스틱 RSI 설정 ----------------
@@ -194,8 +198,46 @@ def wave_state(leg: Leg, close: float) -> dict:
     }
 
 
-def _level_points(legs_by_wave: dict[str, list[Leg]]) -> list[dict]:
+def swing_pivots(df: pd.DataFrame) -> list[Pivot]:
+    """가격이 반등했던 저점과 꺾였던 고점을 지그재그 없이 전부 모은다 (같은 자리에서 여러 번 반응했으면 각각 센다).
+    좌우 SWING_PIVOT_BARS개 캔들 중 가장 높은(낮은) 캔들이고, 그 뒤 SWING_PIVOT_BARS개 캔들 안에 반대 방향으로
+    SWING_MIN_MOVE_PCT 이상 움직였어야 한다 (고점은 그만큼 꺾여야, 저점은 그만큼 반등해야 '반응'으로 친다)."""
+    n = SWING_PIVOT_BARS
+    win = 2 * n + 1
+    is_high = df["high"] == df["high"].rolling(win, center=True).max()
+    is_low = df["low"] == df["low"].rolling(win, center=True).min()
+    out: list[Pivot] = []
+    last_idx = {"H": -10**9, "L": -10**9}
+    for i in df.index[is_high | is_low]:
+        hi_i = min(len(df), i + n + 1)  # 그 캔들부터 뒤로 n개 (반응이 나온 쪽)
+        for kind, flag in (("H", is_high[i]), ("L", is_low[i])):
+            if not flag or i - last_idx[kind] <= n:  # 같은 값이 이어지는 고원은 첫 캔들만
+                continue
+            if kind == "H":
+                price = float(df.at[i, "high"])
+                move = (price / float(df["low"].iloc[i:hi_i].min()) - 1) * 100
+            else:
+                price = float(df.at[i, "low"])
+                move = (float(df["high"].iloc[i:hi_i].max()) / price - 1) * 100
+            if move < SWING_MIN_MOVE_PCT:
+                continue
+            out.append(Pivot(int(i), kind, price, df.at[i, "time"]))
+            last_idx[kind] = i
+    return out
+
+
+def _kst_day(ts: pd.Timestamp) -> str:
+    """4시간봉 마감 시각(UTC) -> 그 캔들이 시작된 한국시간 '월-일'."""
+    return (ts - pd.Timedelta(hours=4) + pd.Timedelta(hours=9)).strftime("%m-%d")
+
+
+def _level_points(legs_by_wave: dict[str, list[Leg]], swings: list[Pivot] | None = None) -> list[dict]:
     points = []
+    for pv in swings or []:
+        points.append({
+            "price": pv.price, "ratio": None, "kind": "swing", "wave": "swing", "leg": f"s{pv.idx}", "type": pv.kind,
+            "desc": f"{_kst_day(pv.time)} {'고점에서 꺾임' if pv.kind == 'H' else '저점에서 반등'}",
+        })
     for wave, legs in legs_by_wave.items():
         used = legs[-LEGS_USED[wave]:]
         for k, leg in enumerate(used):
@@ -211,8 +253,9 @@ def _level_points(legs_by_wave: dict[str, list[Leg]]) -> list[dict]:
 
 
 def build_zones(points: list[dict], price: float) -> list[dict]:
-    """가격이 가까운 라인끼리 묶어 '겹침 구간'을 만든다. 겹침 개수는 서로 다른 파동의 수로 센다
-    (한 파동의 0.5와 0.618이 붙어 있는 것은 겹침으로 세지 않는다)."""
+    """가격이 가까운 라인/자리끼리 묶어 '겹침 구간'을 만든다. 근거는 두 종류다 — 피보나치 라인(서로 다른 파동의 수로 센다.
+    한 파동의 0.5와 0.618이 붙어 있는 것은 겹침으로 세지 않는다)과 가격 반응 자리(반등한 저점/꺾인 고점, 하나가 1회).
+    겹침 개수는 두 근거를 합친 수이고, 피보나치와 가격 반응이 함께 있는 구간(confluence)은 강도를 한 단계 더 올린다."""
     lo_bound, hi_bound = price * (1 - LEVEL_RANGE_PCT / 100), price * (1 + LEVEL_RANGE_PCT / 100)
     pts = sorted((p for p in points if lo_bound <= p["price"] <= hi_bound), key=lambda p: p["price"])
     clusters: list[list[dict]] = []
@@ -228,18 +271,25 @@ def build_zones(points: list[dict], price: float) -> list[dict]:
     for members in clusters:
         prices = [m["price"] for m in members]
         center = sum(prices) / len(prices)
-        count = len({m["leg"] for m in members})
+        fib_count = len({m["leg"] for m in members if m["kind"] != "swing"})
+        swing_count = len({m["leg"] for m in members if m["kind"] == "swing"})
+        count = fib_count + swing_count
+        confluence = fib_count > 0 and swing_count > 0
+        strength = min(count + (1 if confluence else 0), 5)
         zones.append({
             "price": round(center, 1),
             "low": round(min(prices), 1),
             "high": round(max(prices), 1),
             "count": count,
-            "strength": min(count, 4),
-            "strength_label": STRENGTH_LABEL[min(count, 4)],
+            "fib_count": fib_count,
+            "swing_count": swing_count,
+            "confluence": confluence,
+            "strength": strength,
+            "strength_label": STRENGTH_LABEL[strength],
             "side": "support" if center < price else "resistance",
             "distance_pct": round((center / price - 1) * 100, 2),
             "members": [
-                {"desc": m["desc"], "ratio": m["ratio"], "kind": m["kind"], "wave": m["wave"]}
+                {"desc": m["desc"], "ratio": m["ratio"], "kind": m["kind"], "wave": m["wave"], "type": m.get("type")}
                 for m in sorted(members, key=lambda m: m["price"])
             ],
         })
@@ -252,7 +302,13 @@ def analyse_fib(df4h: pd.DataFrame, price: float) -> dict:
     close = float(df["close"].iloc[-1])  # 마지막으로 마감된 4시간봉 종가
 
     waves = {wave: wave_state(lg[-1], close) for wave, lg in legs.items() if lg}
-    zones = build_zones(_level_points(legs), price)
+    swings = swing_pivots(df)
+    # 아직 확정 전인 최근 고점/저점(작은 파동의 진행 중인 끝)도 반응 자리로 본다 — 지금 막 꺾이는 자리가 저항이 되기 때문이다
+    if legs["small"] and legs["small"][-1].end.provisional:
+        tip = legs["small"][-1].end
+        if all(abs(tip.idx - pv.idx) > SWING_PIVOT_BARS or pv.kind != tip.kind for pv in swings):
+            swings.append(tip)
+    zones = build_zones(_level_points(legs, swings), price)
     supports = sorted((z for z in zones if z["side"] == "support"), key=lambda z: -z["price"])
     resistances = sorted((z for z in zones if z["side"] == "resistance"), key=lambda z: z["price"])
 
@@ -272,8 +328,10 @@ def analyse_fib(df4h: pd.DataFrame, price: float) -> dict:
         "supports": supports,
         "resistances": resistances,
         "pivots": all_pivots,
+        "swings": [{"time": pv.time.isoformat(), "price": pv.price, "kind": pv.kind} for pv in swings],
         "params": {
             "candles": len(df), "ratios": list(FIB_RATIOS), "cluster_tol_pct": CLUSTER_TOL_PCT,
+            "swing_pivot_bars": SWING_PIVOT_BARS, "swing_min_move_pct": SWING_MIN_MOVE_PCT,
             "legs_used": LEGS_USED, "range_pct": LEVEL_RANGE_PCT,
         },
     }
