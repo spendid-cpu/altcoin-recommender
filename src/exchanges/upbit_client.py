@@ -4,6 +4,7 @@ import asyncio
 
 import aiohttp
 import pandas as pd
+from aiolimiter import AsyncLimiter
 
 BASE_URL = "https://api.upbit.com/v1"
 
@@ -26,9 +27,20 @@ FRAME_DELTA = {
 _MAX_RETRIES = 5
 _MAX_PER_REQUEST = 200  # 업비트 캔들 API 1회 최대 개수
 
+# 모든 요청에 걸리는 전역 속도 제한 (기본 꺼짐). 한 종목이 캔들을 수십 번 이어서 받는 백테스트처럼, 호출하는 쪽의 동시성 제한만으로는
+# 초당 요청 수를 못 지키는 경우에 켠다.
+_throttle: AsyncLimiter | None = None
+
+
+def set_throttle(requests_per_second: float | None) -> None:
+    global _throttle
+    _throttle = AsyncLimiter(requests_per_second, 1) if requests_per_second else None
+
 
 async def _get_json(session: aiohttp.ClientSession, path: str, params: dict) -> list:
     for attempt in range(_MAX_RETRIES):
+        if _throttle is not None:
+            await _throttle.acquire()
         async with session.get(f"{BASE_URL}/{path}", params=params) as resp:
             if resp.status == 429:
                 await asyncio.sleep(0.5 * (2 ** attempt))
