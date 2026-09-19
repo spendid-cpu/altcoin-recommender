@@ -610,9 +610,11 @@ function renderHistory(d) {
       pct(r.horizons['1h']), pct(r.horizons['4h']), pct(r.horizons['24h']), pct(r.horizons['72h']), pct(r.return_pct),
     ]), 3));
   const sm = d.summary || {};
-  const line = (label, n, win, avg) => (n ? `${label} ${n}건 중 수익 ${win}% · 평균 ${avg > 0 ? '+' : ''}${avg}%` : `${label} 아직 없음`);
+  const line = (label, n, win, avg) => (n
+    ? `${label} 결과가 나온 ${n}건 중 수익 ${win}% · 평균 ${avg > 0 ? '+' : ''}${avg}%`
+    : `${label} 결과는 아직 없음`);
   const small = Math.max(sm.n_1d || 0, sm.n_3d || 0) < 10 ? ' 표본이 적어서 참고만 하세요.' : '';
-  note.textContent = `발굴 ${sm.total}건. ${line('+1일 결과가 나온', sm.n_1d, sm.win_rate_1d, sm.avg_1d)}, ${line('+3일 결과가 나온', sm.n_3d, sm.win_rate_3d, sm.avg_3d)}.${small}`;
+  note.textContent = `발굴 ${sm.total}건. ${line('+1일', sm.n_1d, sm.win_rate_1d, sm.avg_1d)}, ${line('+3일', sm.n_3d, sm.win_rate_3d, sm.avg_3d)}.${small}`;
 }
 
 function renderScans(d) {
