@@ -206,6 +206,7 @@
 
   <nav class="tabs" role="tablist" aria-label="화면 선택">
     <button id="tab-recs" class="tab" role="tab" type="button" data-tab="recs" aria-controls="view-recs" aria-selected="true">알트코인 추천</button>
+    <button id="tab-done" class="tab" role="tab" type="button" data-tab="done" aria-controls="view-done" aria-selected="false">완료</button>
     <button id="tab-perf" class="tab" role="tab" type="button" data-tab="perf" aria-controls="view-perf" aria-selected="false">성과 (익절·손절)</button>
     <button id="tab-macro" class="tab" role="tab" type="button" data-tab="macro" aria-controls="view-macro" aria-selected="false">비트코인 분석</button>
   </nav>
@@ -240,7 +241,7 @@
       <div class="card-head">
         <div>
           <h2 id="h-track">발굴 후 가격 추적</h2>
-          <p class="sub">발굴 시점을 0%로 맞춘 이후 수익률 (최대 3일)</p>
+          <p class="sub">진행 중인 추천의 발굴 이후 수익률 (발굴 시점을 0%로 맞춤, 최대 3일)</p>
         </div>
         <button class="btn" type="button" data-toggle="track" aria-pressed="false">표로 보기</button>
       </div>
@@ -251,8 +252,8 @@
     <section class="card" aria-labelledby="h-hist">
       <div class="card-head">
         <div>
-          <h2 id="h-hist">발굴 이력과 성과</h2>
-          <p class="sub">발굴 후 1시간·4시간·1일·3일 시점의 수익률</p>
+          <h2 id="h-hist">진행 중인 추천</h2>
+          <p class="sub">발굴 후 지금까지의 수익률이에요. 익절·손절·기간 만료로 끝나면 완료 탭으로 옮겨져요</p>
         </div>
       </div>
       <div id="hist" class="table-wrap"></div>
@@ -342,6 +343,19 @@
         </ul>
       </section>
     </div>
+  </main>
+
+  <main id="view-done" role="tabpanel" aria-labelledby="tab-done" hidden>
+    <section class="card" aria-labelledby="h-done">
+      <div class="card-head">
+        <div>
+          <h2 id="h-done">완료된 추천</h2>
+          <p class="sub">익절·손절·기간 만료로 끝난 추천이에요 (종료 시각 최신순). 각 추천의 점수 근거는 성과 탭에서 볼 수 있어요</p>
+        </div>
+      </div>
+      <div id="done-list" class="table-wrap"></div>
+      <p id="done-note" class="card-note"></p>
+    </section>
   </main>
 
   <main id="view-perf" role="tabpanel" aria-labelledby="tab-perf" hidden>
@@ -786,9 +800,9 @@ function renderCandidates(d) {
 function renderTracking(d) {
   const chartEl = $('#track-chart'), tableEl = $('#track-table');
   chartEl.replaceChildren(); tableEl.replaceChildren();
-  const recs = (d.recommendations || []).filter((r) => r.series && r.series.length).slice(0, 8);
+  const recs = (d.recommendations || []).filter((r) => !isDone(r) && r.series && r.series.length).slice(0, 8);
   if (!recs.length) {
-    chartEl.append(empty('아직 발굴된 종목이 없어요. 신규 후보가 뜨면 여기에 가격 흐름이 그려져요.'));
+    chartEl.append(empty('진행 중인 추천이 없어요. 새 추천이 나오면 여기에 가격 흐름이 그려져요.'));
     return null;
   }
   // 색은 종목(추천)을 따라가고 순위를 따르지 않는다: 오래된 추천부터 고정 슬롯을 배정
@@ -817,26 +831,62 @@ function renderTracking(d) {
   return chart;
 }
 
+// 끝난 추천(익절·손절·기간 만료)이면 true. 종료 기록이 없어도 추적 기간이 지났으면 끝난 것으로 본다
+const isDone = (r) => !!r.exit || !r.active;
+function holdText(ms) {
+  const minutes = Math.max(0, Math.floor(ms / 60000));
+  if (minutes < 60) return `${minutes}분`;
+  const hh = Math.floor(minutes / 60);
+  if (hh < 48) return `${hh}시간 ${minutes % 60}분`;
+  return `${Math.floor(hh / 24)}일 ${hh % 24}시간`;
+}
+
 function renderHistory(d) {
   const host = $('#hist'), note = $('#hist-note');
-  const recs = d.recommendations || [];
+  const all = d.recommendations || [];
+  const recs = all.filter((r) => !isDone(r));
   if (!recs.length) {
-    host.replaceChildren(empty('아직 발굴 이력이 없어요.'));
+    host.replaceChildren(empty(all.length ? '진행 중인 추천이 없어요. 끝난 추천은 완료 탭에서 볼 수 있어요.' : '아직 발굴 이력이 없어요.'));
     note.textContent = ''; return;
   }
   host.replaceChildren(buildTable(
-    ['발굴 시각', '종목', '등급', '발굴가', '+1시간', '+4시간', '+1일', '+3일', '최근/최종', '상태'],
+    ['발굴 시각', '종목', '등급', '발굴가', '현재가', '+1시간', '+4시간', '+1일', '+3일', '현재 수익', '경과'],
     recs.map((r) => [
-      kst(r.entered_at), r.market, gradePill(r.grade), fmtKRW(r.entry_price),
+      kst(r.entered_at), r.market, gradePill(r.grade), fmtKRW(r.entry_price), fmtKRW(r.last_price),
       pct(r.horizons['1h']), pct(r.horizons['4h']), pct(r.horizons['24h']), pct(r.horizons['72h']), pct(r.return_pct),
-      r.exit ? `종료 · ${EXIT_LABEL[r.exit.reason] || r.exit.reason}` : (r.active ? '추적 중' : '기간 종료'),
+      holdText(Date.now() - new Date(r.entered_at).getTime()),
     ]), 3));
-  const sm = d.summary || {};
-  const line = (label, n, win, avg) => (n
-    ? `${label} 결과가 나온 ${n}건 중 수익 ${win}% · 평균 ${avg > 0 ? '+' : ''}${avg}%`
-    : `${label} 결과는 아직 없음`);
-  const small = Math.max(sm.n_1d || 0, sm.n_3d || 0) < 10 ? ' 표본이 적어서 참고만 하세요.' : '';
-  note.textContent = `발굴 ${sm.total}건. ${line('+1일', sm.n_1d, sm.win_rate_1d, sm.avg_1d)}, ${line('+3일', sm.n_3d, sm.win_rate_3d, sm.avg_3d)}.${small}`;
+  note.textContent = `진행 중 ${recs.length}건 (전체 ${all.length}건 중). 끝난 추천은 완료 탭에서 볼 수 있어요.`;
+}
+
+function renderDone(d) {
+  const host = $('#done-list'), note = $('#done-note');
+  const doneAt = (r) => new Date(r.exit ? r.exit.ended_at : r.last_at).getTime();
+  const done = (d.recommendations || []).filter(isDone).sort((a, b) => doneAt(b) - doneAt(a));
+  $('#tab-done').textContent = `완료 (${done.length})`;
+  if (!done.length) {
+    host.replaceChildren(empty('아직 끝난 추천이 없어요. 익절·손절·기간 만료가 되면 여기로 옮겨져요.'));
+    note.textContent = ''; return;
+  }
+  const rows = done.map((r) => {
+    const o = outcomeOf(r), info = RESULT_INFO[o.key] || RESULT_INFO.expired;
+    const endMs = doneAt(r);
+    const endPrice = r.exit ? r.exit.exit_price : r.last_price;
+    return h('tr', {},
+      h('td', { text: kst(r.entered_at) }),
+      h('td', {}, h('div', { text: r.market }), h('div', {}, gradePill(r.grade), h('span', { class: 'muted', text: ` ${r.score == null ? '' : `${r.score}점`}` }))),
+      h('td', { class: 'num', text: `${fmtKRW(r.entry_price)} → ${fmtKRW(endPrice)}` }),
+      h('td', { class: 'num' }, pct(o.ret)),
+      h('td', {}, h('span', { class: `result ${info.cls}`, text: `${info.mark} ${info.label}` })),
+      h('td', { text: kst(new Date(endMs).toISOString()) }),
+      h('td', { class: 'num', text: holdText(endMs - new Date(r.entered_at).getTime()) }));
+  });
+  host.replaceChildren(h('table', {},
+    h('thead', {}, h('tr', {}, ['추천 시각', '종목 · 등급', '추천가 → 종료가', '손익', '결과', '종료 시각', '보유'].map((x, i) => h('th', { class: i === 2 || i === 3 || i === 6 ? 'num' : '', text: x })))),
+    h('tbody', {}, rows)));
+  const s = perfSummary(done);
+  note.textContent = `완료 ${done.length}건: 익절 ${s.take_profit} · 손절 ${s.stop_loss} · 기간 만료 ${s.expired}`
+    + (s.winRate == null ? '' : ` (승률 ${s.winRate.toFixed(0)}%, 익절 ÷ (익절+손절))`) + '. 표본이 적을 때는 참고만 하세요.';
 }
 
 function renderScans(d) {
@@ -871,6 +921,7 @@ function renderAll() {
   renderCandidates(d);
   renderTracking(d);
   renderHistory(d);
+  renderDone(d);
   renderScans(d);
   renderMacro(d);
   renderPerf(d);
@@ -1382,7 +1433,7 @@ function renderPerf(d) {
 }
 
 /* ---------- 탭 ---------- */
-const TABS = ['recs', 'perf', 'macro'];
+const TABS = ['recs', 'done', 'perf', 'macro'];
 function selectTab(name, updateHash = true) {
   for (const key of TABS) $(`#view-${key}`).hidden = key !== name;
   document.querySelectorAll('.tab').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
