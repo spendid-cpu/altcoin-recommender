@@ -41,6 +41,16 @@ PERIOD_SETS = {
 }
 
 
-def stoch_rsi_all_periods(close: pd.Series) -> dict[str, pd.DataFrame]:
-    """단기/중기/장기 세 세트를 한 번에 계산."""
-    return {name: stoch_rsi(close, **params) for name, params in PERIOD_SETS.items()}
+# 최초 버전(첫 커밋)이 쓰던 설정. 위 숫자를 RSI/스토/K/D 순서로 거꾸로 읽은 것이라 트레이딩뷰 차트와 다르다.
+# 잘못 읽은 것이지만, '최초 알고리즘'을 그대로 병행 운영해 수정판·사이클 전략과 성과를 비교하려고 이 값을 그대로 보존한다
+# (original_scanner 만 쓴다. 다른 곳에서 쓰면 안 된다).
+ORIGINAL_PERIOD_SETS = {
+    "short": {"rsi_period": 3, "stoch_period": 3, "smooth_k": 5, "smooth_d": 5},
+    "mid": {"rsi_period": 6, "stoch_period": 6, "smooth_k": 10, "smooth_d": 10},
+    "long": {"rsi_period": 12, "stoch_period": 12, "smooth_k": 20, "smooth_d": 20},
+}
+
+
+def stoch_rsi_all_periods(close: pd.Series, period_sets: dict | None = None) -> dict[str, pd.DataFrame]:
+    """단기/중기/장기 세 세트를 한 번에 계산. period_sets를 주지 않으면 PERIOD_SETS(트레이딩뷰 설정)."""
+    return {name: stoch_rsi(close, **params) for name, params in (period_sets or PERIOD_SETS).items()}

@@ -78,7 +78,9 @@ class FrameResult:
     detail: dict = field(default_factory=dict)
 
 
-def score_frame(frame: str, close: pd.Series, validity_hours: float | None = None) -> FrameResult:
+def score_frame(
+    frame: str, close: pd.Series, validity_hours: float | None = None, period_sets: dict | None = None
+) -> FrameResult:
     """한 프레임(day/4h/1h)의 종가 시리즈로부터 게이트 통과 여부와 점수를 계산한다.
     게이트: 단기 스토가 validity_hours(기본: config.VALIDITY_WINDOW_HOURS) 이내에
     최초 도달 또는 골든크로스한 적이 있으면 통과 (백테스트로 확인된 '조건 유효기간').
@@ -89,7 +91,7 @@ def score_frame(frame: str, close: pd.Series, validity_hours: float | None = Non
         validity_hours = config.LOW_FRAME_LOOKBACK_HOURS if is_low_frame else config.VALIDITY_WINDOW_HOURS
     lookback_bars = max(1, round(validity_hours / config.FRAME_HOURS[frame]))
 
-    periods = stoch_rsi_all_periods(close)
+    periods = stoch_rsi_all_periods(close, period_sets)
     short_k, short_d = periods["short"]["k"], periods["short"]["d"]
 
     is_first_touch = bool(first_touch_series(short_k).tail(lookback_bars).any())

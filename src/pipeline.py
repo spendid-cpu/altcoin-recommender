@@ -6,10 +6,11 @@ from zoneinfo import ZoneInfo
 
 import aiohttp
 
-from src import config, cycle_exits, cycle_scanner, exits, macro_job, price_tracker, report, scan_log, state_store, telegram_client
+from src import (config, cycle_exits, cycle_scanner, exits, macro_job, original_scanner, price_tracker, report, scan_log,
+                 state_store, telegram_client)
 from src.exchanges import upbit_client
 from src.notifier import diff_alerts
-from src.scanner import check_btc_trend, scan_all
+from src.scanner import btc_days_above, check_btc_trend, scan_all
 
 KST = ZoneInfo("Asia/Seoul")
 
@@ -78,6 +79,7 @@ async def run_once(session: aiohttp.ClientSession) -> None:
             price_tracker.record_entry(a.market, c.current_price, c.grade, round(c.total_score, 1), c.breakdown())
 
     cycle_alerts = await _run_cycle_scan(session, markets, candle_cache)
+    await _run_original_scan(session, markets, candle_cache)
 
     prices = await _track_prices(session)
     await exits.process_exits(session, prices, candidates, btc_filter_on=True)
@@ -113,6 +115,30 @@ async def _run_cycle_scan(session: aiohttp.ClientSession, markets: list[str], ca
     except Exception as exc:
         print(f"사이클 전략 스캔 실패(기존 전략은 영향 없음): {exc!r}")
         return 0
+
+
+async def _run_original_scan(session: aiohttp.ClientSession, markets: list[str], cache: dict) -> None:
+    """최초 알고리즘 병행 기록 (텔레그램 없음). 실패해도 다른 전략에는 영향을 주지 않는다."""
+    if not config.ORIGINAL_ENABLED:
+        return
+    try:
+        days = await btc_days_above(session)
+        if days < config.ORIGINAL_BTC_HOLD_DAYS:
+            print(f"최초 알고리즘: BTC 종가가 MA20 위 {days}일째 (2일 이상 필요) -> 새 추천 없음")
+            return
+        found = original_scanner.scan_original(cache, markets, set(price_tracker.recent_recommendation_markets("original")))
+        if not found:
+            print("최초 알고리즘: 새 추천 없음")
+            return
+        prices = await upbit_client.fetch_ticker_prices(session, [m for m, _ in found])
+        for market, result in found:
+            price = prices.get(market)
+            if price is None:
+                continue
+            price_tracker.record_entry(market, price, "-", round(result.score, 1), original_scanner.breakdown(result), strategy="original")
+        print(f"최초 알고리즘: 새 추천 {len(found)}건 기록 (알림 없음)")
+    except Exception as exc:
+        print(f"최초 알고리즘 스캔 실패(다른 전략은 영향 없음): {exc!r}")
 
 
 async def _process_cycle_exits(session: aiohttp.ClientSession, prices: dict[str, float]) -> None:

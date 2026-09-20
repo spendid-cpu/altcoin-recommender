@@ -47,6 +47,7 @@ jobs:
           EXIT_TRAIL_DD_PCT: ${{ vars.EXIT_TRAIL_DD_PCT }}
           BTC_HOLD_DAYS: ${{ vars.BTC_HOLD_DAYS }}
           CYCLE_ENABLED: ${{ vars.CYCLE_ENABLED }}
+          ORIGINAL_ENABLED: ${{ vars.ORIGINAL_ENABLED }}
           MACRO_BRIEFING_HOUR: ${{ vars.MACRO_BRIEFING_HOUR }}
           MACRO_REFRESH_MINUTES: ${{ vars.MACRO_REFRESH_MINUTES }}
 

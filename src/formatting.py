@@ -6,14 +6,16 @@ GRADE_BADGE = {"A": "🟢 A등급", "B": "🔵 B등급"}
 NO_GRADE_BADGE = "⚪ 등급 없음"
 
 
-STRATEGY_LABEL = {"legacy": "기존", "cycle": "사이클"}
+STRATEGY_LABEL = {"original": "최초", "legacy": "수정판", "cycle": "사이클"}
 
 
 def strategy_tag(rec: dict) -> str:
     """추천 항목 앞에 붙이는 전략 표시. 사이클 전략은 등급(A급/B급)이 뜻이 다르므로 이름과 함께 보여준다."""
     if rec.get("strategy") == "cycle":
         return f"🌀 사이클 {rec.get('tier') or '-'}급"
-    return grade_badge(rec.get("grade"))
+    if rec.get("strategy") == "original":
+        return "🏷 최초"
+    return f"[수정판] {grade_badge(rec.get('grade'))}"
 
 
 def grade_badge(grade: str | None) -> str:

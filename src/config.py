@@ -129,6 +129,13 @@ CYCLE_STOP_PCT = 5.0  # 절반 매도 전 손절 (전량)
 CYCLE_TRAIL_PCT = 5.0  # 절반 매도 뒤 나머지 절반의 고점 대비 트레일링 폭
 CYCLE_H4_CANDLES = 450  # 4시간 이력 (백테스트와 같은 길이: 65일 + 여유)
 
+# 최초 알고리즘(첫 버전)을 병행 운영해 수정판·사이클 전략과 성과를 비교한다. 끄려면 저장소 변수 ORIGINAL_ENABLED=false.
+# 규칙: 일봉 게이트만 통과하면 추천 + 최초 스토RSI 설정 + BTC 일봉 종가 MA20 위 2일 유지. 조용히(텔레그램 없이) 기록만 한다.
+# 종료 규칙은 최초에는 없었지만 성과를 재려고 수정판과 같은 익절 +5% / 손절 -5% / 3일을 쓴다. 마감된 캔들만 쓰는 것도 수정판과 같다
+# (최초 버전의 진행 중 캔들 사용은 신호가 스캔마다 바뀌는 오류였다).
+ORIGINAL_ENABLED = os.environ.get("ORIGINAL_ENABLED", "true").strip().lower() != "false"
+ORIGINAL_BTC_HOLD_DAYS = 2
+
 UPBIT_MARKET = "KRW-BTC"
 BINANCE_SYMBOL = "BTCUSDT"
 

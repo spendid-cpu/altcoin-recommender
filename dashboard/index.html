@@ -105,6 +105,7 @@
   .pill.B { background: color-mix(in srgb, var(--s1) 9%, transparent); color: var(--ink); border-color: transparent; }
   .pill.cycle { background: color-mix(in srgb, var(--s2) 20%, transparent); color: var(--ink); border-color: transparent; font-weight: 600; }
   .strat { font-size: 11px; color: var(--muted); margin-right: 5px; }
+  .strat-filter { margin: 0 0 14px; }
   .section-title { font-size: 15px; margin: 22px 2px 10px; }
   .flag { display: inline-flex; align-items: center; gap: 4px; }
 
@@ -219,6 +220,13 @@
     <button id="tab-chart" class="tab" role="tab" type="button" data-tab="chart" aria-controls="view-chart" aria-selected="false">비트코인 차트</button>
   </nav>
 
+  <div id="strat-filter" class="seg strat-filter" role="group" aria-label="전략별 보기" hidden>
+    <button class="btn" type="button" data-strat="all" aria-pressed="true">전체</button>
+    <button class="btn" type="button" data-strat="original" aria-pressed="false">① 최초</button>
+    <button class="btn" type="button" data-strat="legacy" aria-pressed="false">② 수정판</button>
+    <button class="btn" type="button" data-strat="cycle" aria-pressed="false">③ 사이클</button>
+  </div>
+
   <main id="view-recs" role="tabpanel" aria-labelledby="tab-recs">
     <section id="tiles" class="tiles" aria-label="핵심 지표"></section>
 
@@ -238,7 +246,7 @@
     <section class="card" aria-labelledby="h-cand">
       <div class="card-head">
         <div>
-          <h2 id="h-cand">현재 후보</h2>
+          <h2 id="h-cand">현재 후보 (수정판)</h2>
           <p class="sub">일봉 조건을 통과한 관찰 대상이에요. 4시간·1시간을 지나 15분봉이 저점에 오면 추천돼요. 이미 추천한 종목은 빼고 보여줘요 (점수 높은 순)</p>
         </div>
       </div>
@@ -249,7 +257,7 @@
       <div class="card-head">
         <div>
           <h2 id="h-cycle">사이클 전략 준비 현황</h2>
-          <p class="sub">기존 전략과 나란히 돌리는 비교용 전략이에요. 일봉 단기가 바닥 → 4시간 중기·장기 상승 체제 → 4시간 단기 바닥 준비 → 1시간 바닥 턴 → 1시간 거래량 폭발 순서로 통과하면 추천돼요</p>
+          <p class="sub">최초·수정판 전략과 나란히 돌리는 비교용 전략이에요. 일봉 단기가 바닥 → 4시간 중기·장기 상승 체제 → 4시간 단기 바닥 준비 → 1시간 바닥 턴 → 1시간 거래량 폭발 순서로 통과하면 추천돼요</p>
         </div>
       </div>
       <div id="cycle-ready" class="table-wrap"></div>
@@ -381,8 +389,8 @@
     <section class="card" aria-labelledby="h-pcmp">
       <div class="card-head">
         <div>
-          <h2 id="h-pcmp">전략 비교 · 기존 vs 사이클</h2>
-          <p class="sub">같은 시장에서 두 전략을 나란히 돌려 결과를 쌓고 있어요. 사이클 전략의 A급은 지지 구간 터치까지, B급은 1시간 거래량까지 통과한 추천이에요</p>
+          <h2 id="h-pcmp">전략 비교 · ① 최초 · ② 수정판 · ③ 사이클</h2>
+          <p class="sub">같은 시장에서 세 전략을 나란히 돌려 결과를 따로 쌓고 있어요. 최초는 첫 버전 규칙 그대로(일봉 조건만 통과하면 추천, 최초 스토RSI 설정, 텔레그램 알림 없음), 수정판은 지금까지 알려 온 전략(지표 설정 교정 + 15분 저점 조건)이에요. 사이클 전략의 A급은 지지 구간 터치까지, B급은 1시간 거래량까지 통과한 추천이에요</p>
         </div>
       </div>
       <div id="p-compare" class="table-wrap"></div>
@@ -390,13 +398,13 @@
       <div id="p-cmp-ref" class="ref-box"></div>
     </section>
 
-    <h2 class="section-title">기존 전략 성과 (익절·손절)</h2>
+    <h2 id="p-sec" class="section-title">성과 (익절·손절)</h2>
     <section id="p-tiles" class="tiles" aria-label="성과 요약"></section>
 
     <section class="card" aria-labelledby="h-pbar">
       <div class="card-head">
         <div>
-          <h2 id="h-pbar">기존 전략 추천 결과 분포</h2>
+          <h2 id="h-pbar">추천 결과 분포</h2>
           <p id="p-rule" class="sub"></p>
         </div>
       </div>
@@ -408,7 +416,7 @@
     <section class="card" aria-labelledby="h-plist">
       <div class="card-head">
         <div>
-          <h2 id="h-plist">추천별 결과와 근거 (두 전략 모두)</h2>
+          <h2 id="h-plist">추천별 결과와 근거</h2>
           <p class="sub">추천 시각, 종료 시각, 손익과 그 추천이 어떤 근거로 나왔는지 (최신순)</p>
         </div>
       </div>
@@ -532,11 +540,17 @@ function pct(v) {
 }
 function gradePill(g) { return h('span', { class: 'pill ' + (g === 'A' || g === 'B' ? g : ''), text: g && g !== '-' ? `${g}등급` : '등급 없음' }); }
 function empty(text) { return h('div', { class: 'empty', text }); }
-// 어느 전략의 추천인지 함께 보여준다 (사이클 전략의 A급/B급은 기존 전략의 등급과 뜻이 달라서 이름을 붙인다)
-const STRAT_LABEL = { legacy: '기존', cycle: '사이클' };
+// 어느 전략의 추천인지 함께 보여준다 (사이클 전략의 A급/B급은 수정판의 등급과 뜻이 달라서 이름을 붙인다)
+const STRAT_LABEL = { original: '최초', legacy: '수정판', cycle: '사이클' };
+let stratFilter = 'all';
+try { const saved = localStorage.getItem('stratFilter'); if (saved && (saved === 'all' || saved in STRAT_LABEL)) stratFilter = saved; } catch (e) { /* 무시 */ }
+const stratOf = (r) => r.strategy || 'legacy';
+const inFilter = (r) => stratFilter === 'all' || stratOf(r) === stratFilter;
+const recsOf = (d) => (d.recommendations || []).filter(inFilter);
 function stratPill(r) {
   if (r.strategy === 'cycle') return h('span', {}, h('span', { class: 'strat', text: '사이클' }), h('span', { class: 'pill cycle', text: `${r.tier || '-'}급` }));
-  return h('span', {}, h('span', { class: 'strat', text: '기존' }), gradePill(r.grade));
+  if (r.strategy === 'original') return h('span', {}, h('span', { class: 'strat', text: '최초' }), h('span', { class: 'pill', text: '일봉 통과' }));
+  return h('span', {}, h('span', { class: 'strat', text: '수정판' }), gradePill(r.grade));
 }
 const signed = (v) => `${v > 0 ? '+' : ''}${v.toFixed(2)}%`;
 
@@ -903,7 +917,7 @@ function renderCycleReady(d) {
 function renderTracking(d) {
   const chartEl = $('#track-chart'), tableEl = $('#track-table');
   chartEl.replaceChildren(); tableEl.replaceChildren();
-  const recs = (d.recommendations || []).filter((r) => !isDone(r) && r.series && r.series.length).slice(0, 8);
+  const recs = recsOf(d).filter((r) => !isDone(r) && r.series && r.series.length).slice(0, 8);
   if (!recs.length) {
     chartEl.append(empty('진행 중인 추천이 없어요. 새 추천이 나오면 여기에 가격 흐름이 그려져요.'));
     return null;
@@ -946,7 +960,7 @@ function holdText(ms) {
 
 function renderHistory(d) {
   const host = $('#hist'), note = $('#hist-note');
-  const all = d.recommendations || [];
+  const all = recsOf(d);
   const recs = all.filter((r) => !isDone(r));
   if (!recs.length) {
     host.replaceChildren(empty(all.length ? '진행 중인 추천이 없어요. 끝난 추천은 완료 탭에서 볼 수 있어요.' : '아직 발굴 이력이 없어요.'));
@@ -966,8 +980,8 @@ function renderHistory(d) {
 function renderDone(d) {
   const host = $('#done-list'), note = $('#done-note');
   const doneAt = (r) => new Date(r.exit ? r.exit.ended_at : r.last_at).getTime();
-  const done = (d.recommendations || []).filter(isDone).sort((a, b) => doneAt(b) - doneAt(a));
-  $('#tab-done').textContent = `완료 (${done.length})`;
+  const done = recsOf(d).filter(isDone).sort((a, b) => doneAt(b) - doneAt(a));
+  $('#tab-done').textContent = `완료 (${(d.recommendations || []).filter(isDone).length})`;
   if (!done.length) {
     host.replaceChildren(empty('아직 끝난 추천이 없어요. 익절·손절·기간 만료가 되면 여기로 옮겨져요.'));
     note.textContent = ''; return;
@@ -990,7 +1004,7 @@ function renderDone(d) {
     h('thead', {}, h('tr', {}, ['추천 시각', '종목 · 전략', '추천가 → 종료가', '손익', '결과', '종료 시각', '보유'].map((x, i) => h('th', { class: i === 2 || i === 3 || i === 6 ? 'num' : '', text: x })))),
     h('tbody', {}, rows)));
   const parts = [];
-  for (const [key, name] of [['legacy', '기존'], ['cycle', '사이클']]) {
+  for (const [key, name] of [['original', '최초'], ['legacy', '수정판'], ['cycle', '사이클']]) {
     const mine = done.filter((r) => (r.strategy || 'legacy') === key);
     if (!mine.length) continue;
     const s = perfSummary(mine);
@@ -1022,7 +1036,25 @@ function renderScans(d) {
     : '';
 }
 
+let filterWired = false;
+function wireStratFilter() {
+  const bar = $('#strat-filter');
+  const sync = () => bar.querySelectorAll('[data-strat]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.strat === stratFilter)));
+  if (!filterWired) {
+    filterWired = true;
+    bar.querySelectorAll('[data-strat]').forEach((b) => {
+      b.onclick = () => {
+        stratFilter = b.dataset.strat;
+        try { localStorage.setItem('stratFilter', stratFilter); } catch (e) { /* 무시 */ }
+        renderAll();
+      };
+    });
+  }
+  sync();
+}
+
 function renderAll() {
+  wireStratFilter();
   charts.forEach((c) => c && c.destroy());
   charts = [];
   const d = DATA;
@@ -1510,20 +1542,28 @@ function whyNode(r) {
 }
 
 function renderPerf(d) {
-  const allRecs = d.recommendations || [];
-  const recs = allRecs.filter((r) => (r.strategy || 'legacy') === 'legacy');  // 익절·손절 지표는 기존 전략 기준
+  const allRecs = recsOf(d);
+  const recs = allRecs;
   const rules = d.exit_rules || {};
   const s = perfSummary(recs);
   const tp = rules.take_profit_pct, sl = rules.stop_loss_pct, days = rules.track_days || d.track_days || 3;
 
-  $('#p-rule').textContent = `익절 ${tp == null ? '없음' : `+${tp}%`} · 손절 ${sl == null ? '없음' : `-${sl}%`} · ${days}일 안에 닿지 않으면 기간 만료`;
+  const cyc = d.cycle || {};
+  const tpRule = `익절 ${tp == null ? '없음' : `+${tp}%`} · 손절 ${sl == null ? '없음' : `-${sl}%`} · ${days}일 안에 닿지 않으면 기간 만료`;
+  const cycRule = `손절 -${cyc.stop_pct ?? 5}% · 절반 매도 신호 뒤 나머지는 최고가 대비 -${cyc.trail_pct ?? 5}% 트레일링 · ${days}일 안에 안 끝나면 기간 만료`;
+  $('#p-sec').textContent = `${stratFilter === 'all' ? '전체' : STRAT_LABEL[stratFilter]} 성과`;
+  $('#p-rule').textContent = stratFilter === 'cycle' ? cycRule
+    : stratFilter === 'all' ? `최초·수정판: ${tpRule} / 사이클: ${cycRule}`
+    : stratFilter === 'original' ? `${tpRule} (최초에는 종료 규칙이 없었지만, 성과를 재려고 수정판과 같은 규칙을 씀)` : tpRule;
 
   const avgClosed = avg(s.closedRets), avgExp = avg(s.expiredRets);
   const plus = s.closedRets.filter((v) => v > 0).length;
   $('#p-tiles').replaceChildren(
     tile('추천 수', [String(s.total)], `진행 중 ${s.active} · 종료 ${s.closed}`),
-    tile('익절 : 손절', [`${s.take_profit} : ${s.stop_loss}`],
-      s.winRate == null ? '아직 익절·손절로 끝난 추천이 없어요' : `승률 ${s.winRate.toFixed(0)}% (익절 ÷ (익절+손절))`),
+    stratFilter === 'cycle'
+      ? tile('절반 매도', [String(recs.filter((r) => r.half).length)], '4시간 단기 80+ 와 거래량 폭발이 나온 추천 수')
+      : tile('익절 : 손절', [`${s.take_profit} : ${s.stop_loss}`],
+        s.winRate == null ? '아직 익절·손절로 끝난 추천이 없어요' : `승률 ${s.winRate.toFixed(0)}% (익절 ÷ (익절+손절))`),
     tile('기간 만료', [String(s.expired)], avgExp == null ? '만료된 추천이 없어요' : `만료 시 평균 손익 ${avgExp >= 0 ? '+' : ''}${avgExp.toFixed(2)}%`),
     tile('평균 손익 (종료 기준)', [avgClosed == null ? '—' : `${avgClosed >= 0 ? '+' : ''}${avgClosed.toFixed(2)}%`],
       s.closed ? `종료 ${s.closed}건 중 플러스 ${plus}건` : '종료된 추천이 없어요'),
@@ -1570,7 +1610,8 @@ function renderPerf(d) {
 
 // 백테스트(약 65일, 비트코인 필터 적용, 스토캐스틱 설정을 바로잡은 뒤). 사이클 규칙은 이 백테스트로 고른 것이라 낙관적일 수 있다 —
 // 그래서 지금부터 쌓이는 기록으로 다시 확인하는 중이다.
-const CMP_REF = '참고 (백테스트 약 65일, 비트코인 필터 적용): 기존 전략은 익절 +5% · 손절 -5%에서 255 : 215 (54%)였고 3일 보유 평균은 +0.47%(758건)였어요. '
+const CMP_REF = '참고 (백테스트 약 65일, 비트코인 필터 적용): 최초 규칙(일봉만 통과 + 최초 지표 설정)은 익절 198 : 손절 122 (62%)로 승률은 높았지만 같은 시각 아무 종목 대비 초과수익이 +0.22%(구간 -0.28 ~ +0.67%)라 우위가 확인되지 않았고, 앞 절반 +0.48% / 뒤 절반 -0.35%로 뒤집혔어요. '
+  + '수정판은 255 : 215 (54%), 초과수익 -0.10%(구간 -0.41 ~ +0.21%)로 무작위와 같았어요. '
   + '사이클 전략은 A급 15건 평균 +2.59%(승률 80%, 신뢰구간 +0.32 ~ +4.61%), 거래량까지 통과한 36건(A급 포함)은 평균 +1.57%(승률 58%, 신뢰구간 -0.10 ~ +3.48%)였어요. '
   + '사이클 규칙은 이 백테스트를 보고 정한 거라 실제로는 이보다 나쁠 수 있어요. 지금부터 쌓이는 기록이 진짜 검증이에요.';
 
@@ -1590,13 +1631,14 @@ const fmtPlus = (a) => (a.length ? `${Math.round(a.filter((v) => v > 0).length /
 function renderCompare(d) {
   const all = d.recommendations || [];
   const groups = [
-    ['기존 전략', all.filter((r) => (r.strategy || 'legacy') === 'legacy')],
-    ['사이클 전체', all.filter((r) => r.strategy === 'cycle')],
-    ['사이클 A급', all.filter((r) => r.strategy === 'cycle' && r.tier === 'A')],
-    ['사이클 B급', all.filter((r) => r.strategy === 'cycle' && r.tier === 'B')],
+    ['① 최초', all.filter((r) => stratOf(r) === 'original'), false],
+    ['② 수정판', all.filter((r) => stratOf(r) === 'legacy'), false],
+    ['③ 사이클 전체', all.filter((r) => r.strategy === 'cycle'), true],
+    ['③ 사이클 A급', all.filter((r) => r.strategy === 'cycle' && r.tier === 'A'), true],
+    ['③ 사이클 B급', all.filter((r) => r.strategy === 'cycle' && r.tier === 'B'), true],
   ];
   const st = groups.map(([, recs]) => groupStats(recs));
-  const row = (label, f, isCycleOnly) => [label, ...st.map((s, i) => (s == null ? '—' : (isCycleOnly && i === 0 ? '해당 없음' : f(s))))];
+  const row = (label, f, cycleOnly) => [label, ...st.map((s, i) => (cycleOnly && !groups[i][2] ? '해당 없음' : (s == null ? '—' : f(s))))];
   const rows = [
     row('추천 수 (진행 중)', (s) => `${s.n} (${s.active})`),
     row('종료 손익 평균 · 각 전략의 매도 규칙', (s) => fmtAvg(s.closedRets)),
@@ -1611,10 +1653,10 @@ function renderCompare(d) {
     }),
   ];
   $('#p-compare').replaceChildren(buildTable(['지표', ...groups.map(([name]) => name)], rows, 1));
-  const cyclePart = st[1];
+  const cyclePart = st[2];
   $('#p-cmp-note').textContent = !cyclePart
     ? '사이클 전략의 첫 추천을 기다리는 중이에요 (백테스트에서는 하루 평균 0.5건 안팎으로 드물게 나왔어요). +1일·+3일 뒤 손익은 그 시간이 지난 추천만 계산해요.'
-    : '두 전략은 매도 규칙이 달라 종료 손익 비교에는 그 차이가 섞여 있어요. 진입 자체를 비교하려면 +1일·+3일 뒤 손익을 보세요. 표본이 30건쯤 쌓이기 전에는 우연일 수 있어요.';
+    : '사이클 전략은 매도 규칙이 달라 종료 손익 비교에는 그 차이가 섞여 있어요. 진입 자체를 비교하려면 +1일·+3일 뒤 손익을 보세요. 표본이 30건쯤 쌓이기 전에는 우연일 수 있어요.';
   $('#p-cmp-ref').textContent = CMP_REF;
 }
 
@@ -1829,6 +1871,7 @@ $('#mc-mode').addEventListener('click', (ev) => {
 const TABS = ['recs', 'done', 'perf', 'macro', 'chart'];
 function selectTab(name, updateHash = true) {
   for (const key of TABS) $(`#view-${key}`).hidden = key !== name;
+  $('#strat-filter').hidden = !['recs', 'done', 'perf'].includes(name);
   document.querySelectorAll('.tab').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
   if (updateHash) {
     try { history.replaceState(null, '', name === 'recs' ? location.pathname + location.search : `#${name}`); } catch (e) { /* 무시 */ }

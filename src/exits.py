@@ -52,7 +52,7 @@ def build_exit_message(
     peak = max([entry, exit_price] + [p for _, p in rec["snaps"]])
     entered_kst = rec["entered_at"].astimezone(KST).strftime("%m-%d %H:%M")
     return (
-        f"🏁 추천 종료 · {REASONS[reason]}\n"
+        f"🏁 [수정판] 추천 종료 · {REASONS[reason]}\n"
         f"{grade_badge(rec['grade'])}  {rec['market']}  {fmt_pct(ret)}\n"
         f"💰 {fmt_price(entry)} → {fmt_price(exit_price)}\n"
         f"🕐 {entered_kst} 추천 → {elapsed_text(now - rec['entered_at'])} 보유\n"
@@ -72,7 +72,7 @@ async def process_exits(
     candidate_by_market = {c.market: c for c in candidates}
     closed = 0
     for rec in price_tracker.load_recommendations():
-        if rec["exit"] is not None or rec["strategy"] != "legacy":
+        if rec["exit"] is not None or rec["strategy"] not in ("legacy", "original"):
             continue  # 사이클 전략 추천은 cycle_exits가 다룬다
         age = now - rec["entered_at"]
         if age < timedelta(days=price_tracker.TRACK_DAYS):
@@ -91,7 +91,9 @@ async def process_exits(
         closed += 1
 
         text = build_exit_message(rec, reason, current, now, candidate_by_market.get(rec["market"]), btc_filter_on)
-        silent = reason == "expired" and age >= timedelta(days=price_tracker.TRACK_DAYS) + EXPIRY_NOTICE_WINDOW
+        # 최초 알고리즘 추천은 기록만 한다 (텔레그램에 알리지 않음)
+        silent = rec["strategy"] == "original" or (
+            reason == "expired" and age >= timedelta(days=price_tracker.TRACK_DAYS) + EXPIRY_NOTICE_WINDOW)
         print(text if not silent else f"(조용히 종료) {rec['market']} {reason}")
         if not silent and telegram_client.is_configured():
             await telegram_client.send_message(session, text)

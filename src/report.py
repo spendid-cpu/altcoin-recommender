@@ -39,7 +39,8 @@ def score_line(rec: dict, cand: CandidateResult | None, btc_filter_on: bool) -> 
 def active_recommendations(now: datetime) -> list[dict]:
     """지금 추적 중인 추천 (추적 기간 안이고 아직 종료되지 않은 것)."""
     cutoff = now - timedelta(days=price_tracker.TRACK_DAYS)
-    return [r for r in price_tracker.load_recommendations() if r["entered_at"] >= cutoff and r["exit"] is None]
+    return [r for r in price_tracker.load_recommendations()
+            if r["entered_at"] >= cutoff and r["exit"] is None and r["strategy"] != "original"]  # 최초는 조용히 기록만
 
 
 def build_report(

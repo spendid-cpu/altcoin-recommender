@@ -6,7 +6,7 @@ import aiohttp
 from aiolimiter import AsyncLimiter
 
 from src import config
-from src.btc_trend import is_trend_favorable
+from src.btc_trend import days_above_ma, is_trend_favorable
 from src.exchanges import binance_client, upbit_client
 from src.scoring import CandidateResult, FrameResult, check_entry, has_volume_spike, score_frame
 
@@ -18,6 +18,12 @@ LOOKBACK_CANDLES = 200
 async def check_btc_trend(session: aiohttp.ClientSession) -> bool:
     daily = await binance_client.fetch_klines(session, config.BINANCE_SYMBOL, "1d", 100)
     return is_trend_favorable(daily["close"])
+
+
+async def btc_days_above(session: aiohttp.ClientSession) -> int:
+    """비트코인 일봉 종가가 MA20 위였던 연속 일수 (최초 알고리즘은 2일 이상을 요구한다)."""
+    daily = await binance_client.fetch_klines(session, config.BINANCE_SYMBOL, "1d", 100)
+    return days_above_ma(daily["close"])
 
 
 async def scan_market(
