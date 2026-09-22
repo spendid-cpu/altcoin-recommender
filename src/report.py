@@ -29,7 +29,7 @@ def score_line(rec: dict, cand: CandidateResult | None, btc_filter_on: bool) -> 
     """발굴 때 점수와 지금 점수의 변화 한 줄 (현황 리포트와 종료 알림에서 같이 쓴다)."""
     start = f"{rec['score']:.1f}" if rec["score"] is not None else "—"
     if cand is not None:
-        tail = f" · 15분 저점 {'✅' if cand.low_15m else '대기'}{' · 타점 ✅' if cand.entry_ready else ''}"
+        tail = f" · 5분 저점 {'✅' if cand.low_15m else '대기'}{' · 타점 ✅' if cand.entry_ready else ''}"
         return f"📐 점수 {start} → {cand.total_score:.1f} ({cand.grade}) · {frames_text(cand.cleared_frames)}{tail}"
     if btc_filter_on:
         return f"📐 점수 {start} → ⚠️ 조건 이탈 (일봉 게이트 미통과)"

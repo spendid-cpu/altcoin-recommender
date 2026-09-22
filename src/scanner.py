@@ -1,4 +1,4 @@
-"""업비트 KRW 마켓 전체를 프레임 축 게이트(일봉->4시간->1시간)로 훑어 후보를 점수화한다."""
+"""업비트 KRW 마켓 전체를 프레임 축 게이트(일봉->4시간->1시간->15분)로 훑어 후보를 점수화한다."""
 
 import asyncio
 
@@ -55,7 +55,8 @@ async def scan_market(
             frames.append(FrameResult(frame=frame, passed_gate=False, score=0.0, detail={"reason": "low_liquidity"}))
             break
 
-        result = score_frame(frame, candles["close"])
+        require_regime = config.DIRECTION_FILTER_ENABLED and frame == config.DIRECTION_FILTER_FRAME
+        result = score_frame(frame, candles["close"], require_rising_regime=require_regime)
         frames.append(result)
         if not result.passed_gate:
             break  # 게이트 실패 -> 하위 프레임 조회 중단
@@ -76,17 +77,17 @@ async def scan_market(
     )
 
     if result.full_gate_pass:
-        # 일봉/4시간/1시간을 모두 통과한 종목만 15분봉을 본다. 15분봉은 마지막 관문(저점인가)이면서 점수에도 들어간다.
-        # entry_ready는 그 위에서 '이번 캔들에 골든크로스가 났는가'를 따로 보는 표시다.
+        # 일봉/4시간/1시간/15분을 모두 통과한 종목만 LOW_FRAME(5분봉)을 본다. LOW_FRAME은 마지막 관문(저점인가)이면서
+        # 점수에도 들어간다. entry_ready는 그 위에서 '이번 캔들에 골든크로스가 났는가'를 따로 보는 표시다.
         async with semaphore, limiter:
-            candles_15m = await upbit_client.fetch_candles(session, market, config.LOW_FRAME, count=LOOKBACK_CANDLES)
-        if not candles_15m.empty:
-            low = score_frame(config.LOW_FRAME, candles_15m["close"])
+            candles_low = await upbit_client.fetch_candles(session, market, config.LOW_FRAME, count=LOOKBACK_CANDLES)
+        if not candles_low.empty:
+            low = score_frame(config.LOW_FRAME, candles_low["close"])
             result.frames.append(low)
             if low.passed_gate:
                 result.total_score += low.score
-            result.entry_ready = check_entry(candles_15m["close"])
-            result.current_price = float(candles_15m["close"].iloc[-1])  # 더 최신 가격으로 갱신
+            result.entry_ready = check_entry(candles_low["close"])
+            result.current_price = float(candles_low["close"].iloc[-1])  # 더 최신 가격으로 갱신
 
     return result
 

@@ -247,7 +247,7 @@
       <div class="card-head">
         <div>
           <h2 id="h-cand">현재 후보 (수정판)</h2>
-          <p class="sub">일봉 조건을 통과한 관찰 대상이에요. 4시간·1시간을 지나 15분봉이 저점에 오면 추천돼요. 이미 추천한 종목은 빼고 보여줘요 (점수 높은 순)</p>
+          <p class="sub">일봉 조건을 통과한 관찰 대상이에요. 4시간·1시간·15분을 지나 5분봉이 저점에 오면 추천돼요. 이미 추천한 종목은 빼고 보여줘요 (점수 높은 순)</p>
         </div>
       </div>
       <div id="cand" class="table-wrap"></div>
@@ -390,7 +390,7 @@
       <div class="card-head">
         <div>
           <h2 id="h-pcmp">전략 비교 · ① 최초 · ② 수정판 · ③ 사이클</h2>
-          <p class="sub">같은 시장에서 세 전략을 나란히 돌려 결과를 따로 쌓고 있어요. 최초는 첫 버전 규칙 그대로(일봉 조건만 통과하면 추천, 최초 스토RSI 설정, 텔레그램 알림 없음), 수정판은 지금까지 알려 온 전략(지표 설정 교정 + 15분 저점 조건)이에요. 사이클 전략의 A급은 지지 구간 터치까지, B급은 1시간 거래량까지 통과한 추천이에요</p>
+          <p class="sub">같은 시장에서 세 전략을 나란히 돌려 결과를 따로 쌓고 있어요. 최초는 첫 버전 규칙 그대로(일봉 조건만 통과하면 추천, 최초 스토RSI 설정, 텔레그램 알림 없음), 수정판은 지금까지 알려 온 전략(지표 설정 교정 + 일봉·4시간·1시간·15분 통과 + 5분 저점)이에요. 사이클 전략의 A급은 지지 구간 터치까지, B급은 1시간 거래량까지 통과한 추천이에요</p>
         </div>
       </div>
       <div id="p-compare" class="table-wrap"></div>
@@ -480,7 +480,7 @@ const NS = 'http://www.w3.org/2000/svg';
 const DATA_URL = 'dashboard.json';
 const STALE_MINUTES = 45;
 const EXPECTED_GAP_MINUTES = 15;
-const FRAME_LABEL = { day: '일봉', '4h': '4시간', '1h': '1시간', '15m': '15분' };
+const FRAME_LABEL = { day: '일봉', '4h': '4시간', '1h': '1시간', '15m': '15분', '5m': '5분' };
 const EXIT_LABEL = { take_profit: '익절', stop_loss: '손절', trailing: '되돌림', expired: '기간 만료', half_trailing: '절반 매도 후 되돌림', half_expired: '절반 매도 후 만료' };
 const $ = (sel, root = document) => root.querySelector(sel);
 
@@ -776,7 +776,7 @@ function renderTiles(d) {
   const cands = freshCandidates(d);
   const count = (g) => cands.filter((c) => c.grade === g).length;
   tiles.push(tile('현재 후보', [String(cands.length)],
-    `A ${count('A')} · B ${count('B')} · 등급 없음 ${cands.length - count('A') - count('B')} · 15분 저점 ${cands.filter((c) => c.low_15m).length}${hidden ? ` · 이미 추천 ${hidden}개 제외` : ''}`));
+    `A ${count('A')} · B ${count('B')} · 등급 없음 ${cands.length - count('A') - count('B')} · 5분 저점 ${cands.filter((c) => c.low_15m).length}${hidden ? ` · 이미 추천 ${hidden}개 제외` : ''}`));
 
   if (d.cycle && d.cycle.enabled) {
     const ready = d.cycle.ready || [];
@@ -871,10 +871,10 @@ function renderCandidates(d) {
     return;
   }
   host.replaceChildren(buildTable(
-    ['종목', '상태', '등급', '점수', '통과 프레임', '15분 저점', '현재가'],
+    ['종목', '상태', '등급', '점수', '통과 프레임', '5분 저점', '현재가'],
     cands.map((c) => [
       c.market,
-      h('span', { class: c.recommendable ? '' : 'muted', text: c.recommendable ? '추천 대상' : '대기 · 15분 저점을 기다려요' }),
+      h('span', { class: c.recommendable ? '' : 'muted', text: c.recommendable ? '추천 대상' : '대기 · 5분 저점을 기다려요' }),
       gradePill(c.grade), c.score == null ? '—' : c.score.toFixed(1),
       c.frames.map((f) => FRAME_LABEL[f] || f).join(' › '),
       c.low_15m ? h('span', { class: 'flag', text: c.entry_ready ? '✓ 저점 · 타점' : '✓ 저점' }) : h('span', { class: 'muted', text: '대기' }),

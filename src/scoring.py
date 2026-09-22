@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 import pandas as pd
 
 from src import config
+from src.formatting import FRAME_LABEL
 from src.indicators.stoch_rsi import stoch_rsi_all_periods
 
 
@@ -42,8 +43,8 @@ def golden_cross_series(
 
 
 def entry_signal_series(k: pd.Series, d: pd.Series) -> pd.Series:
-    """15분봉 매수 타점 트리거: 상위 프레임(일/4시간/1시간)이 이미 과매도권 반등 맥락을 확인했으므로,
-    여기서는 과매도권 필터 없이 순수 골든크로스(%K가 %D 상향 돌파)만 확인한다."""
+    """저점 프레임(LOW_FRAME, 5분봉) 매수 타점 트리거: 상위 프레임(일/4시간/1시간/15분)이 이미 과매도권
+    반등 맥락을 확인했으므로, 여기서는 과매도권 필터 없이 순수 골든크로스(%K가 %D 상향 돌파)만 확인한다."""
     return _crossed_up_series(k, d)
 
 
@@ -56,6 +57,23 @@ def first_touch_series(k: pd.Series, threshold: int = config.OVERSOLD_THRESHOLD)
     """직전 캔들은 threshold 초과, 해당 캔들에서 처음 threshold 이하로 진입했는지 (벡터 버전)."""
     prev_k = k.shift(1)
     return ((prev_k > threshold + EPS) & (k <= threshold + EPS)).fillna(False)
+
+
+def _crossed_down_series(k: pd.Series, d: pd.Series) -> pd.Series:
+    prev_k, prev_d = k.shift(1), d.shift(1)
+    return ((prev_k >= prev_d - EPS) & (k < d - EPS)).fillna(False)
+
+
+def rising_regime_series(k: pd.Series, d: pd.Series, lookback: int = config.DIRECTION_REGIME_LOOKBACK) -> pd.Series:
+    """방향 필터(config.DIRECTION_FILTER_*)용: '상승 체제'인지 — 마지막 바닥 골든크로스(최근 lookback개 캔들
+    안에 저점권이 있었던 골든크로스)가 마지막 데드크로스보다 뒤인 상태. cycle_signals.rising_state와 같은 정의를
+    Series로 다시 구현한 것이다 (cycle_signals를 그대로 import하면 scoring <-> cycle_signals 순환 참조가 된다)."""
+    bottom_gc = golden_cross_series(k, d, from_oversold_lookback=lookback)
+    dead_cross = _crossed_down_series(k, d)
+    idx = pd.Series(range(len(k)), index=k.index)
+    last_gc = idx.where(bottom_gc).ffill()
+    last_dc = idx.where(dead_cross).ffill()
+    return (last_gc.fillna(-1) > last_dc.fillna(-1))
 
 
 def has_volume_spike(df: pd.DataFrame, lookback: int = config.VOLUME_LOOKBACK,
@@ -79,16 +97,20 @@ class FrameResult:
 
 
 def score_frame(
-    frame: str, close: pd.Series, validity_hours: float | None = None, period_sets: dict | None = None
+    frame: str, close: pd.Series, validity_hours: float | None = None, period_sets: dict | None = None,
+    require_rising_regime: bool = False,
 ) -> FrameResult:
-    """한 프레임(day/4h/1h)의 종가 시리즈로부터 게이트 통과 여부와 점수를 계산한다.
-    게이트: 단기 스토가 validity_hours(기본: config.VALIDITY_WINDOW_HOURS) 이내에
+    """한 프레임(day/4h/1h/15m)의 종가 시리즈로부터 게이트 통과 여부와 점수를 계산한다.
+    게이트: 단기 스토가 validity_hours(기본: config.VALIDITY_WINDOW_HOURS, '저점 프레임'은 config.LOW_LIKE_FRAMES) 이내에
     최초 도달 또는 골든크로스한 적이 있으면 통과 (백테스트로 확인된 '조건 유효기간').
     가산점: 골든크로스일 때 TRIGGER 보너스, 중기/장기가 이미 상승 전환(K>D) 상태면 주기 가산점.
-    """
-    is_low_frame = frame == config.LOW_FRAME
+    require_rising_regime=True면 중기·장기(config.DIRECTION_FILTER_MID/LONG로 선택)가 상승 체제일 때만 통과시킨다
+    (config.DIRECTION_FILTER_ENABLED로 스캐너가 이 인자를 넘길지 결정한다. 65일 백테스트에서 우위가 확인되지
+    않아 기본은 꺼짐 — config.py의 설명 참고)."""
+    low_like_hours = config.LOW_LIKE_FRAMES.get(frame)
+    is_low_like = low_like_hours is not None
     if validity_hours is None:
-        validity_hours = config.LOW_FRAME_LOOKBACK_HOURS if is_low_frame else config.VALIDITY_WINDOW_HOURS
+        validity_hours = low_like_hours if is_low_like else config.VALIDITY_WINDOW_HOURS
     lookback_bars = max(1, round(validity_hours / config.FRAME_HOURS[frame]))
 
     periods = stoch_rsi_all_periods(close, period_sets)
@@ -96,12 +118,22 @@ def score_frame(
 
     is_first_touch = bool(first_touch_series(short_k).tail(lookback_bars).any())
     is_golden_cross = bool(golden_cross_series(short_k, short_d).tail(lookback_bars).any())
-    # 15분봉(LOW_FRAME)은 '지금 저점권에 있는가'도 통과로 본다 (저점권에 머무는 동안에는 최초 도달이 이미 지나갔어도 저점이다)
-    at_low = is_low_frame and bool(short_k.iloc[-1] <= config.OVERSOLD_THRESHOLD + EPS)
+    # '저점 프레임'(config.LOW_LIKE_FRAMES)은 '지금 저점권에 있는가'도 통과로 본다
+    # (저점권에 머무는 동안에는 최초 도달이 이미 지나갔어도 저점이다)
+    at_low = is_low_like and bool(short_k.iloc[-1] <= config.OVERSOLD_THRESHOLD + EPS)
     passed = is_first_touch or is_golden_cross or at_low
 
+    regime_ok = None
+    if require_rising_regime:
+        regime_ok = True
+        if config.DIRECTION_FILTER_MID:
+            regime_ok = regime_ok and bool(rising_regime_series(periods["mid"]["k"], periods["mid"]["d"]).iloc[-1])
+        if config.DIRECTION_FILTER_LONG:
+            regime_ok = regime_ok and bool(rising_regime_series(periods["long"]["k"], periods["long"]["d"]).iloc[-1])
+        passed = passed and regime_ok
+
     if not passed:
-        return FrameResult(frame=frame, passed_gate=False, score=0.0)
+        return FrameResult(frame=frame, passed_gate=False, score=0.0, detail={"regime_ok": regime_ok} if regime_ok is not None else {})
 
     score = config.FRAME_WEIGHTS[frame]
     if is_golden_cross:
@@ -125,12 +157,13 @@ def score_frame(
             "short_k": round(float(short_k.iloc[-1]), 2),
             "mid_turned_up": period_state["mid"],
             "long_turned_up": period_state["long"],
+            "regime_ok": regime_ok,
         },
     )
 
 
 def check_entry(close: pd.Series) -> bool:
-    """15분봉 종가 시리즈로부터 매수 타점(단기 스토 골든크로스) 여부를 판단한다."""
+    """저점 프레임(LOW_FRAME, 5분봉) 종가 시리즈로부터 매수 타점(단기 스토 골든크로스) 여부를 판단한다."""
     short = stoch_rsi_all_periods(close)["short"]
     return entry_signal(short["k"], short["d"])
 
@@ -159,7 +192,7 @@ class CandidateResult:
 
     @property
     def full_gate_pass(self) -> bool:
-        """일봉/4시간/1시간 게이트를 모두 통과했는지 (15분 저점 여부와 무관)."""
+        """일봉/4시간/1시간/15분 게이트를 모두 통과했는지 (5분 저점 여부와 무관)."""
         return all(f in self.cleared_frames for f in config.FRAME_ORDER)
 
     def breakdown(self) -> dict:
@@ -174,7 +207,7 @@ class CandidateResult:
             elif d.get("golden_cross"):
                 reason = "저점권에서 골든크로스"
             else:
-                reason = "15분 %K가 저점권" if d.get("at_low") else "조건 통과"
+                reason = f"{FRAME_LABEL.get(f.frame, f.frame)} %K가 저점권" if d.get("at_low") else "조건 통과"
             items = [{"name": "프레임 통과", "points": config.FRAME_WEIGHTS[f.frame]}]
             if d.get("golden_cross"):
                 items.append({"name": "골든크로스 보너스", "points": config.GOLDEN_CROSS_BONUS})
@@ -191,18 +224,19 @@ class CandidateResult:
             "frames": frames,
             "total": round(self.total_score, 1),
             "grade": self.grade,
-            "rule": ("일봉·4시간·1시간 조건을 모두 통과하고 15분봉이 저점일 때 추천" if config.RECOMMEND_ONLY_AT_15M_LOW
+            "rule": ("일봉·4시간·1시간·15분봉 조건을 모두 통과하고 5분봉이 저점일 때 추천" if config.RECOMMEND_ONLY_AT_15M_LOW
                      else "일봉 조건을 통과하면 추천"),
             "entry_ready": self.entry_ready,
         }
 
     @property
     def low_15m(self) -> bool:
+        """이름은 예전 그대로지만 지금은 config.LOW_FRAME(5분봉) 통과 여부다."""
         return config.LOW_FRAME in self.cleared_frames
 
     @property
     def recommendable(self) -> bool:
-        """추천 대상인지. 기본은 일봉/4시간/1시간을 모두 통과하고 15분봉이 저점일 때만 True."""
+        """추천 대상인지. 기본은 일봉/4시간/1시간/15분을 모두 통과하고 5분봉이 저점일 때만 True."""
         if config.RECOMMEND_ONLY_AT_15M_LOW:
             return self.cleared_frames == [*config.FRAME_ORDER, config.LOW_FRAME]
         return bool(self.cleared_frames)

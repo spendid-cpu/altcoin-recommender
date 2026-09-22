@@ -69,18 +69,30 @@ try:
 except ValueError:
     BTC_HOLD_DAYS = 1
 
-# 프레임 축(하드 게이트) 가중치: 일봉 > 4시간 > 1시간
-# 15분봉은 마지막 관문(LOW_FRAME)이라 가장 가벼운 0.5점. 일봉 > 4시간 > 1시간 > 15분 순으로 무게를 둔다.
-FRAME_WEIGHTS = {"day": 3, "4h": 2, "1h": 1, "15m": 0.5}
-FRAME_ORDER = ("day", "4h", "1h")  # 게이트를 타는 순서 (상위 -> 하위)
+# 프레임 축(하드 게이트) 가중치: 일봉 > 4시간 > 1시간 > 15분 > 5분.
+# 매수 진입 시점을 5분봉까지 확인하려고(사용자 요청) 15분봉을 하드 게이트로 올리고 5분봉을 새 마지막 관문(LOW_FRAME)으로 뒀다.
+FRAME_WEIGHTS = {"day": 3, "4h": 2, "1h": 1, "15m": 0.5, "5m": 0.25}
+FRAME_ORDER = ("day", "4h", "1h", "15m")  # 게이트를 타는 순서 (상위 -> 하위)
 
-# 추천 시점: 일봉/4시간/1시간 게이트를 모두 통과한 종목이 15분봉 저점에 있을 때만 추천한다.
-# 15분 저점 = 단기 %K가 저점권(OVERSOLD_THRESHOLD 이하)에 있거나, 최근 LOW_FRAME_LOOKBACK_HOURS 안에 저점권 최초 도달/
+# 추천 시점: 일봉/4시간/1시간/15분 게이트를 모두 통과한 종목이 5분봉 저점에 있을 때만 추천한다.
+# 5분 저점 = 단기 %K가 저점권(OVERSOLD_THRESHOLD 이하)에 있거나, 최근 LOW_LIKE_FRAMES[frame] 시간 안에 저점권 최초 도달/
 # 저점권에서의 골든크로스가 있었던 경우. 예전처럼 일봉 게이트만 통과해도 추천하려면 저장소 변수
-# RECOMMEND_ONLY_AT_15M_LOW=false.
-LOW_FRAME = "15m"
-LOW_FRAME_LOOKBACK_HOURS = 0.75  # 15분봉 3개
+# RECOMMEND_ONLY_AT_15M_LOW=false (이름은 예전 그대로지만 지금은 LOW_FRAME 전체를 끈다).
+LOW_FRAME = "5m"
+# '저점권에 머무는 동안엔 최초 도달이 지나갔어도 저점'으로 보는 프레임과 그 유효기간(봉 3개씩). 15분봉이 새로 하드
+# 게이트에 들어가면서 기존 15분 저점 폭(45분)은 그대로 두고, 5분봉엔 그 1/3(15분, 5분봉 3개)을 준다.
+LOW_LIKE_FRAMES = {"15m": 0.75, "5m": 0.25}
 RECOMMEND_ONLY_AT_15M_LOW = os.environ.get("RECOMMEND_ONLY_AT_15M_LOW", "true").strip().lower() != "false"
+
+# 방향 필터: 4시간 중기·장기 스토RSI가 '상승 체제'(cycle_signals.rising_state와 같은 정의: 마지막 바닥
+# 골든크로스가 마지막 데드크로스보다 뒤)일 때만 4시간 게이트를 통과시킨다. 사용자 요청으로 추가했지만, 시간
+# 매칭 백테스트(65일)에서는 켜도 기준선 대비 초과수익이 오히려 더 나빠져(-0.09% -> 중기+장기 -0.55%) 우위가
+# 확인되지 않았다 — 그래서 기본은 꺼짐이다. 저장소 변수 DIRECTION_FILTER_ENABLED=true로 켤 수 있다.
+DIRECTION_FILTER_ENABLED = os.environ.get("DIRECTION_FILTER_ENABLED", "false").strip().lower() == "true"
+DIRECTION_FILTER_FRAME = "4h"  # 어느 프레임에 방향 필터를 걸지 (백테스트한 프레임 그대로)
+DIRECTION_FILTER_MID = True  # 켰을 때 중기도 볼지
+DIRECTION_FILTER_LONG = True  # 켰을 때 장기도 볼지
+DIRECTION_REGIME_LOOKBACK = 6  # 상승 체제 판정의 '최근 바닥' 창(봉 수, cycle_signals와 동일)
 
 # 주기 축(프레임별 가산점) 가중치.
 # 단기는 트리거 감지 역할이라 별도 가중치가 아니라 TRIGGER_BONUS로 취급.
@@ -98,7 +110,7 @@ GOLDEN_CROSS_BONUS = 2
 OVERSOLD_THRESHOLD = 20
 
 # 프레임별 캔들 1개의 시간(시간 단위) — 유효기간을 캔들 개수로 환산할 때 사용
-FRAME_HOURS = {"day": 24, "4h": 4, "1h": 1, "15m": 0.25}
+FRAME_HOURS = {"day": 24, "4h": 4, "1h": 1, "15m": 0.25, "5m": 5 / 60}
 
 # 조건 유효기간: 게이트가 통과된 후 몇 시간까지 '아직 유효한 상태'로 볼지.
 # 백테스트(scripts/run_backtest.py) 결과 24시간이 3일 뒤 수익률/승률 기준으로 가장 좋았음

@@ -16,6 +16,7 @@ _ENDPOINTS = {
     "4h": "candles/minutes/240",
     "1h": "candles/minutes/60",
     "15m": "candles/minutes/15",
+    "5m": "candles/minutes/5",
 }
 
 # 프레임 이름 -> 캔들 1개의 길이 (마감 여부 판단, 백테스트에서 '정보가 확정되는 시각' 계산에 쓴다)
@@ -24,6 +25,7 @@ FRAME_DELTA = {
     "4h": pd.Timedelta(hours=4),
     "1h": pd.Timedelta(hours=1),
     "15m": pd.Timedelta(minutes=15),
+    "5m": pd.Timedelta(minutes=5),
 }
 
 _MAX_RETRIES = 5

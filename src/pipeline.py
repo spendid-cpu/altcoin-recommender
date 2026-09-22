@@ -56,7 +56,7 @@ async def run_once(session: aiohttp.ClientSession) -> None:
         for c in candidates[:20]:
             frames_str = " > ".join(c.cleared_frames) if c.cleared_frames else "-"
             vol = " +거래량" if c.volume_bonus else ""
-            entry = (" ★15분저점" if c.low_15m else "") + (" ★매수타점(15분)" if c.entry_ready else "")
+            entry = (" ★5분저점" if c.low_15m else "") + (" ★매수타점(5분)" if c.entry_ready else "")
             entry += " →추천" if c.recommendable else ""
             print(f"  {c.market:12s} [{c.grade}] 점수={c.total_score:5.1f}  통과 프레임=[{frames_str}]{vol}{entry}")
 
