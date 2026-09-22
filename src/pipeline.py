@@ -16,7 +16,10 @@ KST = ZoneInfo("Asia/Seoul")
 
 async def _send_heartbeat(session: aiohttp.ClientSession, text: str) -> None:
     if config.HEARTBEAT_ENABLED and telegram_client.is_configured():
-        await telegram_client.send_message(session, text)
+        try:
+            await telegram_client.send_message(session, text)
+        except Exception as exc:
+            print(f"[하트비트] 전송 실패(무시): {exc!r}")
 
 
 async def run_once(session: aiohttp.ClientSession) -> None:
@@ -68,12 +71,19 @@ async def run_once(session: aiohttp.ClientSession) -> None:
     candidate_by_market = {c.market: c for c in candidates}
     for a in alerts:
         print(f"  [{a.kind}] {a.message}")
-        if telegram_client.is_configured():
-            await telegram_client.send_message(session, a.message)
+        # 알림 하나(전송 실패 등)에서 난 오류로 나머지 알림·진입 기록이 막히면 안 된다
+        try:
+            if telegram_client.is_configured():
+                await telegram_client.send_message(session, a.message)
+        except Exception as exc:
+            print(f"  알림 전송 실패({a.market}, 기록은 계속 진행): {exc!r}")
         if a.kind == "new_candidate":
-            # 발굴 시점의 가격/등급/점수를 '진입 기록'으로 남긴다 — 이후 계속 추적해 실제 수익률을 검증하는 원본 데이터.
-            c = candidate_by_market[a.market]
-            price_tracker.record_entry(a.market, c.current_price, c.grade, round(c.total_score, 1), c.breakdown())
+            try:
+                # 발굴 시점의 가격/등급/점수를 '진입 기록'으로 남긴다 — 이후 계속 추적해 실제 수익률을 검증하는 원본 데이터.
+                c = candidate_by_market[a.market]
+                price_tracker.record_entry(a.market, c.current_price, c.grade, round(c.total_score, 1), c.breakdown())
+            except Exception as exc:
+                print(f"  {a.market} 진입 기록 실패(이번 사이클은 건너뜀): {exc!r}")
 
     await _run_baseline_scan(session, markets, candle_cache)
 

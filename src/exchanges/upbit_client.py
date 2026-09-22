@@ -111,10 +111,26 @@ async def fetch_markets(session: aiohttp.ClientSession) -> list[str]:
     return [m["market"] for m in data if m["market"].startswith("KRW-") and m["market"] not in config.EXCLUDED_MARKETS]
 
 
+async def _ticker_batch(session: aiohttp.ClientSession, markets: list[str]) -> dict[str, float]:
+    data = await _get_json(session, "ticker", {"markets": ",".join(markets)})
+    return {row["market"]: float(row["trade_price"]) for row in data}
+
+
 async def fetch_ticker_prices(session: aiohttp.ClientSession, markets: list[str]) -> dict[str, float]:
-    """여러 마켓의 현재가를 한 번에 조회한다 (가격 추적용). 빈 목록이면 빈 dict 반환."""
+    """여러 마켓의 현재가를 한 번에 조회한다 (가격 추적용). 빈 목록이면 빈 dict 반환.
+    한 번에 묶어서 조회하다 실패하면(그중 한 종목이 상장폐지됐거나 코드가 잘못돼 업비트가 요청 전체를
+    오류로 응답하는 경우 등) 종목별로 나눠 다시 시도한다 — 이미 추적 중인 종목 여러 개가 문제 있는 종목
+    하나 때문에 이번 사이클에서 통째로 처리되지 못하면 안 되기 때문이다(익절/손절 판단이 밀린다)."""
     if not markets:
         return {}
-    params = {"markets": ",".join(markets)}
-    data = await _get_json(session, "ticker", params)
-    return {row["market"]: float(row["trade_price"]) for row in data}
+    try:
+        return await _ticker_batch(session, markets)
+    except Exception as exc:
+        print(f"  시세 일괄 조회 실패({exc!r}), 종목별로 다시 시도합니다")
+    prices: dict[str, float] = {}
+    for market in markets:
+        try:
+            prices.update(await _ticker_batch(session, [market]))
+        except Exception as exc:
+            print(f"  {market} 시세 조회 실패(이번 사이클은 건너뜀): {exc!r}")
+    return prices

@@ -93,7 +93,7 @@ def masks(signals) -> dict[str, np.ndarray]:
 
     short = stoch_rsi_all_periods(signals.close15)["short"]
     k, d = short["k"], short["d"]
-    lookback = max(1, round(config.LOW_FRAME_LOOKBACK_HOURS / config.FRAME_HOURS["15m"]))
+    lookback = max(1, round(config.LOW_LIKE_FRAMES["15m"] / config.FRAME_HOURS["15m"]))
     at_low = (k <= config.OVERSOLD_THRESHOLD + EPS).fillna(False).to_numpy()
     touch = first_touch_series(k).astype(float).rolling(lookback, min_periods=1).max().astype(bool).to_numpy()
     golden_low = golden_cross_series(k, d).astype(float).rolling(lookback, min_periods=1).max().astype(bool).to_numpy()

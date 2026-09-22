@@ -74,27 +74,31 @@ async def process_exits(
     for rec in price_tracker.load_recommendations():
         if rec["exit"] is not None:
             continue
-        age = now - rec["entered_at"]
-        if age < timedelta(days=price_tracker.TRACK_DAYS):
-            current = prices.get(rec["market"])
-            if current is None:
-                continue  # 이번 스캔에서 시세를 못 받았으면 다음 사이클에 판단
-        else:
-            # 추적이 이미 끝난 종목이라 현재가를 따로 받지 않는다 — 마지막으로 기록한 가격이 만료 시점 가격이다
-            current = rec["snaps"][-1][1] if rec["snaps"] else rec["entry_price"]
+        try:
+            age = now - rec["entered_at"]
+            if age < timedelta(days=price_tracker.TRACK_DAYS):
+                current = prices.get(rec["market"])
+                if current is None:
+                    continue  # 이번 스캔에서 시세를 못 받았으면 다음 사이클에 판단
+            else:
+                # 추적이 이미 끝난 종목이라 현재가를 따로 받지 않는다 — 마지막으로 기록한 가격이 만료 시점 가격이다
+                current = rec["snaps"][-1][1] if rec["snaps"] else rec["entry_price"]
 
-        reason = check_exit(rec, current, now)
-        if reason is None:
-            continue
-        ret = (current / rec["entry_price"] - 1) * 100
-        price_tracker.record_exit(rec["market"], rec["entered_at"], current, ret, reason)
-        closed += 1
+            reason = check_exit(rec, current, now)
+            if reason is None:
+                continue
+            ret = (current / rec["entry_price"] - 1) * 100
+            price_tracker.record_exit(rec["market"], rec["entered_at"], current, ret, reason)
+            closed += 1
 
-        text = build_exit_message(rec, reason, current, now, candidate_by_market.get(rec["market"]), btc_filter_on)
-        # 최초 알고리즘 추천은 기록만 한다 (텔레그램에 알리지 않음)
-        silent = rec["strategy"] == "original" or (
-            reason == "expired" and age >= timedelta(days=price_tracker.TRACK_DAYS) + EXPIRY_NOTICE_WINDOW)
-        print(text if not silent else f"(조용히 종료) {rec['market']} {reason}")
-        if not silent and telegram_client.is_configured():
-            await telegram_client.send_message(session, text)
+            text = build_exit_message(rec, reason, current, now, candidate_by_market.get(rec["market"]), btc_filter_on)
+            # 최초 알고리즘 추천은 기록만 한다 (텔레그램에 알리지 않음)
+            silent = rec["strategy"] == "original" or (
+                reason == "expired" and age >= timedelta(days=price_tracker.TRACK_DAYS) + EXPIRY_NOTICE_WINDOW)
+            print(text if not silent else f"(조용히 종료) {rec['market']} {reason}")
+            if not silent and telegram_client.is_configured():
+                await telegram_client.send_message(session, text)
+        except Exception as exc:
+            # 종목 하나(알림 전송 실패 등)에서 난 오류로 나머지 종목의 종료 판단이 막히면 안 된다
+            print(f"  {rec['market']} 종료 처리 실패(이번 사이클은 건너뜀): {exc!r}")
     return closed

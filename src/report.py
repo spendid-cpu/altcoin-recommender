@@ -107,7 +107,11 @@ async def maybe_send_report(
         return False
     print(text)
     if telegram_client.is_configured():
-        await telegram_client.send_message(session, text)
+        try:
+            await telegram_client.send_message(session, text)
+        except Exception as exc:
+            # 전송 실패(네트워크 문제, 메시지 길이 등)로 이번 사이클 전체(상태 저장·배포)가 막히면 안 된다
+            print(f"[리포트] 전송 실패(다음 사이클에 다시 시도): {exc!r}")
     # 텔레그램이 꺼져 있어도 발송 시각은 기록해 콘솔 출력이 매 스캔마다 반복되지 않게 한다
     state_store.set_meta(LAST_REPORT_KEY, now.isoformat())
     return True
