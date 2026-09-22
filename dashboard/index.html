@@ -1038,7 +1038,10 @@ function tickerItems(d) {
   const items = [];
   for (const r of d.recommendations || []) {
     const tag = r.strategy === 'original' ? '[대조군] ' : '';
-    items.push({ t: new Date(r.entered_at).getTime(), cls: 'new', text: `🆕 ${tag}${r.market} 추천` });
+    // '제외 정리'로 끝난 건 규칙이 생기기 전의 옛 기록이라 '추천'으로는 안 보여준다 (그 사유로 종료된 것만 보여줌)
+    if (!r.exit || r.exit.reason !== 'excluded') {
+      items.push({ t: new Date(r.entered_at).getTime(), cls: 'new', text: `🆕 ${tag}${r.market} 추천` });
+    }
     if (r.exit) {
       const cls = r.exit.reason === 'take_profit' ? 'tp' : r.exit.reason === 'stop_loss' ? 'sl' : 'ex';
       const mark = cls === 'tp' ? '▲' : cls === 'sl' ? '▼' : '■';
