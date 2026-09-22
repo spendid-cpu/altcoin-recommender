@@ -70,10 +70,6 @@ def build_recommendations(now: datetime) -> list[dict]:
         snaps = rec["snaps"]
         last_at, last_price = (snaps[-1] if snaps else (entry_at, entry_price))
         pct = lambda p: round((p / entry_price - 1) * 100, 2) if entry_price else None  # noqa: E731
-        half = rec["half"]
-        half_out = None if half is None else {
-            "at": half["at"].isoformat(), "price": half["price"], "return_pct": pct(half["price"]),
-        }
         horizons = {}
         for hours in HORIZONS_HOURS:
             target = entry_at + timedelta(hours=hours)
@@ -101,12 +97,8 @@ def build_recommendations(now: datetime) -> list[dict]:
             "detail": rec.get("detail"),
             "last_price": last_price,
             "last_at": last_at.isoformat(),
-            # 사이클 전략은 절반을 이미 팔았으면 '지금까지의 손익'도 두 몫의 평균이다
-            "return_pct": round(0.5 * half_out["return_pct"] + 0.5 * pct(last_price), 2) if half_out and entry_price else pct(last_price),
-            "raw_return_pct": pct(last_price),
+            "return_pct": pct(last_price),
             "strategy": rec["strategy"],
-            "tier": rec["tier"],
-            "half": half_out,
             "horizons": horizons,
             "active": ended is None and age_hours < price_tracker.TRACK_DAYS * 24,
             "series": [[0, 0.0]] + [
@@ -121,7 +113,7 @@ def build_recommendations(now: datetime) -> list[dict]:
 
 
 def build_summary(recs: list[dict]) -> dict:
-    """기존 전략 추천의 요약 (사이클 전략과의 비교는 화면이 추천 목록에서 전략별로 계산한다)."""
+    """개선판 추천의 요약 (대조군과의 비교는 화면이 추천 목록에서 전략별로 계산한다)."""
     recs = [r for r in recs if r["strategy"] == "legacy"]
     summary = {"total": len(recs)}
     for key, label in (("24h", "1d"), ("72h", "3d")):
@@ -130,20 +122,6 @@ def build_summary(recs: list[dict]) -> dict:
         summary[f"win_rate_{label}"] = round(sum(1 for v in values if v > 0) / len(values) * 100, 1) if values else None
         summary[f"avg_{label}"] = round(sum(values) / len(values), 2) if values else None
     return summary
-
-
-def build_cycle_ready() -> list[dict]:
-    """사이클 전략 '준비 현황': 이번 스캔에서 4시간 상승 체제 이상 단계에 있던 종목 (단계 높은 순)."""
-    out = []
-    for market, st in price_tracker.load_cycle_states().items():
-        out.append({
-            "market": market, "stage": st.get("stage"), "tier": st.get("tier"), "price": st.get("price"),
-            "day_short": st.get("day_short"), "h4_short": st.get("h4_short"), "h4_mid": st.get("h4_mid"),
-            "h4_long": st.get("h4_long"), "h1_short": st.get("h1_short"), "h1_trig": st.get("h1_trig"),
-            "h1_vol": st.get("h1_vol"), "support": st.get("support"),
-        })
-    out.sort(key=lambda r: (-(r["stage"] or 0), r["tier"] or "Z", r["market"]))
-    return out
 
 
 def build_candidates(latest_by_market: dict[str, dict]) -> tuple[list[dict], str | None]:
@@ -185,7 +163,7 @@ async def main(out_path: Path) -> None:
 
     recs = build_recommendations(now)
     latest_by_market: dict[str, dict] = {}
-    for rec in recs:  # recs는 최신순이라 종목별 첫 항목이 가장 최근 추천 (후보 목록은 기존 전략 기준)
+    for rec in recs:  # recs는 최신순이라 종목별 첫 항목이 가장 최근 추천 (후보 목록은 개선판 기준)
         if rec["strategy"] == "legacy":
             latest_by_market.setdefault(rec["market"], rec)
     candidates, state_updated_at = build_candidates(latest_by_market)
@@ -209,12 +187,6 @@ async def main(out_path: Path) -> None:
             "track_days": price_tracker.TRACK_DAYS,
         },
         "grade_thresholds": config.SCORE_GRADE_THRESHOLDS,
-        "cycle": {
-            "enabled": config.CYCLE_ENABLED,
-            "stop_pct": config.CYCLE_STOP_PCT,
-            "trail_pct": config.CYCLE_TRAIL_PCT,
-            "ready": build_cycle_ready(),
-        },
     }
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(jsonutil.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")

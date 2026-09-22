@@ -66,8 +66,7 @@ def _crossed_down_series(k: pd.Series, d: pd.Series) -> pd.Series:
 
 def rising_regime_series(k: pd.Series, d: pd.Series, lookback: int = config.DIRECTION_REGIME_LOOKBACK) -> pd.Series:
     """방향 필터(config.DIRECTION_FILTER_*)용: '상승 체제'인지 — 마지막 바닥 골든크로스(최근 lookback개 캔들
-    안에 저점권이 있었던 골든크로스)가 마지막 데드크로스보다 뒤인 상태. cycle_signals.rising_state와 같은 정의를
-    Series로 다시 구현한 것이다 (cycle_signals를 그대로 import하면 scoring <-> cycle_signals 순환 참조가 된다)."""
+    안에 저점권이 있었던 골든크로스)가 마지막 데드크로스보다 뒤인 상태."""
     bottom_gc = golden_cross_series(k, d, from_oversold_lookback=lookback)
     dead_cross = _crossed_down_series(k, d)
     idx = pd.Series(range(len(k)), index=k.index)

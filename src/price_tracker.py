@@ -2,8 +2,8 @@
 설계 문서(대시보드 및 텔레그램 알림 섹션): '발굴 시점의 가격을 기록해두고 이후 일정 기간의
 가격 움직임을 계속 추적 — 이 추적 데이터가 곧 백테스트 검증의 원본 데이터가 된다'를 구현한 것.
 
-전략이 셋이다: 'original'(최초: 일봉 게이트만, 최초 스토RSI 설정, 알림 없이 기록만), 'legacy'(수정판: 스토RSI 게이트 + 5분 저점,
-익절/손절 ±5%), 'cycle'(사이클 전략: 사용자 판단 방식, 절반 매도 + 트레일링).
+전략이 둘이다: 'original'(대조군: 일봉 게이트만, 최초 스토RSI 설정, 알림 없이 기록만, 규칙 고정)와 'legacy'(개선판: 스토RSI 게이트 +
+5분 저점, 익절/손절 ±5%, 계속 다듬는 실제 운영 전략).
 두 전략은 같은 종목을 각자 추천할 수 있고 서로 독립적으로 추적·중복 방지·종료한다 (가격 스냅샷은 종목별로 공유).
 
 같은 SQLite 파일(state_store.DB_PATH)에 price_history 테이블을 둔다. 신규 후보 알림이 뜬
@@ -40,17 +40,10 @@ def connect() -> sqlite3.Connection:
         conn.execute("ALTER TABLE price_history ADD COLUMN score REAL")
     if "detail" not in columns:  # 추천 근거(점수 구성) JSON. 이전 버전에서 만든 추천은 비어 있다
         conn.execute("ALTER TABLE price_history ADD COLUMN detail TEXT")
-    if "strategy" not in columns:  # 추천한 전략('legacy' 기존 / 'cycle' 사이클). 이전 버전에서 만든 추천은 비어 있고 legacy로 본다
+    if "strategy" not in columns:  # 추천한 전략('original' 대조군 / 'legacy' 개선판). 이전 버전에서 만든 추천은 비어 있고 legacy로 본다
         conn.execute("ALTER TABLE price_history ADD COLUMN strategy TEXT")
-    if "tier" not in columns:  # 사이클 전략의 등급('A' 지지 터치까지 / 'B' 거래량까지)
+    if "tier" not in columns:  # 예전 사이클 전략이 쓰던 등급 컬럼. 지금은 아무 전략도 값을 안 채운다 (항상 NULL)
         conn.execute("ALTER TABLE price_history ADD COLUMN tier TEXT")
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS rec_half ("
-        "market TEXT, entered_at TEXT, half_at TEXT, half_price REAL, PRIMARY KEY (market, entered_at))"
-    )
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS cycle_state (market TEXT PRIMARY KEY, state_json TEXT NOT NULL, updated_at TEXT NOT NULL)"
-    )
     conn.execute(
         "CREATE TABLE IF NOT EXISTS rec_exits ("
         "market TEXT, entered_at TEXT, ended_at TEXT, exit_price REAL, return_pct REAL, reason TEXT, "
@@ -158,76 +151,36 @@ def record_exit(market: str, entered_at: datetime, exit_price: float, return_pct
         conn.close()
 
 
-def record_half(market: str, entered_at: datetime, half_at: datetime, half_price: float) -> None:
-    """사이클 전략의 절반 매도 신호 시점과 그때 가격(그 4시간 봉 종가)을 기록한다."""
-    conn = connect()
-    try:
-        conn.execute(
-            "INSERT OR REPLACE INTO rec_half (market, entered_at, half_at, half_price) VALUES (?, ?, ?, ?)",
-            (market, entered_at.isoformat(), half_at.isoformat(), half_price),
-        )
-        conn.commit()
-    finally:
-        conn.close()
-
-
-def save_cycle_states(states: dict[str, dict]) -> None:
-    """이번 스캔에서 사이클 전략의 일봉 이상 단계에 있던 종목들의 상태 (대시보드의 '준비 현황'). 이전 내용은 통째로 바꾼다."""
-    now = datetime.now(timezone.utc).isoformat()
-    conn = connect()
-    try:
-        conn.execute("DELETE FROM cycle_state")
-        conn.executemany(
-            "INSERT INTO cycle_state (market, state_json, updated_at) VALUES (?, ?, ?)",
-            [(m, jsonutil.dumps(s, ensure_ascii=False), now) for m, s in states.items()],
-        )
-        conn.commit()
-    finally:
-        conn.close()
-
-
-def load_cycle_states() -> dict[str, dict]:
-    conn = connect()
-    try:
-        rows = conn.execute("SELECT market, state_json FROM cycle_state").fetchall()
-        return {m: json.loads(s) for m, s in rows}
-    finally:
-        conn.close()
-
-
 def load_recommendations() -> list[dict]:
     """진입 기록(is_entry=1) 하나가 추천 하나. 이후 스냅샷을 붙여 시간순(오래된 것 먼저)으로 반환한다.
-    각 항목: market, entered_at(datetime), entry_price, grade, score, detail(추천 근거 dict 또는 None), strategy('legacy'/'cycle'),
-    tier(사이클 전략 등급 또는 None), snaps[(datetime, price)], half({at, price}: 절반 매도한 추천이면, 아니면 None),
-    exit(종료된 추천이면 {ended_at, exit_price, return_pct, reason}, 아니면 None)
+    각 항목: market, entered_at(datetime), entry_price, grade, score, detail(추천 근거 dict 또는 None), strategy('original'/'legacy'),
+    snaps[(datetime, price)], exit(종료된 추천이면 {ended_at, exit_price, return_pct, reason}, 아니면 None)
     가격 스냅샷은 종목별로 공유해서 기록하므로, 각 추천에는 진입 이후 ~ 종료(없으면 추적 기간 끝)까지의 스냅샷만 붙인다."""
     conn = connect()
     try:
         rows = conn.execute(
-            "SELECT market, recorded_at, price, is_entry, grade, score, detail, strategy, tier FROM price_history "
+            "SELECT market, recorded_at, price, is_entry, grade, score, detail, strategy FROM price_history "
             "ORDER BY market, recorded_at"
         ).fetchall()
         exit_rows = conn.execute(
             "SELECT market, entered_at, ended_at, exit_price, return_pct, reason FROM rec_exits"
         ).fetchall()
-        half_rows = conn.execute("SELECT market, entered_at, half_at, half_price FROM rec_half").fetchall()
     finally:
         conn.close()
     exits = {
         (m, entered): {"ended_at": datetime.fromisoformat(ended), "exit_price": price, "return_pct": ret, "reason": reason}
         for m, entered, ended, price, ret, reason in exit_rows
     }
-    halves = {(m, entered): {"at": datetime.fromisoformat(at), "price": price} for m, entered, at, price in half_rows}
 
     entries: list[dict] = []
     snaps_by_market: dict[str, list[tuple[datetime, float]]] = {}
-    for market, recorded_at, price, is_entry, grade, score, detail, strategy, tier in rows:
+    for market, recorded_at, price, is_entry, grade, score, detail, strategy in rows:
         at = datetime.fromisoformat(recorded_at)
         if is_entry:
             entries.append({
                 "market": market, "entered_at": at, "entry_price": price, "grade": grade or "-", "score": score,
-                "detail": json.loads(detail) if detail else None, "strategy": strategy or "legacy", "tier": tier, "snaps": [],
-                "half": halves.get((market, recorded_at)), "exit": exits.get((market, recorded_at)),
+                "detail": json.loads(detail) if detail else None, "strategy": strategy or "legacy", "snaps": [],
+                "exit": exits.get((market, recorded_at)),
             })
         else:
             snaps_by_market.setdefault(market, []).append((at, price))

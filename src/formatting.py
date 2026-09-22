@@ -6,16 +6,16 @@ GRADE_BADGE = {"A": "🟢 A등급", "B": "🔵 B등급"}
 NO_GRADE_BADGE = "⚪ 등급 없음"
 
 
-STRATEGY_LABEL = {"original": "최초", "legacy": "수정판", "cycle": "사이클"}
+# 'original'(첫 커밋 규칙, 절대 안 바꾸는 비교 기준점) / 'legacy'(계속 다듬는 실제 운영 전략). 내부 코드값(DB에
+# 저장되는 strategy 컬럼)은 그대로 두고 화면·알림에 보이는 이름만 용도에 맞게 붙인다.
+STRATEGY_LABEL = {"original": "대조군", "legacy": "개선판"}
 
 
 def strategy_tag(rec: dict) -> str:
-    """추천 항목 앞에 붙이는 전략 표시. 사이클 전략은 등급(A급/B급)이 뜻이 다르므로 이름과 함께 보여준다."""
-    if rec.get("strategy") == "cycle":
-        return f"🌀 사이클 {rec.get('tier') or '-'}급"
+    """추천 항목 앞에 붙이는 전략 표시."""
     if rec.get("strategy") == "original":
-        return "🏷 최초"
-    return f"[수정판] {grade_badge(rec.get('grade'))}"
+        return "🏷 대조군"
+    return f"[개선판] {grade_badge(rec.get('grade'))}"
 
 
 def grade_badge(grade: str | None) -> str:

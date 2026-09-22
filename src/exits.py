@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 import aiohttp
 
 from src import config, price_tracker, telegram_client
-from src.formatting import fmt_pct, fmt_price, grade_badge
+from src.formatting import fmt_pct, fmt_price, strategy_tag
 from src.report import elapsed_text, score_line
 from src.scoring import CandidateResult
 
@@ -52,8 +52,8 @@ def build_exit_message(
     peak = max([entry, exit_price] + [p for _, p in rec["snaps"]])
     entered_kst = rec["entered_at"].astimezone(KST).strftime("%m-%d %H:%M")
     return (
-        f"🏁 [수정판] 추천 종료 · {REASONS[reason]}\n"
-        f"{grade_badge(rec['grade'])}  {rec['market']}  {fmt_pct(ret)}\n"
+        f"🏁 추천 종료 · {REASONS[reason]}\n"
+        f"{strategy_tag(rec)}  {rec['market']}  {fmt_pct(ret)}\n"
         f"💰 {fmt_price(entry)} → {fmt_price(exit_price)}\n"
         f"🕐 {entered_kst} 추천 → {elapsed_text(now - rec['entered_at'])} 보유\n"
         f"🏔 최고 {(peak / entry - 1) * 100:+.2f}%\n"
@@ -72,8 +72,8 @@ async def process_exits(
     candidate_by_market = {c.market: c for c in candidates}
     closed = 0
     for rec in price_tracker.load_recommendations():
-        if rec["exit"] is not None or rec["strategy"] not in ("legacy", "original"):
-            continue  # 사이클 전략 추천은 cycle_exits가 다룬다
+        if rec["exit"] is not None:
+            continue
         age = now - rec["entered_at"]
         if age < timedelta(days=price_tracker.TRACK_DAYS):
             current = prices.get(rec["market"])

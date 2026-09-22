@@ -106,14 +106,14 @@ def diff_alerts(candidates: list[CandidateResult]) -> tuple[list[Alert], dict[st
                 new_states[market] = {**cur, "alerted_frames": [], "alerted_entry": False}
                 continue
             if market not in tracked:
-                alerts.append(Alert(market, "new_candidate", _message("🆕 [수정판] 신규 추천", market, cur)))
+                alerts.append(Alert(market, "new_candidate", _message("🆕 [개선판] 신규 추천", market, cur)))
             alerted_frames = cur["cleared_frames"]  # 알림을 생략해도 기준선은 갱신한다
         elif len(cur["cleared_frames"]) > len(alerted_frames):
-            alerts.append(Alert(market, "frame_advance", _message("📈 [수정판] 단계 상승", market, cur)))
+            alerts.append(Alert(market, "frame_advance", _message("📈 [개선판] 단계 상승", market, cur)))
             alerted_frames = cur["cleared_frames"]
 
         if cur["entry_ready"] and not alerted_entry:
-            alerts.append(Alert(market, "entry_ready", _message("🎯 [수정판] 5분 매수 타점", market, cur)))
+            alerts.append(Alert(market, "entry_ready", _message("🎯 [개선판] 5분 매수 타점", market, cur)))
             alerted_entry = True
 
         new_states[market] = {**cur, "alerted_frames": alerted_frames, "alerted_entry": alerted_entry}

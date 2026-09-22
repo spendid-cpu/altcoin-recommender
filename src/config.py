@@ -84,15 +84,15 @@ LOW_FRAME = "5m"
 LOW_LIKE_FRAMES = {"15m": 0.75, "5m": 0.25}
 RECOMMEND_ONLY_AT_15M_LOW = os.environ.get("RECOMMEND_ONLY_AT_15M_LOW", "true").strip().lower() != "false"
 
-# 방향 필터: 4시간 중기·장기 스토RSI가 '상승 체제'(cycle_signals.rising_state와 같은 정의: 마지막 바닥
-# 골든크로스가 마지막 데드크로스보다 뒤)일 때만 4시간 게이트를 통과시킨다. 사용자 요청으로 추가했지만, 시간
-# 매칭 백테스트(65일)에서는 켜도 기준선 대비 초과수익이 오히려 더 나빠져(-0.09% -> 중기+장기 -0.55%) 우위가
+# 방향 필터: 4시간 중기·장기 스토RSI가 '상승 체제'(마지막 바닥 골든크로스가 마지막 데드크로스보다 뒤)일 때만
+# 4시간 게이트를 통과시킨다. 사용자 요청으로 추가했지만, 같은 시각 무작위 진입과 비교한 시간 매칭 백테스트(65일)
+# 에서는 켜도 그 비교 기준(무작위 진입) 대비 초과수익이 오히려 더 나빠져(-0.09% -> 중기+장기 -0.55%) 우위가
 # 확인되지 않았다 — 그래서 기본은 꺼짐이다. 저장소 변수 DIRECTION_FILTER_ENABLED=true로 켤 수 있다.
 DIRECTION_FILTER_ENABLED = os.environ.get("DIRECTION_FILTER_ENABLED", "false").strip().lower() == "true"
 DIRECTION_FILTER_FRAME = "4h"  # 어느 프레임에 방향 필터를 걸지 (백테스트한 프레임 그대로)
 DIRECTION_FILTER_MID = True  # 켰을 때 중기도 볼지
 DIRECTION_FILTER_LONG = True  # 켰을 때 장기도 볼지
-DIRECTION_REGIME_LOOKBACK = 6  # 상승 체제 판정의 '최근 바닥' 창(봉 수, cycle_signals와 동일)
+DIRECTION_REGIME_LOOKBACK = 6  # 상승 체제 판정의 '최근 바닥' 창(봉 수)
 
 # 주기 축(프레임별 가산점) 가중치.
 # 단기는 트리거 감지 역할이라 별도 가중치가 아니라 TRIGGER_BONUS로 취급.
@@ -131,24 +131,18 @@ VOLUME_BONUS = 0
 MIN_DAILY_TRADE_VALUE_KRW = 300_000_000  # 일봉 거래대금 3억원 미만은 체결이 어려워 후보에서 제외
 
 # 스테이블코인은 가격이 거의 안 움직여 스토캐스틱이 미세한 잡음만으로 극단값(저점권/고점권)을 찍는다 —
-# '바닥에서 반등' 신호가 실제로는 의미 없는 노이즈라 세 전략 모두에서 제외한다 (지금 업비트 KRW 마켓 기준).
+# '바닥에서 반등' 신호가 실제로는 의미 없는 노이즈라 대조군·개선판 둘 다에서 제외한다 (지금 업비트 KRW 마켓 기준).
 EXCLUDED_MARKETS = {"KRW-USDT", "KRW-USDC"}
 
 # 점수 등급 표시(A/B/없음). 표시용 구분일 뿐 성과를 보장하지 않는다: 마감 시각 기준으로 바로잡은 백테스트에서
 # 점수가 높을수록 성과가 좋아지는 관계는 확인되지 않았다 (추천 후 3일 평균: 3+ +2.00%, 13+ +1.62%, 16+ +1.51%).
 SCORE_GRADE_THRESHOLDS = {"A": 16, "B": 13}  # 이 값 이상이면 해당 등급, 미만이면 등급 없음("-")
 
-# 사이클 전략(사용자 판단 방식)을 기존 전략과 나란히 돌려 성과를 비교한다. 끄려면 저장소 변수 CYCLE_ENABLED=false.
-# 규칙은 cycle_signals.py 첫머리에 있고, 65일 백테스트에서 확정한 값 그대로다 (임의로 바꾸지 않는다 — 바꾸면 비교가 무의미해진다).
-CYCLE_ENABLED = os.environ.get("CYCLE_ENABLED", "true").strip().lower() != "false"
-CYCLE_STOP_PCT = 5.0  # 절반 매도 전 손절 (전량)
-CYCLE_TRAIL_PCT = 5.0  # 절반 매도 뒤 나머지 절반의 고점 대비 트레일링 폭
-CYCLE_H4_CANDLES = 450  # 4시간 이력 (백테스트와 같은 길이: 65일 + 여유)
-
-# 최초 알고리즘(첫 버전)을 병행 운영해 수정판·사이클 전략과 성과를 비교한다. 끄려면 저장소 변수 ORIGINAL_ENABLED=false.
-# 규칙: 일봉 게이트만 통과하면 추천 + 최초 스토RSI 설정 + BTC 일봉 종가 MA20 위 2일 유지. 조용히(텔레그램 없이) 기록만 한다.
-# 종료 규칙은 최초에는 없었지만 성과를 재려고 수정판과 같은 익절 +5% / 손절 -5% / 3일을 쓴다. 마감된 캔들만 쓰는 것도 수정판과 같다
-# (최초 버전의 진행 중 캔들 사용은 신호가 스캔마다 바뀌는 오류였다).
+# 대조군(최초 커밋의 첫 버전 규칙)을 개선판과 나란히 돌려 성과를 비교한다. 끄려면 저장소 변수 ORIGINAL_ENABLED=false.
+# 규칙: 일봉 게이트만 통과하면 추천 + 최초 스토RSI 설정(트레이딩뷰와 순서가 반대인 오독) + BTC 일봉 종가 MA20 위
+# 2일 유지. 절대 안 바꾼다 — 비교의 기준점이라 바꾸면 지금까지의 비교가 무의미해진다. 조용히(텔레그램 없이) 기록만 한다.
+# 종료 규칙은 최초에는 없었지만 성과를 재려고 개선판과 같은 익절 +5% / 손절 -5% / 3일을 쓴다. 마감된 캔들만 쓰는 것도
+# 개선판과 같다 (최초 버전의 진행 중 캔들 사용은 신호가 스캔마다 바뀌는 오류였다).
 ORIGINAL_ENABLED = os.environ.get("ORIGINAL_ENABLED", "true").strip().lower() != "false"
 ORIGINAL_BTC_HOLD_DAYS = 2
 

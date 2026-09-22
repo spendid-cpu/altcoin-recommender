@@ -40,7 +40,7 @@ def active_recommendations(now: datetime) -> list[dict]:
     """지금 추적 중인 추천 (추적 기간 안이고 아직 종료되지 않은 것)."""
     cutoff = now - timedelta(days=price_tracker.TRACK_DAYS)
     return [r for r in price_tracker.load_recommendations()
-            if r["entered_at"] >= cutoff and r["exit"] is None and r["strategy"] != "original"]  # 최초는 조용히 기록만
+            if r["entered_at"] >= cutoff and r["exit"] is None and r["strategy"] != "original"]  # 대조군은 조용히 기록만
 
 
 def build_report(
@@ -69,12 +69,7 @@ def build_report(
         from_peak = (current / peak - 1) * 100 if peak else 0.0
         entered_kst = rec["entered_at"].astimezone(KST).strftime("%m-%d %H:%M")
 
-        if rec["strategy"] == "cycle":
-            half = rec["half"]
-            state_line = (f"✂️ 절반 매도 {fmt_price(half['price'])} ({(half['price'] / entry - 1) * 100:+.2f}%) · 나머지 트레일링 중"
-                          if half else "✂️ 절반 매도 신호 대기 (4시간 단기 80+ 와 거래량 폭발)")
-        else:
-            state_line = score_line(rec, candidate_by_market.get(rec["market"]), btc_filter_on)
+        state_line = score_line(rec, candidate_by_market.get(rec["market"]), btc_filter_on)
         blocks.append(
             f"{strategy_tag(rec)}  {rec['market']}  {fmt_pct(ret)}\n"
             f"🕐 {entered_kst} 추천 ({elapsed_text(now - rec['entered_at'])} 경과)\n"
