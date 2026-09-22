@@ -174,7 +174,6 @@
   .cell.bull .cell-state { color: var(--good); }
   .cell.bear .cell-state { color: var(--bad); }
   .cell .cell-num { color: var(--ink2); font-size: 12px; font-variant-numeric: tabular-nums; }
-  .stoch-read { margin: 10px 0 0; color: var(--ink); }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
   .howto { margin: 0; padding-left: 18px; color: var(--ink2); font-size: 12.5px; }
   .howto li { margin: 4px 0; }
@@ -336,25 +335,15 @@
         <p id="m-zone-note" class="card-note"></p>
       </section>
 
-      <section class="card" aria-labelledby="h-stoch">
-        <div class="card-head">
-          <div>
-            <h2 id="h-stoch">스토캐스틱 RSI 현황</h2>
-            <p class="sub">일봉·4시간봉·1시간봉의 단기·중기·장기 (마감된 캔들 기준)</p>
-          </div>
-        </div>
-        <div id="m-stoch"></div>
-      </section>
-
       <section class="card" aria-labelledby="h-how">
         <div class="card-head"><h2 id="h-how">이 분석을 읽는 법</h2></div>
         <ul class="howto">
           <li>피보나치 라인은 저점을 0, 고점을 1로 놓고 계산해요. 상승 파동에서는 0.618 라인 위를 지키면 상승 지속, 종가가 0.382 라인 아래로 마감되면 상승이 무마된 것으로 봐요. 하락 파동은 반대로 봐요.</li>
           <li>가격 반응 자리는 4시간봉에서 24시간 동안 가장 높거나 낮았고 그 뒤 1% 이상 반대로 움직인 고점·저점이에요. 이런 자리와 피보나치 라인이 겹치면(◆) 한 단계 더 강하게 봐요. 정확히 같은 가격이 아니어도 가까이 모이면 하나의 구간으로 묶어요.</li>
           <li>겹침이 많은 구간일수록 여러 근거가 같은 가격대를 가리키는 자리라 반응이 나올 가능성이 커요. 다만 확률을 보장하지는 않아요.</li>
-          <li>스토캐스틱 RSI에서 %K가 20 이하면 저점권, 80 이상이면 고점권이에요. %K가 %D를 위로 뚫으면 골든크로스, 아래로 뚫으면 데드크로스예요 (최근 3개 캔들 안에 나온 것만 표시).</li>
           <li>모든 판단은 마감된 캔들 기준이에요. 현재가는 라인까지의 거리를 재는 데만 써요. 일봉은 한국시간 오전 9시에, 4시간봉은 9·13·17·21·1·5시에 마감돼요.</li>
           <li>이 탭은 5분마다 갱신되고, 같은 내용이 매일 오전 8시에 텔레그램으로도 와요.</li>
+          <li>스토캐스틱 RSI 단기·중기·장기 현황과 해설은 '비트코인 차트' 탭에서 볼 수 있어요.</li>
         </ul>
       </section>
     </div>
@@ -439,6 +428,16 @@
       <div id="mc-legend" class="legend"></div>
       <div id="mc-grid" class="mc-grid"></div>
       <p id="mc-note" class="card-note"></p>
+    </section>
+
+    <section class="card" aria-labelledby="h-mc-stoch">
+      <div class="card-head">
+        <div>
+          <h2 id="h-mc-stoch">스토캐스틱 RSI 현황</h2>
+          <p class="sub">일봉·4시간봉·1시간봉의 단기·중기·장기 (마감된 캔들 기준). %K 20 이하는 저점권, 80 이상은 고점권이고, %K가 %D를 위로 뚫으면 골든크로스, 아래로 뚫으면 데드크로스예요 (최근 3개 캔들 안에 나온 것만 표시)</p>
+        </div>
+      </div>
+      <div id="mc-stoch"></div>
     </section>
 
     <section class="card" aria-labelledby="h-mc-read">
@@ -1026,6 +1025,7 @@ function renderAll() {
   renderPerf(d);
   renderCompare(d);
   renderMultiChart(d);
+  renderStoch(d.macro);
   renderMultiChartRead(d);
 }
 
@@ -1395,7 +1395,11 @@ function gauge(cell) {
 }
 
 function renderStoch(m) {
-  const host = $('#m-stoch');
+  const host = $('#mc-stoch');
+  if (!m || !m.stoch || !m.stoch.total) {
+    host.replaceChildren(empty('분석 데이터가 아직 없어요.'));
+    return;
+  }
   const st = m.stoch;
   const blocks = ['day', '4h', '1h'].map((frame) => {
     const fr = st.frames[frame];
@@ -1410,12 +1414,11 @@ function renderStoch(m) {
         h('div', { class: 'cell-num', text: `%K ${c.k.toFixed(1)} · %D ${c.d.toFixed(1)}${when}` }));
     });
     return h('div', { class: 'stoch-frame' }, h('h3', { text: FRAME_FULL[frame] }),
-      h('div', { class: 'stoch-cells' }, cells), h('p', { class: 'stoch-read', text: fr.read }));
+      h('div', { class: 'stoch-cells' }, cells));
   });
-  const chips = (st.highlights || []).map((t) => h('span', { class: 'pill', text: t }));
+  // 해설(문장·주목할 신호)은 renderMultiChartRead가 따로 보여준다 — 여기서는 숫자·게이지만
   host.replaceChildren(...blocks,
-    h('p', { class: 'card-note', text: `${st.overall} 게이지의 ● 는 %K, ○ 는 %D이고 파란 칸은 저점권(20 이하), 주황 칸은 고점권(80 이상)이에요.` }),
-    chips.length ? h('div', { class: 'chips', 'aria-label': '주목할 신호' }, chips) : null);
+    h('p', { class: 'card-note', text: '게이지의 ● 는 %K, ○ 는 %D이고 파란 칸은 저점권(20 이하), 주황 칸은 고점권(80 이상)이에요.' }));
 }
 
 function renderMacro(d) {
@@ -1427,7 +1430,6 @@ function renderMacro(d) {
   renderFib(m);
   renderWaves(m);
   renderZones(m);
-  renderStoch(m);
 }
 
 /* ---------- 성과(익절·손절) 탭 ---------- */
