@@ -111,6 +111,27 @@
   .empty { padding: 28px 8px; text-align: center; color: var(--ink2); }
   .error { margin-bottom: 12px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; color: var(--ink2); }
   footer { margin-top: 24px; color: var(--muted); font-size: 12px; }
+  /* 전광판 티커: 탭을 옮겨도 계속 보이는 최근 추천·종료 소식. 화면 모드와 상관없이 항상 검은 배경으로 둔다 */
+  .ticker { background: #050607; border-radius: 8px; margin: 0 0 16px; overflow: hidden; }
+  .ticker-track {
+    display: flex; width: max-content; padding: 9px 0;
+    animation: ticker-scroll 45s linear infinite;
+  }
+  .ticker-track.static { animation: none; flex-wrap: wrap; padding: 9px 14px; }
+  .ticker-track:hover, .ticker-track:focus-within { animation-play-state: paused; }
+  .ticker-item {
+    display: inline-flex; align-items: center; white-space: nowrap;
+    padding: 0 18px; font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums;
+    color: #d1d5db; border-right: 1px solid #1f2937;
+  }
+  .ticker-item.new { color: #38bdf8; }
+  .ticker-item.tp { color: #4ade80; }
+  .ticker-item.sl { color: #f87171; }
+  .ticker-item.ex { color: #9ca3af; }
+  @keyframes ticker-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  @media (prefers-reduced-motion: reduce) {
+    .ticker-track { animation: none; flex-wrap: wrap; padding: 9px 14px; }
+  }
   /* 탭 */
   .tabs { display: flex; gap: 4px; margin: 0 0 16px; border-bottom: 1px solid var(--border); }
   .tab {
@@ -208,6 +229,10 @@
       <button id="theme" class="btn" type="button">화면 모드 전환</button>
     </div>
   </header>
+
+  <div id="ticker" class="ticker" aria-label="최근 추천·종료 소식" hidden>
+    <div id="ticker-track" class="ticker-track"></div>
+  </div>
 
   <div id="error" class="error" role="status" hidden>데이터를 불러오지 못했어요. 잠시 후 다시 시도할게요.</div>
 
@@ -1008,12 +1033,42 @@ function wireStratFilter() {
   sync();
 }
 
+/* ---------- 전광판 티커 (탭을 옮겨도 계속 보임) ---------- */
+function tickerItems(d) {
+  const items = [];
+  for (const r of d.recommendations || []) {
+    const tag = r.strategy === 'original' ? '[대조군] ' : '';
+    items.push({ t: new Date(r.entered_at).getTime(), cls: 'new', text: `🆕 ${tag}${r.market} 추천` });
+    if (r.exit) {
+      const cls = r.exit.reason === 'take_profit' ? 'tp' : r.exit.reason === 'stop_loss' ? 'sl' : 'ex';
+      const mark = cls === 'tp' ? '▲' : cls === 'sl' ? '▼' : '■';
+      const label = EXIT_LABEL[r.exit.reason] || r.exit.reason;
+      items.push({ t: new Date(r.exit.ended_at).getTime(), cls, text: `${mark} ${tag}${r.market} ${label} ${signed(r.exit.return_pct)}` });
+    }
+  }
+  items.sort((a, b) => b.t - a.t);
+  return items.slice(0, 16);
+}
+
+function renderTicker(d) {
+  const bar = $('#ticker'), track = $('#ticker-track');
+  const items = tickerItems(d);
+  if (!items.length) { bar.hidden = true; return; }
+  bar.hidden = false;
+  const build = () => items.map((it) => h('span', { class: `ticker-item ${it.cls}`, text: it.text }));
+  const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  track.classList.toggle('static', reduced);
+  // 애니메이션은 내용을 두 벌 이어 붙여 -50% 이동으로 끊김 없이 반복한다 (동작 줄이기 설정이면 한 벌만)
+  track.replaceChildren(...build(), ...(reduced ? [] : build()));
+}
+
 function renderAll() {
   wireStratFilter();
   charts.forEach((c) => c && c.destroy());
   charts = [];
   const d = DATA;
   $('#updated').textContent = d.generated_at ? `데이터 생성 ${kst(d.generated_at)} KST` : '';
+  renderTicker(d);
   renderTiles(d);
   renderBtc(d.btc);
   renderCandidates(d);
