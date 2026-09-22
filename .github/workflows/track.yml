@@ -1,4 +1,4 @@
-name: scan
+name: track
 
 permissions:
   contents: write  # data/state.db 변경사항을 다시 커밋+푸시하려면 필요
@@ -7,23 +7,23 @@ permissions:
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "*/5 * * * *"
   workflow_dispatch: {}
 
+# scan.yml과 같은 그룹을 써서 동시에 안 돈다 (둘 다 data/state.db를 커밋하고 Pages를 배포하므로 겹치면 충돌한다).
+# 대기하다 시작된 실행이 밀려도 큰 문제는 없다 — 다음 실행이 5분 뒤에 또 온다.
 concurrency:
-  group: scan  # track.yml(5분 추적)도 같은 그룹을 써서 서로 겹치지 않는다
+  group: scan
   cancel-in-progress: false
 
 jobs:
-  scan:
+  track:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      # 실행이 다른 실행 뒤에서 기다렸다 시작되면 트리거 시점의 옛 커밋이 아니라 지금의 최신 master를 받아야 한다
-      # (안 그러면 앞선 실행이 커밋한 state.db와 충돌해 push가 실패한다)
       - uses: actions/checkout@v4
         with:
           ref: master
@@ -34,37 +34,29 @@ jobs:
 
       - run: pip install -r requirements.txt
 
-      - run: python scripts/run_scan.py
+      - run: python scripts/run_track.py
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          HEARTBEAT: ${{ vars.HEARTBEAT }}
           REPORT_INTERVAL_HOURS: ${{ vars.REPORT_INTERVAL_HOURS }}
-          MIN_RECOMMEND_SCORE: ${{ vars.MIN_RECOMMEND_SCORE }}
           EXIT_TAKE_PROFIT_PCT: ${{ vars.EXIT_TAKE_PROFIT_PCT }}
           EXIT_STOP_LOSS_PCT: ${{ vars.EXIT_STOP_LOSS_PCT }}
           EXIT_TRAIL_ARM_PCT: ${{ vars.EXIT_TRAIL_ARM_PCT }}
           EXIT_TRAIL_DD_PCT: ${{ vars.EXIT_TRAIL_DD_PCT }}
           BTC_HOLD_DAYS: ${{ vars.BTC_HOLD_DAYS }}
-          ORIGINAL_ENABLED: ${{ vars.ORIGINAL_ENABLED }}
-          DIRECTION_FILTER_ENABLED: ${{ vars.DIRECTION_FILTER_ENABLED }}
-          MACRO_BRIEFING_HOUR: ${{ vars.MACRO_BRIEFING_HOUR }}
-          MACRO_REFRESH_MINUTES: ${{ vars.MACRO_REFRESH_MINUTES }}
 
-      # 상태 저장을 대시보드보다 먼저 한다 — 대시보드 쪽 문제로 중복 알림 방지 상태가 유실되면 안 된다
       - name: 상태 파일(data/state.db) 변경사항 커밋
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/state.db
-          git diff --staged --quiet || git commit -m "state: 스캔 상태 갱신 [skip ci]"
+          git diff --staged --quiet || git commit -m "state: 추적 상태 갱신 [skip ci]"
           git pull --rebase origin master
           git push
 
       - name: 대시보드 데이터 생성
         run: python scripts/export_dashboard.py
 
-      # DASHBOARD_USERS 시크릿이 있으면 데이터를 로그인해야 풀리는 암호문으로 바꾸고 평문은 지운다 (없으면 공개 상태 유지)
       - name: 대시보드 데이터 암호화 (로그인)
         run: python scripts/encrypt_dashboard.py
         env:

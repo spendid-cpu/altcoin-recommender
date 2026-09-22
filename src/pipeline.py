@@ -34,7 +34,7 @@ async def run_once(session: aiohttp.ClientSession) -> None:
         alerts, new_states = diff_alerts([])
         state_store.save_all(new_states)
         # 이미 발굴해 추적 중인 종목은 BTC 추세와 상관없이 끝까지 따라가고 현황도 계속 보낸다
-        prices = await _track_prices(session)
+        prices = await track_prices(session)
         await exits.process_exits(session, prices, [], btc_filter_on=False)
         await report.maybe_send_report(session, prices, [], btc_filter_on=False)
         scan_log.record_scan(btc_favorable=False, candidates=0, alerts=0)
@@ -77,7 +77,7 @@ async def run_once(session: aiohttp.ClientSession) -> None:
 
     await _run_baseline_scan(session, markets, candle_cache)
 
-    prices = await _track_prices(session)
+    prices = await track_prices(session)
     await exits.process_exits(session, prices, candidates, btc_filter_on=True)
     await report.maybe_send_report(session, prices, candidates, btc_filter_on=True)
     scan_log.record_scan(btc_favorable=True, candidates=len(candidates), alerts=len(alerts))
@@ -111,8 +111,9 @@ async def _run_baseline_scan(session: aiohttp.ClientSession, markets: list[str],
         print(f"기준선 스캔 실패(개선판은 영향 없음): {exc!r}")
 
 
-async def _track_prices(session: aiohttp.ClientSession) -> dict[str, float]:
-    """발굴 후 TRACK_DAYS 이내인 종목들의 현재가를 스냅샷으로 남기고, 그 가격표를 돌려준다."""
+async def track_prices(session: aiohttp.ClientSession) -> dict[str, float]:
+    """발굴 후 TRACK_DAYS 이내인 종목들의 현재가를 스냅샷으로 남기고, 그 가격표를 돌려준다.
+    tracker_job(5분 간격 추적 전용 사이클)도 이 함수를 그대로 재사용한다."""
     markets = price_tracker.active_tracked_markets()
     if not markets:
         return {}
