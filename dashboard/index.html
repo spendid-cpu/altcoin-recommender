@@ -149,6 +149,7 @@
   .stack .tp { background: var(--good); }
   .stack .sl { background: var(--bad); }
   .stack .exp { background: var(--muted); }
+  .stack .exc { background: var(--muted); }
   .stack .act { background: var(--s1); }
   .stack-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 10px; font-size: 12.5px; color: var(--ink2); }
   .stack-legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
@@ -353,7 +354,7 @@
           <li>겹침이 많은 구간일수록 여러 근거가 같은 가격대를 가리키는 자리라 반응이 나올 가능성이 커요. 다만 확률을 보장하지는 않아요.</li>
           <li>스토캐스틱 RSI에서 %K가 20 이하면 저점권, 80 이상이면 고점권이에요. %K가 %D를 위로 뚫으면 골든크로스, 아래로 뚫으면 데드크로스예요 (최근 3개 캔들 안에 나온 것만 표시).</li>
           <li>모든 판단은 마감된 캔들 기준이에요. 현재가는 라인까지의 거리를 재는 데만 써요. 일봉은 한국시간 오전 9시에, 4시간봉은 9·13·17·21·1·5시에 마감돼요.</li>
-          <li>이 탭은 15분마다 갱신되고, 같은 내용이 매일 오전 8시에 텔레그램으로도 와요.</li>
+          <li>이 탭은 5분마다 갱신되고, 같은 내용이 매일 오전 8시에 텔레그램으로도 와요.</li>
         </ul>
       </section>
     </div>
@@ -415,7 +416,7 @@
       <ul class="howto">
         <li>추천이 나온 뒤 추천가 기준 익절선에 닿으면 익절, 손절선에 닿으면 손절로 끝나요. 3일 안에 둘 다 안 닿으면 기간 만료로 끝나고 그때 가격으로 손익을 매겨요.</li>
         <li>승률은 익절 수 ÷ (익절 수 + 손절 수)예요. 기간 만료는 승패에 넣지 않고 따로 세요.</li>
-        <li>가격은 15분마다 확인한 값이라, 선을 넘은 직후의 스캔 가격으로 기록돼요. 실제로 선에 닿은 가격과 조금 다를 수 있어요.</li>
+        <li>추천된 종목은 5분마다 가격을 확인해서 선을 넘은 직후의 가격으로 기록돼요. 실제로 선에 닿은 가격과 조금 다를 수 있지만, 그 차이는 보통 0.1% 안팎이에요.</li>
         <li>익절선과 손절선을 같은 폭으로 두면 아무 종목이나 골랐을 때도 승률이 50% 안팎으로 나와요. 그래서 실제 승률이 그보다 뚜렷하게 높은지가 프로그램의 쓸모를 보는 기준이에요. 종료된 추천이 30건쯤 쌓이기 전에는 우연일 수 있어요.</li>
         <li>대조군과 개선판은 매도 규칙이 같아서(익절 +5%·손절 -5%·3일 만료) 종료 손익을 그대로 비교할 수 있어요. 다만 대조군은 규칙(진입 조건·BTC 필터 일수)이 처음부터 다르니, 결국 비교하는 건 '진입을 어떻게 잡느냐'의 차이예요.</li>
         <li>투자 권유가 아니에요. 정해 둔 기준에 도달했는지를 기록하는 화면이에요.</li>
@@ -467,7 +468,7 @@ const DATA_URL = 'dashboard.json';
 const STALE_MINUTES = 45;
 const EXPECTED_GAP_MINUTES = 15;
 const FRAME_LABEL = { day: '일봉', '4h': '4시간', '1h': '1시간', '15m': '15분', '5m': '5분' };
-const EXIT_LABEL = { take_profit: '익절', stop_loss: '손절', trailing: '되돌림', expired: '기간 만료', half_trailing: '절반 매도 후 되돌림', half_expired: '절반 매도 후 만료' };
+const EXIT_LABEL = { take_profit: '익절', stop_loss: '손절', trailing: '되돌림', expired: '기간 만료', excluded: '제외 정리' };
 const $ = (sel, root = document) => root.querySelector(sel);
 
 let DATA = null;
@@ -1024,7 +1025,7 @@ const STATE_MARK = { golden: '▲', dead: '▼', up: '↗', down: '↘' };
 const FRAME_FULL = { day: '일봉', '4h': '4시간봉', '1h': '1시간봉' };
 const PERIOD_FULL = { short: '단기', mid: '중기', long: '장기' };
 const PERIOD_SET = { short: 'K3·D3·RSI5·스토5', mid: 'K6·D6·RSI10·스토10', long: 'K12·D12·RSI20·스토20' };  // 트레이딩뷰 입력 순서(K, D, RSI, 스토)
-const MACRO_STALE_MINUTES = 45;
+const MACRO_STALE_MINUTES = 15;  // 5분마다 갱신되므로 그 3배를 기준으로 둔다
 let macroBars = 180;
 
 const utcMs = (iso) => Date.parse(/Z|[+-]\d\d:\d\d$/.test(iso) ? iso : iso + 'Z');
@@ -1050,7 +1051,7 @@ function renderMacroTiles(m) {
     waveTile('큰 파동 (6개월)', wv.large),
     waveTile('작은 파동 (최근)', wv.small),
     tile('분석 갱신', stale ? [statusIcon('warn'), ago(m.generated_at)] : [ago(m.generated_at)],
-      `${kst(m.generated_at)} KST${stale ? ' · 갱신이 늦어지고 있어요' : ' · 15분마다 갱신'}`),
+      `${kst(m.generated_at)} KST${stale ? ' · 갱신이 늦어지고 있어요' : ' · 5분마다 갱신'}`),
   );
 }
 
@@ -1284,7 +1285,7 @@ function renderFib(m) {
   const v = macroViewData(m);
   $('#h-fib').textContent = `지지·저항 (${macroView === 'long' ? '일봉 1년' : '4시간봉'})`;
   if (!v || !v.chart || !v.chart.ohlc || !v.chart.ohlc.length) {
-    chartEl.replaceChildren(empty(macroView === 'long' ? '1년 차트는 다음 갱신(최대 15분) 뒤에 표시돼요.' : '4시간봉 데이터가 없어요.'));
+    chartEl.replaceChildren(empty(macroView === 'long' ? '1년 차트는 다음 갱신(최대 5분) 뒤에 표시돼요.' : '4시간봉 데이터가 없어요.'));
     tableEl.replaceChildren();
     $('#fib-note').textContent = '';
     fibChart = null; return;
@@ -1426,9 +1427,8 @@ const RESULT_INFO = {
   take_profit: { label: '익절', mark: '▲', cls: 'tp' },
   stop_loss: { label: '손절', mark: '▼', cls: 'sl' },
   trailing: { label: '되돌림 종료', mark: '▼', cls: 'sl' },
-  half_trailing: { label: '절반 매도 후 되돌림', mark: '◐', cls: '' },
-  half_expired: { label: '절반 매도 후 만료', mark: '◐', cls: '' },
   expired: { label: '기간 만료', mark: '■', cls: '' },
+  excluded: { label: '제외 정리', mark: '□', cls: '' },
   active: { label: '진행 중', mark: '…', cls: '' },
 };
 
@@ -1491,7 +1491,7 @@ function renderPerf(d) {
   );
 
   // 결과 분포 막대
-  const parts = [['tp', s.take_profit, '익절'], ['sl', s.stop_loss + s.trailing, '손절·되돌림'], ['exp', s.expired, '기간 만료'], ['act', s.active, '진행 중']];
+  const parts = [['tp', s.take_profit, '익절'], ['sl', s.stop_loss + s.trailing, '손절·되돌림'], ['exp', s.expired, '기간 만료'], ['exc', s.excluded || 0, '제외 정리'], ['act', s.active, '진행 중']];
   const barHost = $('#p-bar');
   if (!s.total) {
     barHost.replaceChildren(empty('아직 추천이 없어요. 추천이 나오면 여기에 결과가 쌓여요.'));
@@ -1500,7 +1500,7 @@ function renderPerf(d) {
       h('div', { class: 'stack', role: 'img', 'aria-label': parts.map(([, n, name]) => `${name} ${n}건`).join(', ') },
         parts.filter(([, n]) => n > 0).map(([cls, n, name]) => h('span', { class: cls, style: `flex:${n}`, title: `${name} ${n}건` }))),
       h('div', { class: 'stack-legend' },
-        parts.map(([cls, n, name]) => h('span', {}, h('span', { class: 'dot', style: `background:${{ tp: 'var(--good)', sl: 'var(--bad)', exp: 'var(--muted)', act: 'var(--s1)' }[cls]}` }), `${name} ${n}`))));
+        parts.map(([cls, n, name]) => h('span', {}, h('span', { class: 'dot', style: `background:${{ tp: 'var(--good)', sl: 'var(--bad)', exp: 'var(--muted)', exc: 'var(--muted)', act: 'var(--s1)' }[cls]}` }), `${name} ${n}`))));
   }
   $('#p-note').textContent = s.decided === 0
     ? '익절이나 손절로 끝난 추천이 아직 없어서 승률은 계산되지 않아요.'
