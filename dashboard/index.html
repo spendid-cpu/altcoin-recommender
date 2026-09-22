@@ -440,6 +440,16 @@
       <div id="mc-grid" class="mc-grid"></div>
       <p id="mc-note" class="card-note"></p>
     </section>
+
+    <section class="card" aria-labelledby="h-mc-read">
+      <div class="card-head">
+        <div>
+          <h2 id="h-mc-read">해설</h2>
+          <p class="sub">위 스토캐스틱 RSI를 정해진 규칙(이동평균 정배열, 과매수·과매도, 골든·데드크로스)으로 자동 해석해요. AI가 그때그때 쓰는 글이 아니라 정해진 문장 조합이에요 · 5분마다 갱신</p>
+        </div>
+      </div>
+      <div id="mc-read"></div>
+    </section>
   </main>
 
   <footer>자동 스캔 결과를 정리한 참고 자료이며 투자 권유가 아닙니다. 표시 시각은 모두 한국시간(KST)이에요.</footer>
@@ -1016,6 +1026,7 @@ function renderAll() {
   renderPerf(d);
   renderCompare(d);
   renderMultiChart(d);
+  renderMultiChartRead(d);
 }
 
 /* ---------- 비트코인 분석 탭 ---------- */
@@ -1770,6 +1781,25 @@ function renderMultiChart(d) {
   }
   $('#mc-note').textContent = '마감된 캔들 기준이에요 (트레이딩뷰는 진행 중인 캔들까지 그려서 마지막 봉이 다를 수 있어요). '
     + '스토캐스틱 RSI는 대시보드 분석·추천에 쓰는 지표(RSI 기준)이고, 일반 스토캐스틱은 5·3·3 / 10·6·6 / 20·12·12 설정(가격 기준)이에요. 봉 위에 마우스를 올리면 값이 보여요.';
+}
+function renderMultiChartRead(d) {
+  const host = $('#mc-read');
+  const st = d.macro && d.macro.stoch;
+  if (!st || !st.total) {
+    host.replaceChildren(empty('분석 데이터가 아직 없어요.'));
+    return;
+  }
+  const rows = ['day', '4h', '1h'].map((frame) => {
+    const fr = st.frames[frame];
+    if (!fr) return null;
+    return h('p', {}, h('strong', { text: `${FRAME_FULL[frame]} — ` }), fr.read);
+  }).filter(Boolean);
+  const chips = (st.highlights || []).map((t) => h('span', { class: 'pill', text: t }));
+  host.replaceChildren(
+    h('p', { class: 'card-note', text: st.overall }),
+    ...rows,
+    chips.length ? h('div', { class: 'chips', 'aria-label': '주목할 신호' }, chips) : null,
+  );
 }
 $('#mc-mode').addEventListener('click', (ev) => {
   const btn = ev.target.closest('button[data-mode]');
