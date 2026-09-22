@@ -44,6 +44,8 @@ jobs:
           EXIT_TRAIL_ARM_PCT: ${{ vars.EXIT_TRAIL_ARM_PCT }}
           EXIT_TRAIL_DD_PCT: ${{ vars.EXIT_TRAIL_DD_PCT }}
           BTC_HOLD_DAYS: ${{ vars.BTC_HOLD_DAYS }}
+          MACRO_BRIEFING_HOUR: ${{ vars.MACRO_BRIEFING_HOUR }}
+          MACRO_REFRESH_MINUTES: ${{ vars.MACRO_REFRESH_MINUTES }}
 
       - name: 상태 파일(data/state.db) 변경사항 커밋
         run: |

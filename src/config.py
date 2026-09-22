@@ -52,9 +52,10 @@ EXIT_TRAIL_ARM_PCT = _env_float("EXIT_TRAIL_ARM_PCT", None)  # 최고 수익이 
 EXIT_TRAIL_DD_PCT = _env_float("EXIT_TRAIL_DD_PCT", None)  # 고점 대비 -Y% 되돌리면 종료 (ARM과 함께 지정)
 
 # 비트코인 매크로 분석(지지·저항 + 스토캐스틱 RSI 현황). 대시보드용 분석은 이 간격(분)마다 새로 계산한다.
-# 스캔이 15분마다 도니 10분으로 두면 매 스캔마다 갱신된다 (현재가와 15분 사이의 변화를 놓치지 않으려고 시간당 → 15분으로 줄였다).
+# 5분 추적 사이클(tracker_job)도 이걸 호출하니 4분으로 두면 그 5분 틱마다 여유를 두고 갱신된다
+# (5로 두면 타이밍이 살짝만 어긋나도 캐시가 아직 안 지나서 갱신을 한 번 건너뛸 수 있어 여유를 뒀다).
 # 값을 키우면 그만큼 덜 자주 갱신한다 (저장소 변수 MACRO_REFRESH_MINUTES).
-MACRO_REFRESH_MINUTES = _env_float("MACRO_REFRESH_MINUTES", 10) or 10
+MACRO_REFRESH_MINUTES = _env_float("MACRO_REFRESH_MINUTES", 4) or 4
 # 매일 이 시각(한국시간, 시) 이후 첫 스캔에서 비트코인 매크로 브리핑을 텔레그램으로 보낸다 (기본 8시).
 # 끄려면 값을 'off'로 둔다 (GitHub Actions 저장소 변수 MACRO_BRIEFING_HOUR). 숫자가 아닌 값은 기본값으로 본다.
 _raw_hour = (os.environ.get("MACRO_BRIEFING_HOUR") or "").strip().lower()
