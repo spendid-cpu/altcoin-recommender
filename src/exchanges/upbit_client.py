@@ -6,6 +6,8 @@ import aiohttp
 import pandas as pd
 from aiolimiter import AsyncLimiter
 
+from src import config
+
 BASE_URL = "https://api.upbit.com/v1"
 
 # 프레임 이름 -> 업비트 캔들 엔드포인트 경로
@@ -99,11 +101,12 @@ async def fetch_candles(
 
 
 async def fetch_markets(session: aiohttp.ClientSession) -> list[str]:
-    """KRW 마켓 코드 목록만 반환한다 (예: KRW-BTC, KRW-ETH ...)."""
+    """KRW 마켓 코드 목록만 반환한다 (예: KRW-BTC, KRW-ETH ...). 스테이블코인(config.EXCLUDED_MARKETS)은 뺀다 —
+    이 목록을 세 전략(scan_all/cycle_scanner/original_scanner)이 공유하므로 여기서 한 번만 걸러내면 전체에 적용된다."""
     async with session.get(f"{BASE_URL}/market/all") as resp:
         resp.raise_for_status()
         data = await resp.json()
-    return [m["market"] for m in data if m["market"].startswith("KRW-")]
+    return [m["market"] for m in data if m["market"].startswith("KRW-") and m["market"] not in config.EXCLUDED_MARKETS]
 
 
 async def fetch_ticker_prices(session: aiohttp.ClientSession, markets: list[str]) -> dict[str, float]:
