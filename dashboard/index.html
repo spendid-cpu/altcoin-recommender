@@ -401,6 +401,18 @@
       <div id="p-cmp-ref" class="ref-box"></div>
     </section>
 
+    <section class="card" aria-labelledby="h-paper">
+      <div class="card-head">
+        <div>
+          <h2 id="h-paper">지지선 지정가 병행 실험 (모의 · 실제 주문 아님)</h2>
+          <p class="sub">개선판이 추천할 때마다 (1) 그 가격에 바로 산 결과와 (2) 아래쪽 지지선(현재가 -1%~-6% 사이 1시간봉 스윙 저점)에 24시간짜리 지정가를 건 결과를 나란히 기록해요. 지정가는 안 걸리면 취소(수익 0), 걸리면 익절 +5% / 손절 -5% / BTC 이탈 / 3일 만료 규칙을 체결가 기준으로 적용해요. 백테스트에서는 통계적 우위가 확인되지 않아서 라이브로 확인하는 중이에요.</p>
+        </div>
+      </div>
+      <div id="pp-tiles" class="tiles" aria-label="지정가 병행 실험 요약"></div>
+      <div id="pp-compare" class="table-wrap"></div>
+      <p id="pp-note" class="card-note"></p>
+    </section>
+
     <h2 id="p-sec" class="section-title">성과 (익절·손절)</h2>
     <section id="p-tiles" class="tiles" aria-label="성과 요약"></section>
 
@@ -1083,6 +1095,7 @@ function renderAll() {
   renderMacro(d);
   renderPerf(d);
   renderCompare(d);
+  renderPaper(d);
   renderMultiChart(d);
   renderStoch(d.macro);
   renderMultiChartRead(d);
@@ -1619,6 +1632,51 @@ function groupStats(recs) {
 }
 const fmtAvg = (a) => (a.length ? `${signed(avg(a))} (${a.length}건)` : '—');
 const fmtPlus = (a) => (a.length ? `${Math.round(a.filter((v) => v > 0).length / a.length * 100)}% (${a.filter((v) => v > 0).length}/${a.length})` : '—');
+
+function renderPaper(d) {
+  const rows = d.paper_limit || [];
+  const tilesEl = $('#pp-tiles'), cmpEl = $('#pp-compare'), note = $('#pp-note');
+  const placed = rows.filter((r) => r.status !== 'no_level');
+  if (!placed.length) {
+    tilesEl.replaceChildren(); cmpEl.replaceChildren(empty('아직 기록된 모의 주문이 없어요. 개선판이 새로 추천하면 여기에 쌓여요.'));
+    note.textContent = ''; return;
+  }
+  const noLevel = rows.length - placed.length;
+  const filled = placed.filter((r) => r.status === 'open' || r.status === 'closed');
+  const cancelled = placed.filter((r) => r.status === 'cancelled');
+  const pending = placed.filter((r) => r.status === 'pending');
+  const closed = placed.filter((r) => r.status === 'closed');
+  const tp = closed.filter((r) => r.exit_reason === 'take_profit').length;
+  const sl = closed.filter((r) => r.exit_reason === 'stop_loss').length;
+  const closedAvg = avg(closed.map((r) => r.return_pct));
+  tilesEl.replaceChildren(
+    tile('모의 주문', [String(placed.length)], `지지 자리가 없어 못 낸 추천 ${noLevel}건은 제외`),
+    tile('체결 : 취소', [`${filled.length} : ${cancelled.length}`], `대기 중 ${pending.length} · 체결률 ${(filled.length + cancelled.length) ? (filled.length / (filled.length + cancelled.length) * 100).toFixed(0) : '—'}%`),
+    tile('체결 후 종료', [String(closed.length)], closed.length ? `익절 ${tp} : 손절 ${sl} · 평균 ${signed(closedAvg)}` : '아직 종료된 체결 건이 없어요'),
+  );
+
+  // 같은 추천을 시장가로 샀을 때(개선판 추천의 종료 결과)와 비교 — 둘 다 결과가 확정된 주문만
+  const recs = (d.recommendations || []).filter((r) => stratOf(r) === 'legacy' && r.exit);
+  const recAt = new Map(recs.map((r) => [`${r.market}|${new Date(r.entered_at).getTime()}`, r]));
+  const pairs = [];
+  for (const o of placed) {
+    if (o.status !== 'closed' && o.status !== 'cancelled') continue;
+    const m = recAt.get(`${o.market}|${new Date(o.rec_at).getTime()}`);
+    if (!m) continue;
+    pairs.push({ paper: o.status === 'closed' ? o.return_pct : 0, market: m.exit.return_pct, filled: o.status === 'closed' });
+  }
+  if (!pairs.length) { cmpEl.replaceChildren(empty('시장가 결과와 비교할 만큼 확정된 주문이 아직 없어요.')); note.textContent = ''; return; }
+  const mean = (a) => (a.length ? a.reduce((x, y) => x + y.v, 0) / a.length : null);
+  const f = pairs.filter((p) => p.filled), u = pairs.filter((p) => !p.filled);
+  const fmt = (v) => (v == null ? '—' : signed(v));
+  const rowsOut = [
+    ['확정된 주문 (체결 + 취소)', String(pairs.length), fmt(mean(pairs.map((p) => ({ v: p.paper })))), fmt(mean(pairs.map((p) => ({ v: p.market }))))],
+    ['  └ 체결된 건', String(f.length), fmt(mean(f.map((p) => ({ v: p.paper })))), fmt(mean(f.map((p) => ({ v: p.market }))))],
+    ['  └ 취소된(안 걸린) 건', String(u.length), fmt(mean(u.map((p) => ({ v: p.paper })))), fmt(mean(u.map((p) => ({ v: p.market }))))],
+  ];
+  cmpEl.replaceChildren(buildTable(['구분', '건수', '지정가 병행 (미체결=0)', '같은 추천을 시장가로 샀다면'], rowsOut, 1));
+  note.textContent = `체결된 건과 취소된 건에서 시장가 결과가 얼마나 다른지가 핵심이에요. 백테스트에서는 체결된 건을 시장가로 샀다면 평균 -1.20%, 안 걸린 건은 +1.98%였어요(지정가는 떨어지는 종목만 잡는 선택 편향). 표본이 수십 건 쌓이기 전에는 결론을 내리지 마세요.`;
+}
 
 function renderCompare(d) {
   const all = d.recommendations || [];

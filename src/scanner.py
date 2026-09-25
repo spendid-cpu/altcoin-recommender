@@ -8,7 +8,7 @@ from aiolimiter import AsyncLimiter
 from src import config
 from src.btc_trend import days_above_ma, is_trend_favorable
 from src.exchanges import binance_client, upbit_client
-from src.scoring import CandidateResult, FrameResult, check_entry, has_volume_spike, max_runup_pct, score_frame
+from src.scoring import CandidateResult, FrameResult, check_entry, has_volume_spike, find_support_lows, max_runup_pct, score_frame
 
 # 업비트 1회 요청 최대치. RSI는 지수이동평균이라 앞쪽 이력이 짧으면 값이 조금씩 달라지므로 충분히 길게 받는다
 # (백테스트가 쓰는 이력 길이 200 이상과 맞춘다).
@@ -77,6 +77,7 @@ async def scan_market(
     result = CandidateResult(
         market=market, total_score=total_score, frames=frames, volume_bonus=volume_bonus, current_price=latest_price,
         recent_runup_pct=runup,
+        support_lows=find_support_lows(one_hour_df["close"].tail(config.PAPER_SUPPORT_WINDOW_HOURS)) if one_hour_df is not None else [],
     )
 
     if result.full_gate_pass:

@@ -80,7 +80,7 @@ def _merge_duplicate_entries(conn: sqlite3.Connection) -> None:
 def record_entry(
     market: str, price: float, grade: str = "-", score: float | None = None, detail: dict | None = None,
     strategy: str = "legacy", tier: str | None = None,
-) -> None:
+) -> datetime:
     """신규 후보 발굴 시점의 가격(과 그때의 등급/점수, 점수 구성 근거, 전략)을 '진입가'로 기록한다."""
     at = datetime.now(timezone.utc)
     conn = connect()
@@ -97,6 +97,7 @@ def record_entry(
              jsonutil.dumps(detail, ensure_ascii=False) if detail else None, strategy, tier),
         )
         conn.commit()
+        return at
     finally:
         conn.close()
 

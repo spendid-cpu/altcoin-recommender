@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 
 import aiohttp
 
-from src import config, exits, macro_job, original_scanner, price_tracker, report, scan_log, state_store, telegram_client
+from src import config, exits, macro_job, original_scanner, paper_limit, price_tracker, report, scan_log, state_store, telegram_client
 from src.exchanges import upbit_client
 from src.notifier import diff_alerts
 from src.scanner import btc_days_above, check_btc_trend, scan_all
@@ -39,6 +39,7 @@ async def run_once(session: aiohttp.ClientSession) -> None:
         # 이미 발굴해 추적 중인 종목은 BTC 추세와 상관없이 끝까지 따라가고 현황도 계속 보낸다
         prices = await track_prices(session)
         await exits.process_exits(session, prices, [], btc_filter_on=False)
+        await _update_paper(session, False)
         await report.maybe_send_report(session, prices, [], btc_filter_on=False)
         scan_log.record_scan(btc_favorable=False, candidates=0, alerts=0)
         await _send_heartbeat(session, f"💓 {now} 스캔 완료 — BTC 추세 불리, 스캔 건너뜀")
@@ -81,7 +82,8 @@ async def run_once(session: aiohttp.ClientSession) -> None:
             try:
                 # 발굴 시점의 가격/등급/점수를 '진입 기록'으로 남긴다 — 이후 계속 추적해 실제 수익률을 검증하는 원본 데이터.
                 c = candidate_by_market[a.market]
-                price_tracker.record_entry(a.market, c.current_price, c.grade, round(c.total_score, 1), c.breakdown())
+                rec_at = price_tracker.record_entry(a.market, c.current_price, c.grade, round(c.total_score, 1), c.breakdown())
+                paper_limit.place(a.market, rec_at, c.current_price, c.support_lows)
             except Exception as exc:
                 print(f"  {a.market} 진입 기록 실패(이번 사이클은 건너뜀): {exc!r}")
 
@@ -89,12 +91,21 @@ async def run_once(session: aiohttp.ClientSession) -> None:
 
     prices = await track_prices(session)
     await exits.process_exits(session, prices, candidates, btc_filter_on=True)
+    await _update_paper(session, True)
     await report.maybe_send_report(session, prices, candidates, btc_filter_on=True)
     scan_log.record_scan(btc_favorable=True, candidates=len(candidates), alerts=len(alerts))
 
     await _send_heartbeat(
         session, f"💓 {now} 스캔 완료 — 후보 {len(candidates)}개, 알림 {len(alerts)}건"
     )
+
+
+async def _update_paper(session: aiohttp.ClientSession, btc_favorable: bool) -> None:
+    """지지선 지정가 모의 실험 갱신. 실패해도 스캔/추적 사이클은 계속 진행한다."""
+    try:
+        await paper_limit.update(session, btc_favorable)
+    except Exception as exc:
+        print(f"모의 지정가 갱신 실패(사이클은 계속): {exc!r}")
 
 
 async def _run_baseline_scan(session: aiohttp.ClientSession, markets: list[str], cache: dict) -> None:

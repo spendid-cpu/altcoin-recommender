@@ -66,6 +66,11 @@ RUNUP_FILTER_ENABLED = os.environ.get("RUNUP_FILTER_ENABLED", "true").strip().lo
 RUNUP_LOOKBACK_HOURS = int(os.environ.get("RUNUP_LOOKBACK_HOURS") or "72")
 RUNUP_MAX_PCT = float(os.environ.get("RUNUP_MAX_PCT") or "15")
 
+# 지지선 지정가 매수 모의 실험(src/paper_limit.py): 실제 주문 없이 기록만 한다. 끄려면 PAPER_LIMIT_ENABLED=false.
+PAPER_LIMIT_ENABLED = os.environ.get("PAPER_LIMIT_ENABLED", "true").strip().lower() != "false"
+PAPER_ORDER_HOURS = 24  # 지정가 유효 시간
+PAPER_SUPPORT_WINDOW_HOURS = 120  # 지지(스윙 저점)를 찾는 1시간봉 개수
+
 # 비트코인 매크로 분석(지지·저항 + 스토캐스틱 RSI 현황). 대시보드용 분석은 이 간격(분)마다 새로 계산한다.
 # 5분 추적 사이클(tracker_job)도 이걸 호출하니 4분으로 두면 그 5분 틱마다 여유를 두고 갱신된다
 # (5로 두면 타이밍이 살짝만 어긋나도 캐시가 아직 안 지나서 갱신을 한 번 건너뛸 수 있어 여유를 뒀다).

@@ -20,13 +20,15 @@ from src.scanner import check_btc_trend
 async def run_once(session: aiohttp.ClientSession) -> None:
     await macro_job.run(session)
 
+    # 종료 알림의 BTC 필터 표기, BTC 이탈 정리, 모의 지정가 취소 판단에 모두 쓰이는 실제 추세.
+    # (여기서는 새 후보를 스캔하지 않으므로 candidates=[]는 항상 빈 목록이다.)
+    favorable = await check_btc_trend(session)
     prices = await pipeline.track_prices(session)
     if not prices:
         print("추적 중인 추천이 없습니다.")
+        await pipeline._update_paper(session, favorable)
         return
-    # score_line(종료 알림에 붙는 '점수 변화' 문구)의 BTC 필터 표기가 정확하도록 실제 추세를 확인한다.
-    # (여기서는 새 후보를 스캔하지 않으므로 candidates=[]는 항상 빈 목록이다.)
-    favorable = await check_btc_trend(session)
     closed = await exits.process_exits(session, prices, [], btc_filter_on=favorable)
     await report.maybe_send_report(session, prices, [], btc_filter_on=favorable)
+    await pipeline._update_paper(session, favorable)
     print(f"추적 {len(prices)}종목 확인, 종료 {closed}건")

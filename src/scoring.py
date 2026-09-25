@@ -170,6 +170,12 @@ def max_runup_pct(close: pd.Series) -> float:
     return float((values / np.minimum.accumulate(values)).max() - 1) * 100
 
 
+def find_support_lows(close: pd.Series, pivot: int = 3) -> list[float]:
+    """1시간 마감 종가 시리즈에서 확정된 스윙 저점(좌우 pivot개 봉 이하인 종가). 마지막 pivot개 봉은 아직 확정 전이라 제외한다."""
+    values = close.dropna().to_numpy(dtype=float)
+    return [float(values[i]) for i in range(pivot, len(values) - pivot) if values[i] <= values[i - pivot:i + pivot + 1].min()]
+
+
 def check_entry(close: pd.Series) -> bool:
     """저점 프레임(LOW_FRAME, 5분봉) 종가 시리즈로부터 매수 타점(단기 스토 골든크로스) 여부를 판단한다."""
     short = stoch_rsi_all_periods(close)["short"]
@@ -194,6 +200,7 @@ class CandidateResult:
     entry_ready: bool = False
     current_price: float = 0.0
     recent_runup_pct: float = 0.0  # 진입 직전 config.RUNUP_LOOKBACK_HOURS 시간 안의 최대 상승폭
+    support_lows: list = field(default_factory=list)  # 지지선 후보(1시간봉 스윙 저점), 모의 지정가용
 
     @property
     def runup_excluded(self) -> bool:
