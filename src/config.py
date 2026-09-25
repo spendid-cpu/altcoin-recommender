@@ -14,12 +14,12 @@ TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 HEARTBEAT_ENABLED = os.environ.get("HEARTBEAT", "false").lower() == "true"
 
 # 추천 후 추적 중인 종목의 현황(추천가 대비 수익률, 점수 변화 등)을 텔레그램으로 보내는 간격(시간).
-# 0이면 끈다. 스캔이 돌 때만 확인하므로 실제 발송은 이 간격이 지난 뒤 첫 스캔에서 나간다.
+# 0이면 끈다. 스캔/5분 추적 사이클이 돌 때 확인하므로 실제 발송은 이 간격이 지난 뒤 첫 사이클에서 나간다. 기본 2시간.
 # GitHub Actions 저장소 변수 REPORT_INTERVAL_HOURS로 바꿀 수 있다.
 try:
-    REPORT_INTERVAL_HOURS = float(os.environ.get("REPORT_INTERVAL_HOURS") or "1")
+    REPORT_INTERVAL_HOURS = float(os.environ.get("REPORT_INTERVAL_HOURS") or "2")
 except ValueError:
-    REPORT_INTERVAL_HOURS = 1.0
+    REPORT_INTERVAL_HOURS = 2.0
 
 def _env_float(name: str, default: float | None) -> float | None:
     """환경변수를 실수로 읽는다. 비어 있거나 0/off/none이면 '사용 안 함'(None)."""
