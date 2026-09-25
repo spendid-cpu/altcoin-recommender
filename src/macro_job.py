@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo
 import aiohttp
 import pandas as pd
 
-from src import btc_macro, config, jsonutil, state_store, telegram_client
+from src import btc_macro, btc_watch, config, jsonutil, state_store, telegram_client
 from src.exchanges import binance_client
 
 KST = ZoneInfo("Asia/Seoul")
@@ -53,6 +53,10 @@ async def build_macro(session: aiohttp.ClientSession) -> dict:
     )
     macro = btc_macro.analyse(day, h4_long, h1, price)  # 분석과 차트 모두 최근 6개월 4시간봉
     macro["generated_at"] = datetime.now(timezone.utc).isoformat()
+    try:
+        macro["watch"] = btc_watch.analyse(day, h4_long)
+    except Exception as exc:  # 관찰 알림 계산 문제로 매크로 분석 전체가 실패하면 안 된다
+        print(f"[BTC 관찰] 계산 실패(건너뜀): {type(exc).__name__}: {exc}")
     return macro
 
 
@@ -205,6 +209,47 @@ def _long_lines(fib_long: dict | None) -> list[str]:
     return out
 
 
+# ----------------------------------------------------------------------------- 관찰 알림
+WATCH_MODE_KEY = "btc_watch_mode"
+WATCH_OBS_ALERT_KEY = "btc_watch_obs_alert_at"
+WATCH_EVENT_KEY = "btc_watch_event_time"
+WATCH_OBS_COOLDOWN_HOURS = 24  # %K가 저점권 경계를 오르내려도 관찰 시작 알림이 잦지 않게
+
+WATCH_DISCLAIMER = ("※ 매수 신호가 아니에요. 7년 백테스트에서 투매 직후 매수는 이후 7일 평균 -1.6%, 14일 안 추가 하락이 평균 "
+                    "-12.9%로 대체로 바닥이 아니라 하락 중간이었어요. 알트코인 신규 매수는 신중하게 보세요.")
+
+
+def watch_messages(macro: dict, now: datetime) -> list[str]:
+    """상태가 바뀌었을 때만 보낼 관찰 알림 문구들. 마지막으로 알린 상태는 meta에 저장한다."""
+    watch = macro.get("watch")
+    if not watch:
+        return []
+    out = []
+    ev = watch.get("last_event")
+    if ev and watch["mode"] == "capitulation" and state_store.get_meta(WATCH_EVENT_KEY) != ev["time"]:
+        frame = "4시간봉" if ev["frame"] == "4h" else "일봉"
+        out.append("\n".join([
+            "⚠️ 비트코인 투매 관찰 알림",
+            f"{frame} {ev['drop_pct']:+.1f}% 급락 · 거래량 평균의 {ev['volume_x']}배 (저점권 관찰 중 발생)",
+            f"투매 봉 저가 {_fmt(ev['low'])} · 종가 {_fmt(ev['close'])}",
+            WATCH_DISCLAIMER,
+        ]))
+        state_store.set_meta(WATCH_EVENT_KEY, ev["time"])
+    prev = state_store.get_meta(WATCH_MODE_KEY)
+    if watch["mode"] == "observing" and prev in (None, "normal"):
+        last = state_store.get_meta(WATCH_OBS_ALERT_KEY)
+        if not last or (now - datetime.fromisoformat(last)).total_seconds() >= WATCH_OBS_COOLDOWN_HOURS * 3600:
+            out.append("\n".join([
+                "👀 비트코인 저점권 관찰 시작",
+                f"일봉 %K {watch['day_k']} · 4시간 %K {watch['h4_k']} (기준 {watch['threshold']} 이하)",
+                "추가 하락이 나올 수 있는 구간이에요. 투매(급락+거래량 급증)가 나오면 다시 알려드려요.",
+                WATCH_DISCLAIMER,
+            ]))
+            state_store.set_meta(WATCH_OBS_ALERT_KEY, now.isoformat())
+    state_store.set_meta(WATCH_MODE_KEY, watch["mode"])
+    return out
+
+
 # ----------------------------------------------------------------------------- 스캔에서 호출
 def briefing_due(now: datetime) -> bool:
     hour = config.MACRO_BRIEFING_HOUR
@@ -220,6 +265,10 @@ async def run(session: aiohttp.ClientSession) -> None:
         now = datetime.now(timezone.utc)
         due = briefing_due(now)
         macro = await refresh(session, BRIEFING_REFRESH_MINUTES if due else config.MACRO_REFRESH_MINUTES)
+        for text in watch_messages(macro, now):
+            print(text)
+            if telegram_client.is_configured():
+                await telegram_client.send_message(session, text)
         if not due:
             return
         text = format_briefing(macro, now)

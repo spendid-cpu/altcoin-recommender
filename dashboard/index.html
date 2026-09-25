@@ -317,6 +317,17 @@
     <div id="m-body">
       <section id="m-tiles" class="tiles" aria-label="비트코인 핵심 지표"></section>
 
+      <section class="card" aria-labelledby="h-watch">
+        <div class="card-head">
+          <div>
+            <h2 id="h-watch">비트코인 관찰 알림 (종목 추천 아님)</h2>
+            <p class="sub">일봉과 4시간봉 스토캐스틱 RSI가 모두 저점권이면 '관찰 중', 그 안에서 큰 급락과 거래량 급증(투매)이 나오면 '투매 발생'으로 알려요. 매수 신호가 아니에요.</p>
+          </div>
+        </div>
+        <div id="m-watch"></div>
+        <p class="card-note">7년치 비트코인 백테스트에서 투매 직후에 샀다면 이후 7일 평균 -1.6%였고, 14일 안 추가 하락이 평균 -12.9%로 대체로 바닥이 아니라 하락 중간이었어요. 저점 확인 조건(저점 지킴·거래량 소진)을 붙여도 좋아진다는 증거가 없어서 매수 구간은 만들지 않았어요.</p>
+      </section>
+
       <section class="card" aria-labelledby="h-fib">
         <div class="card-head">
           <div>
@@ -1049,6 +1060,10 @@ function wireStratFilter() {
 /* ---------- 전광판 티커 (탭을 옮겨도 계속 보임) ---------- */
 function tickerItems(d) {
   const items = [];
+  const w = d.macro && d.macro.watch;
+  if (w && w.mode !== 'normal') {
+    items.push({ t: Date.now(), cls: 'ex', text: w.mode === 'capitulation' ? '⚠️ BTC 투매 발생 · 매수 신호 아님' : '👀 BTC 저점권 관찰 중 · 매수 신호 아님' });
+  }
   for (const r of d.recommendations || []) {
     const tag = r.strategy === 'original' ? '[대조군] ' : '';
     // '제외 정리'로 끝난 건 규칙이 생기기 전의 옛 기록이라 '추천'으로는 안 보여준다 (그 사유로 종료된 것만 보여줌)
@@ -1493,12 +1508,34 @@ function renderStoch(m) {
     h('p', { class: 'card-note', text: '게이지의 ● 는 %K, ○ 는 %D이고 파란 칸은 저점권(20 이하), 주황 칸은 고점권(80 이상)이에요.' }));
 }
 
+const WATCH_MODE = {
+  normal: { label: '평상시', cls: '', note: '일봉·4시간 스토캐스틱 RSI가 아직 함께 저점권은 아니에요' },
+  observing: { label: '관찰 중', cls: 'flag', note: '저점권이에요. 추가 하락이 나올 수 있으니 매수보다 관찰 구간이에요' },
+  capitulation: { label: '투매 발생', cls: 'flag', note: '저점권에서 급락과 거래량 급증이 나왔어요. 하락이 더 이어질 수 있어 신중하게 보세요' },
+};
+
+function renderWatch(m) {
+  const host = $('#m-watch');
+  const w = m.watch;
+  if (!w) { host.replaceChildren(empty('관찰 알림 데이터가 아직 없어요. 다음 갱신 후 표시돼요.')); return; }
+  const info = WATCH_MODE[w.mode] || WATCH_MODE.normal;
+  const k = (v) => (v == null ? '—' : v.toFixed(1));
+  const ev = w.last_event;
+  host.replaceChildren(h('section', { class: 'tiles' },
+    tile('현재 상태', [h('span', { class: info.cls, text: info.label })], info.note),
+    tile('스토캐스틱 RSI %K (저점권 ' + w.threshold + ' 이하)', [`일봉 ${k(w.day_k)} · 4시간 ${k(w.h4_k)}`],
+      w.since ? `관찰 시작 ${kst(w.since)} KST` : '관찰 조건 아님'),
+    tile('최근 투매 (14일)', [ev ? `${ev.frame === '4h' ? '4시간봉' : '일봉'} ${ev.drop_pct.toFixed(1)}%` : '없음'],
+      ev ? `거래량 평균의 ${ev.volume_x}배 · ${kst(ev.time)} KST (${ev.hours_ago}시간 전)` : '저점권 중 급락+거래량 급증 없음')));
+}
+
 function renderMacro(d) {
   const m = d.macro;
   $('#m-empty').hidden = !!m;
   $('#m-body').hidden = !m;
   if (!m) return;
   renderMacroTiles(m);
+  renderWatch(m);
   renderFib(m);
   renderWaves(m);
   renderZones(m);

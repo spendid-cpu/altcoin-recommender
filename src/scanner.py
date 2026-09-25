@@ -118,7 +118,7 @@ async def scan_all(
 
     tasks = [_scan_market_safe(m, session, limiter, semaphore, cache) for m in markets]
     results = await asyncio.gather(*tasks)
-    candidates = [r for r in results if r is not None]
+    candidates = [r for r in results if r is not None and r.market not in config.NO_RECOMMEND_MARKETS]
     candidates.sort(key=lambda c: c.total_score, reverse=True)
 
     # 캔들은 마감된 것만 쓰기 때문에 마지막 종가가 최대 하루 전 값이다. 발굴가·현재가는 실시간 시세로 채운다.
