@@ -171,6 +171,7 @@
   .stack .sl { background: var(--bad); }
   .stack .exp { background: var(--muted); }
   .stack .exc { background: var(--muted); }
+  .stack .bx { background: var(--warn, var(--muted)); }
   .stack .act { background: var(--s1); }
   .stack-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 10px; font-size: 12.5px; color: var(--ink2); }
   .stack-legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
@@ -502,7 +503,7 @@ const DATA_URL = 'dashboard.json';
 const STALE_MINUTES = 45;
 const EXPECTED_GAP_MINUTES = 15;
 const FRAME_LABEL = { day: '일봉', '4h': '4시간', '1h': '1시간', '15m': '15분', '5m': '5분' };
-const EXIT_LABEL = { take_profit: '익절', stop_loss: '손절', trailing: '되돌림', expired: '기간 만료', excluded: '제외 정리' };
+const EXIT_LABEL = { take_profit: '익절', stop_loss: '손절', trailing: '되돌림', expired: '기간 만료', excluded: '제외 정리', btc_exit: 'BTC 이탈 정리' };
 const $ = (sel, root = document) => root.querySelector(sel);
 
 let DATA = null;
@@ -888,7 +889,7 @@ function renderCandidates(d) {
     ['종목', '상태', '등급', '점수', '통과 프레임', '5분 저점', '현재가'],
     cands.map((c) => [
       c.market,
-      h('span', { class: c.recommendable ? '' : 'muted', text: c.recommendable ? '추천 대상' : '대기 · 5분 저점을 기다려요' }),
+      h('span', { class: c.recommendable ? '' : 'muted', text: c.recommendable ? '추천 대상' : (c.runup_excluded ? `제외 · 최근 3일 +${(c.recent_runup_pct ?? 0).toFixed(0)}% 급등 이력` : '대기 · 5분 저점을 기다려요') }),
       gradePill(c.grade), c.score == null ? '—' : c.score.toFixed(1),
       c.frames.map((f) => FRAME_LABEL[f] || f).join(' › '),
       c.low_15m ? h('span', { class: 'flag', text: c.entry_ready ? '✓ 저점 · 타점' : '✓ 저점' }) : h('span', { class: 'muted', text: '대기' }),
@@ -1500,6 +1501,7 @@ const RESULT_INFO = {
   trailing: { label: '되돌림 종료', mark: '▼', cls: 'sl' },
   expired: { label: '기간 만료', mark: '■', cls: '' },
   excluded: { label: '제외 정리', mark: '□', cls: '' },
+  btc_exit: { label: 'BTC 이탈 정리', mark: '▼', cls: '' },
   active: { label: '진행 중', mark: '…', cls: '' },
 };
 
@@ -1546,7 +1548,7 @@ function renderPerf(d) {
   const s = perfSummary(recs);
   const tp = rules.take_profit_pct, sl = rules.stop_loss_pct, days = rules.track_days || d.track_days || 3;
 
-  const tpRule = `익절 ${tp == null ? '없음' : `+${tp}%`} · 손절 ${sl == null ? '없음' : `-${sl}%`} · ${days}일 안에 닿지 않으면 기간 만료`;
+  const tpRule = `익절 ${tp == null ? '없음' : `+${tp}%`} · 손절 ${sl == null ? '없음' : `-${sl}%`} · ${days}일 안에 닿지 않으면 기간 만료${rules.btc_exit ? ' · BTC 일봉 종가가 20일선 아래로 마감하면 개선판 전량 정리' : ''}`;
   $('#p-sec').textContent = `${stratFilter === 'all' ? '전체' : STRAT_LABEL[stratFilter]} 성과`;
   $('#p-rule').textContent = stratFilter === 'original' ? `${tpRule} (대조군에는 원래 종료 규칙이 없었지만, 성과를 재려고 개선판과 같은 규칙을 씀)` : tpRule;
 
@@ -1562,7 +1564,7 @@ function renderPerf(d) {
   );
 
   // 결과 분포 막대
-  const parts = [['tp', s.take_profit, '익절'], ['sl', s.stop_loss + s.trailing, '손절·되돌림'], ['exp', s.expired, '기간 만료'], ['exc', s.excluded || 0, '제외 정리'], ['act', s.active, '진행 중']];
+  const parts = [['tp', s.take_profit, '익절'], ['sl', s.stop_loss + s.trailing, '손절·되돌림'], ['exp', s.expired, '기간 만료'], ['exc', s.excluded || 0, '제외 정리'], ['bx', s.btc_exit || 0, 'BTC 이탈 정리'], ['act', s.active, '진행 중']];
   const barHost = $('#p-bar');
   if (!s.total) {
     barHost.replaceChildren(empty('아직 추천이 없어요. 추천이 나오면 여기에 결과가 쌓여요.'));
@@ -1571,7 +1573,7 @@ function renderPerf(d) {
       h('div', { class: 'stack', role: 'img', 'aria-label': parts.map(([, n, name]) => `${name} ${n}건`).join(', ') },
         parts.filter(([, n]) => n > 0).map(([cls, n, name]) => h('span', { class: cls, style: `flex:${n}`, title: `${name} ${n}건` }))),
       h('div', { class: 'stack-legend' },
-        parts.map(([cls, n, name]) => h('span', {}, h('span', { class: 'dot', style: `background:${{ tp: 'var(--good)', sl: 'var(--bad)', exp: 'var(--muted)', exc: 'var(--muted)', act: 'var(--s1)' }[cls]}` }), `${name} ${n}`))));
+        parts.map(([cls, n, name]) => h('span', {}, h('span', { class: 'dot', style: `background:${{ tp: 'var(--good)', sl: 'var(--bad)', exp: 'var(--muted)', exc: 'var(--muted)', bx: 'var(--warn, var(--muted))', act: 'var(--s1)' }[cls]}` }), `${name} ${n}`))));
   }
   $('#p-note').textContent = s.decided === 0
     ? '익절이나 손절로 끝난 추천이 아직 없어서 승률은 계산되지 않아요.'

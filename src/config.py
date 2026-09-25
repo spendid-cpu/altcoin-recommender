@@ -51,6 +51,21 @@ EXIT_STOP_LOSS_PCT = _env_float("EXIT_STOP_LOSS_PCT", 5.0)  # 추천가 대비 -
 EXIT_TRAIL_ARM_PCT = _env_float("EXIT_TRAIL_ARM_PCT", None)  # 최고 수익이 +X%를 넘으면 되돌림 감시 시작
 EXIT_TRAIL_DD_PCT = _env_float("EXIT_TRAIL_DD_PCT", None)  # 고점 대비 -Y% 되돌리면 종료 (ARM과 함께 지정)
 
+# BTC 이탈 정리(개선판만): BTC 추세 필터(일봉 종가 MA20 위)가 꺼지면 열려 있는 추천을 전부 종료한다.
+# 120일 백테스트(익절+5/손절-5/3일 기준)에서 짝지은 평균 손익 +0.06% -> +0.26%(차이 +0.20%, 95% [+0.06,+0.40],
+# 앞/뒤 절반 모두 양수)였고 손실 꼬리는 나빠지지 않았다. 무작위 진입에서도 같은 개선(+0.16%)이 나와서 알트 신호가 아니라
+# 시장 위험을 줄이는 규칙의 효과다. 끄려면 저장소 변수 BTC_EXIT_ENABLED=false (대조군은 원래부터 적용하지 않는다).
+BTC_EXIT_ENABLED = os.environ.get("BTC_EXIT_ENABLED", "true").strip().lower() != "false"
+
+# 급등 이력 제외(개선판만): 진입 직전 RUNUP_LOOKBACK_HOURS 시간 안에 (저점 -> 그 뒤 고점) 최대 상승폭이 RUNUP_MAX_PCT%를
+# 넘은 종목은 추천 대상에서 뺀다(대시보드에는 후보로 남는다). 120일 백테스트 9개 조합(2/3/5일 x 10/15/20%) 모두 사전 기준
+# (99.4% 신뢰구간)에는 못 미쳐 통계적 우위는 확인되지 않았다. 다만 어느 조합에서나 제외된 쪽이 남긴 쪽보다 나빴고
+# (제외 진입 초과수익 -0.2 ~ -1.9%) 남기는 쪽 평균은 깎이지 않아서, 사용자 요청으로 비용 없는 보수적 필터로 넣었다.
+# 3일/15%는 결과를 본 뒤 고른 값이다(표본 안 선택). 끄려면 RUNUP_FILTER_ENABLED=false.
+RUNUP_FILTER_ENABLED = os.environ.get("RUNUP_FILTER_ENABLED", "true").strip().lower() != "false"
+RUNUP_LOOKBACK_HOURS = int(os.environ.get("RUNUP_LOOKBACK_HOURS") or "72")
+RUNUP_MAX_PCT = float(os.environ.get("RUNUP_MAX_PCT") or "15")
+
 # 비트코인 매크로 분석(지지·저항 + 스토캐스틱 RSI 현황). 대시보드용 분석은 이 간격(분)마다 새로 계산한다.
 # 5분 추적 사이클(tracker_job)도 이걸 호출하니 4분으로 두면 그 5분 틱마다 여유를 두고 갱신된다
 # (5로 두면 타이밍이 살짝만 어긋나도 캐시가 아직 안 지나서 갱신을 한 번 건너뛸 수 있어 여유를 뒀다).

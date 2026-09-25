@@ -13,7 +13,7 @@ from src.scoring import CandidateResult
 
 _EMPTY_STATE = {
     "cleared_frames": [], "entry_ready": False, "grade": "-", "current_price": 0.0, "score": None,
-    "recommendable": False, "low_15m": False,
+    "recommendable": False, "low_15m": False, "runup_excluded": False, "recent_runup_pct": 0.0,
     "alerted_frames": [], "alerted_entry": False,
 }
 
@@ -43,6 +43,8 @@ def _snapshot(candidate: CandidateResult) -> dict:
         "score": round(candidate.total_score, 1),
         "recommendable": candidate.recommendable,
         "low_15m": candidate.low_15m,
+        "runup_excluded": candidate.runup_excluded,
+        "recent_runup_pct": round(candidate.recent_runup_pct, 1),
     }
 
 

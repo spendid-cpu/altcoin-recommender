@@ -4,6 +4,7 @@
 
 from dataclasses import dataclass, field
 
+import numpy as np
 import pandas as pd
 
 from src import config
@@ -161,6 +162,14 @@ def score_frame(
     )
 
 
+def max_runup_pct(close: pd.Series) -> float:
+    """종가 시리즈 안에서 (저점 -> 그 뒤 고점) 최대 상승률(%). 지금 가격이 그 고점에서 얼마나 내려왔는지와는 무관하다."""
+    values = close.dropna().to_numpy(dtype=float)
+    if values.size < 2:
+        return 0.0
+    return float((values / np.minimum.accumulate(values)).max() - 1) * 100
+
+
 def check_entry(close: pd.Series) -> bool:
     """저점 프레임(LOW_FRAME, 5분봉) 종가 시리즈로부터 매수 타점(단기 스토 골든크로스) 여부를 판단한다."""
     short = stoch_rsi_all_periods(close)["short"]
@@ -184,6 +193,12 @@ class CandidateResult:
     volume_bonus: bool = False
     entry_ready: bool = False
     current_price: float = 0.0
+    recent_runup_pct: float = 0.0  # 진입 직전 config.RUNUP_LOOKBACK_HOURS 시간 안의 최대 상승폭
+
+    @property
+    def runup_excluded(self) -> bool:
+        """최근 급등 이력 때문에 추천에서 빼는 종목인지 (config.RUNUP_*)."""
+        return config.RUNUP_FILTER_ENABLED and self.recent_runup_pct > config.RUNUP_MAX_PCT
 
     @property
     def cleared_frames(self) -> list[str]:
@@ -235,7 +250,10 @@ class CandidateResult:
 
     @property
     def recommendable(self) -> bool:
-        """추천 대상인지. 기본은 일봉/4시간/1시간/15분을 모두 통과하고 5분봉이 저점일 때만 True."""
+        """추천 대상인지. 기본은 일봉/4시간/1시간/15분을 모두 통과하고 5분봉이 저점일 때만 True.
+        최근 급등 이력이 있는 종목(runup_excluded)은 조건을 통과해도 추천하지 않는다."""
+        if self.runup_excluded:
+            return False
         if config.RECOMMEND_ONLY_AT_15M_LOW:
             return self.cleared_frames == [*config.FRAME_ORDER, config.LOW_FRAME]
         return bool(self.cleared_frames)

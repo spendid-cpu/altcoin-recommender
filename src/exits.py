@@ -18,13 +18,15 @@ REASONS = {
     "stop_loss": "🛑 손절 기준 도달",
     "trailing": "📉 고점 대비 되돌림",
     "expired": "⏰ 추적 기간 만료",
+    "btc_exit": "🪙 BTC 20일선 이탈 — 전량 정리",
 }
 # 이 기간보다 오래전에 이미 만료된 추천(기능 도입 전 기록 등)은 알림 없이 조용히 종료 처리한다
 EXPIRY_NOTICE_WINDOW = timedelta(days=1)
 
 
-def check_exit(rec: dict, current: float, now: datetime) -> str | None:
-    """종료 사유(REASONS의 키) 또는 None. 같은 시점에 여러 개가 걸리면 손절 > 되돌림 > 익절 > 만료 순."""
+def check_exit(rec: dict, current: float, now: datetime, btc_filter_on: bool = True) -> str | None:
+    """종료 사유(REASONS의 키) 또는 None. 같은 시점에 여러 개가 걸리면 손절 > BTC 이탈 > 되돌림 > 익절 > 만료 순.
+    BTC 이탈은 개선판 추천에만 적용한다(대조군은 원래 규칙 그대로) — btc_filter_on이 False면 BTC 일봉 종가가 MA20 아래다."""
     entry = rec["entry_price"]
     if not entry:
         return None
@@ -34,6 +36,9 @@ def check_exit(rec: dict, current: float, now: datetime) -> str | None:
 
     if config.EXIT_STOP_LOSS_PCT is not None and ret <= -config.EXIT_STOP_LOSS_PCT:
         return "stop_loss"
+    if (config.BTC_EXIT_ENABLED and not btc_filter_on and rec["strategy"] != "original"
+            and now - rec["entered_at"] < timedelta(days=price_tracker.TRACK_DAYS)):
+        return "btc_exit"
     if config.EXIT_TRAIL_ARM_PCT is not None and config.EXIT_TRAIL_DD_PCT is not None:
         if peak_ret >= config.EXIT_TRAIL_ARM_PCT and (current / peak - 1) * 100 <= -config.EXIT_TRAIL_DD_PCT:
             return "trailing"
@@ -84,7 +89,7 @@ async def process_exits(
                 # 추적이 이미 끝난 종목이라 현재가를 따로 받지 않는다 — 마지막으로 기록한 가격이 만료 시점 가격이다
                 current = rec["snaps"][-1][1] if rec["snaps"] else rec["entry_price"]
 
-            reason = check_exit(rec, current, now)
+            reason = check_exit(rec, current, now, btc_filter_on)
             if reason is None:
                 continue
             ret = (current / rec["entry_price"] - 1) * 100
