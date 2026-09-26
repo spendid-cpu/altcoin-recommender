@@ -145,6 +145,10 @@
   /* 비트코인 분석 탭 */
   .period-bar { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 12px; }
   .period-bar .btn { border: 1px solid var(--border); border-radius: 8px; }
+  .wl-strip { display: flex; flex-wrap: wrap; gap: 4px; margin: 12px 0 4px; }
+  .wl { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 5px; font-size: 11.5px; font-weight: 600; color: #fff; }
+  .wl.w { background: var(--good); }
+  .wl.l { background: var(--bad); }
   .period-custom { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 0 0 12px; font-size: 13px; color: var(--ink2); }
   .period-custom input { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; }
   .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
@@ -431,12 +435,26 @@
 
     <h2 id="p-sec" class="section-title">성과 (익절·손절)</h2>
     <div id="p-period" class="period-bar" role="group" aria-label="기간 필터"></div>
+    <div id="p-basis" class="period-bar" role="group" aria-label="기간 기준"></div>
     <div id="p-custom" class="period-custom" hidden>
       <label>시작 <input type="date" id="p-from"></label>
       <label>끝 <input type="date" id="p-to"></label>
       <span class="muted">한국시간 기준, 비워 두면 처음/오늘까지예요</span>
     </div>
     <section id="p-tiles" class="tiles" aria-label="성과 요약"></section>
+
+    <section class="card" aria-labelledby="h-pwin">
+      <div class="card-head">
+        <div>
+          <h2 id="h-pwin">승률 현황</h2>
+          <p class="sub">익절이면 승, 손절이면 패로 쌓아요. 승률 = 익절 ÷ (익절 + 손절)이고, 기간 만료·BTC 이탈 정리·제외 정리는 승패에 넣지 않아요</p>
+        </div>
+      </div>
+      <div id="pw-tiles" class="tiles" aria-label="승률 요약"></div>
+      <div id="pw-strip"></div>
+      <div id="pw-chart"></div>
+      <p id="pw-note" class="card-note"></p>
+    </section>
 
     <section class="card" aria-labelledby="h-pbar">
       <div class="card-head">
@@ -653,8 +671,9 @@ function mountLineChart(host, cfg) {
     const xMax = cfg.xDomain ? cfg.xDomain[1] : allX[allX.length - 1];
     let yLo = Math.min(...all.map((p) => p.y)), yHi = Math.max(...all.map((p) => p.y));
     if (cfg.zero) { yLo = Math.min(yLo, 0); yHi = Math.max(yHi, 0); }
+    if (cfg.yDomain) { yLo = cfg.yDomain[0]; yHi = cfg.yDomain[1]; }
     if (yLo === yHi) { yLo -= 1; yHi += 1; }
-    const padY = (yHi - yLo) * 0.08;
+    const padY = cfg.yDomain ? 0 : (yHi - yLo) * 0.08;
     const yTicks = niceTicks(yLo - padY, yHi + padY, 5);
     const y0 = yTicks[0], y1 = yTicks[yTicks.length - 1];
     const sx = (x) => M.l + (xMax === xMin ? iw / 2 : ((x - xMin) / (xMax - xMin)) * iw);
@@ -1625,10 +1644,10 @@ const KST_MS = 9 * 3600e3, DAY_MS = 86400e3;
 const kstDayStart = (ms) => Math.floor((ms + KST_MS) / DAY_MS) * DAY_MS - KST_MS;
 const PERIODS = [['all', '전체'], ['today', '오늘'], ['yesterday', '어제'], ['week', '최근 1주일'], ['month', '이번 달'],
   ['lastmonth', '지난 달'], ['3months', '최근 3개월'], ['custom', '직접 지정']];
-let periodFilter = { key: 'all', from: '', to: '' };
+let periodFilter = { key: 'all', from: '', to: '', basis: 'entered' };  // basis: 'entered'(추천 시각) / 'ended'(종료 시각)
 try {
   const saved = JSON.parse(localStorage.getItem('periodFilter') || 'null');
-  if (saved && PERIODS.some(([k]) => k === saved.key)) periodFilter = { key: saved.key, from: saved.from || '', to: saved.to || '' };
+  if (saved && PERIODS.some(([k]) => k === saved.key)) periodFilter = { key: saved.key, from: saved.from || '', to: saved.to || '', basis: saved.basis === 'ended' ? 'ended' : 'entered' };
 } catch (e) { /* 무시 */ }
 function periodRange() {  // [시작 ms, 끝 ms) 또는 null(전체)
   const now = Date.now(), today = kstDayStart(now), kd = new Date(now + KST_MS);
@@ -1652,12 +1671,15 @@ function periodRange() {  // [시작 ms, 끝 ms) 또는 null(전체)
 const inPeriod = (r) => {
   const rg = periodRange();
   if (!rg) return true;
-  const t = new Date(r.entered_at).getTime();
+  const iso = periodFilter.basis === 'ended' ? (r.exit && r.exit.ended_at) : r.entered_at;
+  if (!iso) return false;  // 종료 시각 기준에서는 아직 진행 중인 추천이 빠진다
+  const t = new Date(iso).getTime();
   return t >= rg[0] && t < rg[1];
 };
 function periodLabel() {
-  if (periodFilter.key === 'custom') return `${periodFilter.from || '처음'} ~ ${periodFilter.to || '오늘'}`;
-  return (PERIODS.find(([k]) => k === periodFilter.key) || PERIODS[0])[1];
+  const base = periodFilter.key === 'custom' ? `${periodFilter.from || '처음'} ~ ${periodFilter.to || '오늘'}`
+    : (PERIODS.find(([k]) => k === periodFilter.key) || PERIODS[0])[1];
+  return periodFilter.key === 'all' ? base : `${base} (${periodFilter.basis === 'ended' ? '종료' : '추천'} 시각 기준)`;
 }
 let periodWired = false;
 function wirePeriodFilter() {
@@ -1671,12 +1693,81 @@ function wirePeriodFilter() {
       if (!b) return;
       periodFilter.key = b.dataset.period; save(); renderPerf(DATA);
     };
+    const basisBar = $('#p-basis');
+    basisBar.replaceChildren(...[['entered', '추천 시각 기준'], ['ended', '종료 시각 기준']].map(([k, label]) => h('button', { class: 'btn', type: 'button', 'data-basis': k, text: label })));
+    basisBar.onclick = (ev) => {
+      const b = ev.target.closest('button[data-basis]');
+      if (!b) return;
+      periodFilter.basis = b.dataset.basis; save(); renderPerf(DATA);
+    };
     const onDate = () => { periodFilter.from = $('#p-from').value; periodFilter.to = $('#p-to').value; save(); renderPerf(DATA); };
     $('#p-from').onchange = onDate; $('#p-to').onchange = onDate;
   }
   bar.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.period === periodFilter.key)));
+  $('#p-basis').querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.basis === periodFilter.basis)));
+  $('#p-basis').hidden = periodFilter.key === 'all';
   $('#p-custom').hidden = periodFilter.key !== 'custom';
   $('#p-from').value = periodFilter.from; $('#p-to').value = periodFilter.to;
+}
+
+function wilson(w, n) {  // 승률의 95% 신뢰구간(%)
+  const z = 1.96, p = w / n, dd = 1 + z * z / n, c = p + z * z / (2 * n), m = z * Math.sqrt(p * (1 - p) / n + z * z / (4 * n * n));
+  return [(c - m) / dd * 100, (c + m) / dd * 100];
+}
+
+function renderWinRate(recs) {
+  const tilesEl = $('#pw-tiles'), stripEl = $('#pw-strip'), chartEl = $('#pw-chart'), note = $('#pw-note');
+  const isWin = (r) => r.exit.reason === 'take_profit';
+  const decided = recs.filter((r) => r.exit && (r.exit.reason === 'take_profit' || r.exit.reason === 'stop_loss'))
+    .sort((a, b) => new Date(a.exit.ended_at) - new Date(b.exit.ended_at));
+  const skipped = { expired: 0, btc_exit: 0, excluded: 0, trailing: 0 };
+  for (const r of recs) if (r.exit && r.exit.reason in skipped) skipped[r.exit.reason] += 1;
+  chartEl.replaceChildren(); stripEl.replaceChildren();
+  if (!decided.length) {
+    tilesEl.replaceChildren();
+    chartEl.append(empty('이 범위에는 익절·손절로 끝난 추천이 아직 없어요. 종료되면 여기에 승패가 쌓여요.'));
+    note.textContent = ''; return;
+  }
+  const wins = decided.filter(isWin), losses = decided.filter((r) => !isWin(r));
+  const n = decided.length, rate = wins.length / n * 100;
+  const [lo, hi] = wilson(wins.length, n);
+  const avgWin = avg(wins.map((r) => r.exit.return_pct)), avgLoss = avg(losses.map((r) => Math.abs(r.exit.return_pct)));
+  const breakeven = avgWin != null && avgLoss != null ? avgLoss / (avgWin + avgLoss) * 100 : null;
+  tilesEl.replaceChildren(
+    tile('승률', [`${rate.toFixed(1)}%`], `익절 ${wins.length} ÷ (익절 ${wins.length} + 손절 ${losses.length})`),
+    tile('승 : 패', [`${wins.length} : ${losses.length}`], `95% 신뢰구간 ${lo.toFixed(0)}~${hi.toFixed(0)}%${n < 30 ? ' · 표본이 적어 참고만' : ''}`),
+    tile('본전 승률', [breakeven == null ? '—' : `${breakeven.toFixed(1)}%`],
+      breakeven == null ? '익절·손절이 모두 있어야 계산돼요' : `평균 익절 +${avgWin.toFixed(2)}% / 평균 손절 -${avgLoss.toFixed(2)}% 기준`),
+  );
+  const shown = decided.slice(-40);
+  stripEl.append(h('div', { class: 'wl-strip', role: 'img', 'aria-label': `최근 ${shown.length}건 승패` },
+    shown.map((r) => h('span', { class: `wl ${isWin(r) ? 'w' : 'l'}`, title: `${r.market} ${signed(r.exit.return_pct)} · ${kst(r.exit.ended_at)}`, text: isWin(r) ? '승' : '패' }))));
+  let w = 0;
+  const pts = decided.map((r, i) => { if (isWin(r)) w += 1; return { x: i, y: w / (i + 1) * 100, w, l: i + 1 - w }; });
+  const step = Math.max(1, Math.ceil(n / 8));
+  const refY = breakeven == null ? 50 : breakeven;
+  const chart = mountLineChart(chartEl, {
+    ariaLabel: `누적 승률 변화, 익절·손절 ${n}건`,
+    height: 220,
+    yDomain: [0, 100],
+    series: [
+      { name: '누적 승률', color: 'var(--s1)', points: pts },
+      { name: breakeven == null ? '50% 기준선' : `본전 승률 ${refY.toFixed(1)}%`, color: 'var(--s2)', width: 1.5, points: pts.map((p) => ({ x: p.x, y: refY })) },
+    ],
+    xTicks: pts.map((_, i) => i).filter((i) => (n - 1 - i) % step === 0),
+    xFmt: (i) => `${i + 1}번째`,
+    yFmt: (v) => `${v.toFixed(0)}%`,
+    valFmt: (v) => `${v.toFixed(1)}%`,
+    tipTitle: (i) => `${i + 1}번째 승패 · ${decided[i].market} ${isWin(decided[i]) ? '익절 (승)' : '손절 (패)'}`,
+    tipFoot: (i) => `${kst(decided[i].exit.ended_at)} 종료 · 손익 ${signed(decided[i].exit.return_pct)} · 누적 ${pts[i].w}승 ${pts[i].l}패`,
+    tol: 0,
+  });
+  charts.push(chart);
+  const skipText = [['expired', '기간 만료'], ['btc_exit', 'BTC 이탈 정리'], ['excluded', '제외 정리'], ['trailing', '되돌림 종료']]
+    .filter(([k]) => skipped[k]).map(([k, label]) => `${label} ${skipped[k]}건`).join(' · ');
+  const btcAvg = avg(recs.filter((r) => r.exit && r.exit.reason === 'btc_exit').map((r) => r.exit.return_pct));
+  note.textContent = `승률이 본전 승률보다 높아야 평균적으로 이익이에요. ${skipText ? `승패에서 제외된 종료: ${skipText}${btcAvg != null ? ` (BTC 이탈 정리 평균 손익 ${signed(btcAvg)})` : ''}. ` : ''}`
+    + '이 범위는 위에서 고른 기간·기준(추천 시각/종료 시각)을 따라요.';
 }
 
 function renderPerf(d) {
@@ -1688,6 +1779,7 @@ function renderPerf(d) {
   const recs = allRecs;
   const rules = d.exit_rules || {};
   const s = perfSummary(recs);
+  renderWinRate(recs);
   const tp = rules.take_profit_pct, sl = rules.stop_loss_pct, days = rules.track_days || d.track_days || 3;
 
   const tpRule = `익절 ${tp == null ? '없음' : `+${tp}%`} · 손절 ${sl == null ? '없음' : `-${sl}%`} · ${days}일 안에 닿지 않으면 기간 만료${rules.btc_exit ? ' · BTC 일봉 종가가 20일선 아래로 마감하면 개선판 전량 정리' : ''}`;
