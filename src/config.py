@@ -21,6 +21,15 @@ try:
 except ValueError:
     REPORT_INTERVAL_HOURS = 2.0
 
+# 전체 현황 리포트 간격(시간, 기본 4). REPORT_INTERVAL_HOURS(2시간)마다는 '지난 리포트 이후 변화만' 요약해서 보내고
+# (변화가 없으면 안 보냄), 이 간격이 지날 때마다 전체 현황을 보낸다. REPORT_INTERVAL_HOURS 이하로 두면 매번 전체를 보낸다.
+# 변화 요약에 넣는 '큰 변동' 기준은 지난 리포트 이후 추천가 대비 수익률이 이만큼(%p) 이상 움직인 종목이다.
+try:
+    REPORT_FULL_INTERVAL_HOURS = float(os.environ.get("REPORT_FULL_INTERVAL_HOURS") or "4")
+    REPORT_MOVE_PCT = float(os.environ.get("REPORT_MOVE_PCT") or "2")
+except ValueError:
+    REPORT_FULL_INTERVAL_HOURS, REPORT_MOVE_PCT = 4.0, 2.0
+
 def _env_float(name: str, default: float | None) -> float | None:
     """환경변수를 실수로 읽는다. 비어 있거나 0/off/none이면 '사용 안 함'(None)."""
     raw = (os.environ.get(name) or "").strip().lower()
