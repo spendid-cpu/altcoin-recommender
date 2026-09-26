@@ -44,14 +44,24 @@ async def fetch_4h_long(session: aiohttp.ClientSession, bars: int) -> pd.DataFra
     return both.tail(bars).reset_index(drop=True)
 
 
+async def fetch_weekly(session: aiohttp.ClientSession) -> pd.DataFrame | None:
+    """주봉 3년치. 실패해도 나머지 분석은 그대로 돌도록 None으로 돌려준다."""
+    try:
+        return await binance_client.fetch_ohlcv(session, config.BINANCE_SYMBOL, "1w", btc_macro.WEEKLY_CANDLES + 20)
+    except Exception as exc:
+        print(f"[매크로] 주봉 조회 실패(주봉 3년 분석만 건너뜀): {type(exc).__name__}: {exc}")
+        return None
+
+
 async def build_macro(session: aiohttp.ClientSession) -> dict:
-    day, h4_long, h1, price = await asyncio.gather(
+    day, h4_long, h1, price, week = await asyncio.gather(
         binance_client.fetch_ohlcv(session, config.BINANCE_SYMBOL, "1d", btc_macro.DAILY_CANDLES + 35),  # 1년치 + MA 계산 여유
         fetch_4h_long(session, btc_macro.CANDLES_4H),
         binance_client.fetch_ohlcv(session, config.BINANCE_SYMBOL, "1h", 400),
         binance_client.fetch_price(session, config.BINANCE_SYMBOL),
+        fetch_weekly(session),
     )
-    macro = btc_macro.analyse(day, h4_long, h1, price)  # 분석과 차트 모두 최근 6개월 4시간봉
+    macro = btc_macro.analyse(day, h4_long, h1, price, week=week)  # 분석과 차트 모두 최근 6개월 4시간봉
     macro["generated_at"] = datetime.now(timezone.utc).isoformat()
     try:
         macro["watch"] = btc_watch.analyse(day, h4_long)

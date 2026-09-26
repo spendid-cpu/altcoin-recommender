@@ -28,9 +28,9 @@ from src.scoring import EPS, _crossed_up_series
 FIB_RATIOS = (0.382, 0.5, 0.618)  # 0.236/0.786까지 늘리면 라인이 너무 촘촘해져 겹침 개수가 변별력을 잃는다
 FIB_EXTENSIONS = (1.272, 1.618)  # 가장 최근 파동의 확장 라인 (고점 위/저점 아래에 라인이 없을 때를 위해)
 CANDLES_4H = 1080  # 4시간봉 1080개 = 180일 = 최근 6개월 (분석과 차트가 같은 범위를 쓴다. 3개월이면 5월 고점 같은 큰 저항이 빠진다)
-PIVOT_BARS = {"large": 12, "small": 4, "long": 5}  # 좌우 몇 개 캔들보다 높/낮아야 고점/저점으로 보는지 (12개 = 2일, 4개 = 16시간)
-MIN_LEG_PCT = {"large": 10.0, "small": 3.0, "long": 15.0}  # 직전 극점에서 이만큼 움직이지 못한 반대 방향 움직임은 파동으로 치지 않는다
-LEGS_USED = {"large": 4, "small": 4, "long": 6}  # 라인을 그을 최근 파동 수
+PIVOT_BARS = {"large": 12, "small": 4, "long": 5, "weekly": 3}  # 좌우 몇 개 캔들보다 높/낮아야 고점/저점으로 보는지 (12개 = 2일, 4개 = 16시간)
+MIN_LEG_PCT = {"large": 10.0, "small": 3.0, "long": 15.0, "weekly": 25.0}  # 직전 극점에서 이만큼 움직이지 못한 반대 방향 움직임은 파동으로 치지 않는다
+LEGS_USED = {"large": 4, "small": 4, "long": 6, "weekly": 6}  # 라인을 그을 최근 파동 수
 CLUSTER_TOL_PCT = 0.5  # 이 폭 안에 들어온 라인들은 '겹친' 것으로 본다
 # 장기(일봉 1년): 좌우 5일 중 가장 높/낮고 그 뒤 5일 안에 4% 이상 반대로 움직인 고점/저점 + 15% 이상 파동의 피보나치.
 # 일봉은 4시간봉보다 폭이 넓어 묶는 허용폭(±1%)과 범위(±60%, 1년 전 최고가까지)도 넓게 잡는다.
@@ -39,11 +39,18 @@ DAILY_SWING_BARS = 5
 DAILY_SWING_MIN_MOVE_PCT = 4.0
 LONG_CLUSTER_TOL_PCT = 1.0
 LONG_RANGE_PCT = 60.0
+# 초장기(주봉 3년): 좌우 3주 중 가장 높/낮고 그 뒤 3주 안에 8% 이상 반대로 움직인 고점/저점 + 25% 이상 파동의 피보나치.
+# 3년 동안 가격이 몇 배씩 움직여서 묶는 허용폭(±2%)과 범위(±80%)를 일봉보다 더 넓게 잡는다.
+WEEKLY_CANDLES = 156
+WEEKLY_SWING_BARS = 3
+WEEKLY_SWING_MIN_MOVE_PCT = 8.0
+WEEKLY_CLUSTER_TOL_PCT = 2.0
+WEEKLY_RANGE_PCT = 80.0
 SWING_PIVOT_BARS = 6  # 가격 반응 자리: 좌우 이만큼(6개 = 24시간)의 캔들보다 높/낮은 캔들을 고점/저점으로 모은다 (지그재그로 걸러내지 않고 전부)
 SWING_MIN_MOVE_PCT = 1.0  # 그 고점/저점에서 반대로 최소 이만큼 움직였어야 '반응'으로 친다 (사소한 흔들림 제외)
 LEVEL_RANGE_PCT = 15.0  # 현재가에서 이 범위 밖의 라인은 다루지 않는다
 STRENGTH_LABEL = {1: "약함", 2: "중간", 3: "강함", 4: "매우 강함", 5: "핵심"}
-WAVE_LABEL = {"large": "큰 파동", "small": "작은 파동", "long": "장기 파동"}
+WAVE_LABEL = {"large": "큰 파동", "small": "작은 파동", "long": "장기 파동", "weekly": "주봉 파동"}
 
 # ---------------- 스토캐스틱 RSI 설정 ----------------
 STOCH_FRAMES = ("day", "4h", "1h")
@@ -362,32 +369,45 @@ def analyse_fib(df4h: pd.DataFrame, price: float) -> dict:
     }
 
 
-def analyse_long(day: pd.DataFrame, price: float) -> dict:
-    """일봉 1년치로 장기 지지·저항 구간을 만든다 (4시간봉 분석과 같은 방식: 가격 반응 자리 + 파동의 피보나치 라인 겹침)."""
-    df = day.tail(DAILY_CANDLES).reset_index(drop=True)
-    legs = build_legs(df, "long")
-    swings = swing_pivots(df, DAILY_SWING_BARS, DAILY_SWING_MIN_MOVE_PCT)
+def _analyse_span(
+    src: pd.DataFrame, price: float, wave: str, candles: int, swing_bars: int, swing_min_move: float,
+    cluster_tol: float, range_pct: float, bar_hours: int,
+) -> dict:
+    """일봉 1년/주봉 3년 같은 긴 구간의 지지·저항 구간 (4시간봉 분석과 같은 방식: 가격 반응 자리 + 파동의 피보나치 라인 겹침)."""
+    df = src.tail(candles).reset_index(drop=True)
+    legs = build_legs(df, wave)
+    swings = swing_pivots(df, swing_bars, swing_min_move)
     if legs and legs[-1].end.provisional:  # 진행 중인 최근 고점/저점도 반응 자리로
         tip = legs[-1].end
-        if all(abs(tip.idx - pv.idx) > DAILY_SWING_BARS or pv.kind != tip.kind for pv in swings):
+        if all(abs(tip.idx - pv.idx) > swing_bars or pv.kind != tip.kind for pv in swings):
             swings.append(tip)
-    zones = build_zones(_level_points({"long": legs}, swings, bar_hours=24), price, LONG_CLUSTER_TOL_PCT, LONG_RANGE_PCT)
-    used = legs[-LEGS_USED["long"]:]
+    zones = build_zones(_level_points({wave: legs}, swings, bar_hours=bar_hours), price, cluster_tol, range_pct)
+    used = legs[-LEGS_USED[wave]:]
     return {
         "supports": sorted((z for z in zones if z["side"] == "support"), key=lambda z: -z["price"]),
         "resistances": sorted((z for z in zones if z["side"] == "resistance"), key=lambda z: z["price"]),
         "swings": [{"time": pv.time.isoformat(), "price": pv.price, "kind": pv.kind} for pv in swings],
-        # 차트의 파동 연결선 (일봉 파동은 '큰 파동' 선 모양으로 그린다)
+        # 차트의 파동 연결선 (긴 구간 파동은 '큰 파동' 선 모양으로 그린다)
         "pivots": {
             "large": ([{"time": lg.start.time.isoformat(), "price": lg.start.price, "kind": lg.start.kind} for lg in used]
                       + ([{"time": used[-1].end.time.isoformat(), "price": used[-1].end.price, "kind": used[-1].end.kind}] if used else [])),
             "small": [],
         },
-        "params": {"candles": len(df), "cluster_tol_pct": LONG_CLUSTER_TOL_PCT, "range_pct": LONG_RANGE_PCT,
-                   "swing_bars": DAILY_SWING_BARS, "swing_min_move_pct": DAILY_SWING_MIN_MOVE_PCT,
-                   "leg_min_pct": MIN_LEG_PCT["long"], "legs_used": LEGS_USED["long"]},
+        "params": {"candles": len(df), "cluster_tol_pct": cluster_tol, "range_pct": range_pct,
+                   "swing_bars": swing_bars, "swing_min_move_pct": swing_min_move,
+                   "leg_min_pct": MIN_LEG_PCT[wave], "legs_used": LEGS_USED[wave]},
         "high": float(df["high"].max()), "low": float(df["low"].min()),
     }
+
+
+def analyse_long(day: pd.DataFrame, price: float) -> dict:
+    return _analyse_span(day, price, "long", DAILY_CANDLES, DAILY_SWING_BARS, DAILY_SWING_MIN_MOVE_PCT,
+                         LONG_CLUSTER_TOL_PCT, LONG_RANGE_PCT, 24)
+
+
+def analyse_weekly(week: pd.DataFrame, price: float) -> dict:
+    return _analyse_span(week, price, "weekly", WEEKLY_CANDLES, WEEKLY_SWING_BARS, WEEKLY_SWING_MIN_MOVE_PCT,
+                         WEEKLY_CLUSTER_TOL_PCT, WEEKLY_RANGE_PCT, 168)
 
 
 def _fib_read(waves: dict) -> str:
@@ -565,11 +585,14 @@ def build_panel(df: pd.DataFrame, step_hours: int) -> dict:
 
 
 def analyse(
-    day: pd.DataFrame, h4: pd.DataFrame, h1: pd.DataFrame, price: float, h4_chart: pd.DataFrame | None = None
+    day: pd.DataFrame, h4: pd.DataFrame, h1: pd.DataFrame, price: float, h4_chart: pd.DataFrame | None = None,
+    week: pd.DataFrame | None = None,
 ) -> dict:
     """day/h4/h1은 fetch_ohlcv(closed_only=True) 결과, price는 실시간 현재가.
     h4는 분석용 4시간봉(최근 6개월), h4_chart는 차트에 그릴 4시간봉이다. 없으면 h4를 그대로 그린다."""
     day_close = day["close"]
+    weekly = {} if week is None or len(week) < 30 else {
+        "fib_weekly": analyse_weekly(week, price), "chart_weekly": _chart(week, WEEKLY_CANDLES, 168)}
     prev24 = float(h1["close"].iloc[-25]) if len(h1) >= 25 else None
     return {
         "price": price,
@@ -586,4 +609,5 @@ def analyse(
         "fib_long": analyse_long(day, price),
         "chart_long": _chart(day, DAILY_CANDLES, 24),
         "panels": {"day": build_panel(day, 24), "4h": build_panel(h4, 4), "1h": build_panel(h1, 1)},
+        **weekly,
     }

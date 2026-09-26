@@ -332,7 +332,7 @@
         <div class="card-head">
           <div>
             <h2 id="h-fib">지지·저항 (4시간봉)</h2>
-            <p class="sub">최근 6개월의 피보나치 라인과 실제로 가격이 반등·꺾인 자리를 모아, 겹치는 곳을 구간으로 표시해요. 1년 보기는 일봉 기준의 장기 구간이에요</p>
+            <p class="sub">최근 6개월의 피보나치 라인과 실제로 가격이 반등·꺾인 자리를 모아, 겹치는 곳을 구간으로 표시해요. 1년 보기는 일봉 기준의 장기 구간, 3년 보기는 주봉 기준의 초장기 구간이에요</p>
           </div>
           <div class="head-actions">
             <div id="m-range" class="seg" role="group" aria-label="차트 기간">
@@ -340,6 +340,7 @@
               <button class="btn" type="button" data-bars="540" aria-pressed="false">3개월</button>
               <button class="btn" type="button" data-bars="1080" aria-pressed="false">6개월</button>
               <button class="btn" type="button" data-bars="365" data-view="long" aria-pressed="false">1년 (일봉)</button>
+              <button class="btn" type="button" data-bars="156" data-view="weekly" aria-pressed="false">3년 (주봉)</button>
             </div>
             <button class="btn" type="button" data-toggle="fib" aria-pressed="false">표로 보기</button>
           </div>
@@ -1204,7 +1205,7 @@ function mountFibChart(host, m, bars) {
 
     const svg = s('svg', {
       viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: 'img', tabindex: '0',
-      'aria-label': `비트코인 ${barHours >= 24 ? '일봉' : '4시간봉'} 최근 ${n}개와 지지·저항 구간`,
+      'aria-label': `비트코인 ${barHours >= 168 ? '주봉' : barHours >= 24 ? '일봉' : '4시간봉'} 최근 ${n}개와 지지·저항 구간`,
     });
     svg.append(s('defs', {}, s('clipPath', { id: 'fib-clip' }, s('rect', { x: M.l, y: M.t, width: iw, height: ih }))));
 
@@ -1217,14 +1218,17 @@ function mountFibChart(host, m, bars) {
     // x축: 한국시간 날짜가 바뀌는 캔들에 눈금
     const dates = candles.map((_, i) => candleStartKst(closeMs(i), barHours).date);
     const monthly = barHours >= 24;  // 일봉(1년) 차트는 날짜 대신 달 단위 눈금
-    const keyOf = (dt) => (monthly ? dt.slice(0, 2) : dt);
+    const weekly = barHours >= 168;  // 주봉(3년)은 해가 바뀌니 '연.월'로 표시한다
+    const fullDates = weekly ? candles.map((_, i) => new Date(closeMs(i) - barHours * 3600e3 + 9 * 3600e3).toISOString().slice(0, 10)) : null;
+    const keyOf = (dt) => (weekly ? dt : monthly ? dt.slice(0, 2) : dt);
+    if (weekly) dates.forEach((_, i) => { dates[i] = fullDates[i].slice(2, 7).replace('-', '.'); });
     let xTicks = dates.map((dt, i) => (i === 0 || keyOf(dt) !== keyOf(dates[i - 1]) ? i : -1)).filter((i) => i >= 0);
     const maxTicks = Math.max(2, Math.floor(iw / 64));
     if (xTicks.length > maxTicks) {
       const k = Math.ceil(xTicks.length / maxTicks);
       xTicks = xTicks.filter((_, j) => (xTicks.length - 1 - j) % k === 0);
     }
-    for (const i of xTicks) svg.append(s('text', { x: sx(i), y: H - 8, 'text-anchor': 'middle', style: 'fill:var(--muted);font-size:11px' }, monthly ? `${Number(dates[i].slice(0, 2))}월` : dates[i]));
+    for (const i of xTicks) svg.append(s('text', { x: sx(i), y: H - 8, 'text-anchor': 'middle', style: 'fill:var(--muted);font-size:11px' }, weekly ? dates[i] : monthly ? `${Number(dates[i].slice(0, 2))}월` : dates[i]));
 
     // 지지·저항 구간: 캔들 뒤에 깔아 캔들이 가리지 않게 한다
     const labels = [];
@@ -1344,7 +1348,7 @@ function mountFibChart(host, m, bars) {
     const [o, hh, ll, cc] = candles[i];
     const st = candleStartKst(closeMs(i), barHours);
     const row = (name, v) => h('div', { class: 't-row' }, h('span', { class: 'name', text: name }), h('span', { class: 'val', text: nf0.format(v) }));
-    tip.replaceChildren(h('div', { class: 't-title', text: barHours >= 24 ? `${st.date} 일봉 (한국시간 9시 시작)` : `${st.date} ${st.hm} 봉 (한국시간 시작)` }),
+    tip.replaceChildren(h('div', { class: 't-title', text: barHours >= 168 ? `${new Date(closeMs(i) - barHours * 3600e3 + 9 * 3600e3).toISOString().slice(0, 10)} 주봉 (한국시간 월요일 9시 시작)` : barHours >= 24 ? `${st.date} 일봉 (한국시간 9시 시작)` : `${st.date} ${st.hm} 봉 (한국시간 시작)` }),
       row('시가', o), row('고가', hh), row('저가', ll), row('종가', cc),
       h('div', { class: 't-foot', text: `봉 등락 ${cc >= o ? '▲ +' : '▼ '}${((cc / o - 1) * 100).toFixed(2)}%` }));
     tip.hidden = false;
@@ -1366,10 +1370,13 @@ function mountFibChart(host, m, bars) {
 }
 
 let fibChart = null;
-let macroView = 'short';  // 'short' = 4시간봉(1·3·6개월), 'long' = 일봉 1년
+let macroView = 'short';  // 'short' = 4시간봉(1·3·6개월), 'long' = 일봉 1년, 'weekly' = 주봉 3년
 function macroViewData(m) {
   if (macroView === 'long') {
     return m.fib_long && m.chart_long ? { long: true, price: m.price, chart: m.chart_long, fib: m.fib_long, bars: 365 } : null;
+  }
+  if (macroView === 'weekly') {
+    return m.fib_weekly && m.chart_weekly ? { long: true, weekly: true, price: m.price, chart: m.chart_weekly, fib: m.fib_weekly, bars: 156 } : null;
   }
   return { long: false, price: m.price, chart: m.chart, fib: m.fib, bars: macroBars };
 }
@@ -1382,9 +1389,9 @@ function renderFib(m) {
   $('#fib-legend').replaceChildren(...fibLegend());
 
   const v = macroViewData(m);
-  $('#h-fib').textContent = `지지·저항 (${macroView === 'long' ? '일봉 1년' : '4시간봉'})`;
+  $('#h-fib').textContent = `지지·저항 (${macroView === 'weekly' ? '주봉 3년' : macroView === 'long' ? '일봉 1년' : '4시간봉'})`;
   if (!v || !v.chart || !v.chart.ohlc || !v.chart.ohlc.length) {
-    chartEl.replaceChildren(empty(macroView === 'long' ? '1년 차트는 다음 갱신(최대 5분) 뒤에 표시돼요.' : '4시간봉 데이터가 없어요.'));
+    chartEl.replaceChildren(empty(macroView === 'weekly' ? '3년 주봉 차트는 다음 갱신(최대 5분) 뒤에 표시돼요.' : macroView === 'long' ? '1년 차트는 다음 갱신(최대 5분) 뒤에 표시돼요.' : '4시간봉 데이터가 없어요.'));
     tableEl.replaceChildren();
     $('#fib-note').textContent = '';
     fibChart = null; return;
@@ -1396,11 +1403,13 @@ function renderFib(m) {
   const rows = c.ohlc.slice(-72).map((k, j, arr) => {
     const i = c.ohlc.length - arr.length + j;
     const st = candleStartKst((c.first_close_ts + i * c.step_seconds) * 1000, barHours);
-    return [barHours >= 24 ? st.date : `${st.date} ${st.hm}`, ...k.map((x) => nf0.format(x))];
+    return [barHours >= 168 ? new Date((c.first_close_ts + i * c.step_seconds) * 1000 - barHours * 3600e3 + 9 * 3600e3).toISOString().slice(0, 10) : barHours >= 24 ? st.date : `${st.date} ${st.hm}`, ...k.map((x) => nf0.format(x))];
   }).reverse();
-  tableEl.replaceChildren(buildTable([barHours >= 24 ? '일봉 시작(KST)' : '봉 시작(KST)', '시가', '고가', '저가', '종가'], rows));
+  tableEl.replaceChildren(buildTable([barHours >= 168 ? '주봉 시작(KST)' : barHours >= 24 ? '일봉 시작(KST)' : '봉 시작(KST)', '시가', '고가', '저가', '종가'], rows));
   wireToggle('fib', chartEl, tableEl, () => fibChart && fibChart.render());
-  $('#fib-note').textContent = v.long
+  $('#fib-note').textContent = v.weekly
+    ? '주봉 3년 기준이에요. 주봉의 고점·저점(좌우 3주)에서 가격이 8% 이상 반등·꺾인 자리와 25% 이상 파동의 피보나치 라인을 모아, 현재가 위아래 80%까지의 초장기 구간을 만들어요. 2~3년 전 고점·저점 같은 큰 흐름의 저항·지지예요. 봉 하나가 일주일이라 자리가 넓게 잡히고, 지금 가격 근처는 일봉·4시간봉 구간을 함께 보세요.'
+    : v.long
     ? '일봉 1년 기준이에요. 일봉의 고점·저점에서 가격이 반등·꺾인 자리와 15% 이상 파동의 피보나치 라인을 모아, 현재가 위아래 60%까지의 장기 구간을 만들어요. 4시간봉 분석보다 큰 흐름의 저항·지지예요 (1년 전 고점 같은 자리).'
     : `마지막 마감 4시간봉 종가 ${nf0.format(m.fib.basis_close)} 기준으로 판단해요 (현재가는 실시간 체결가). 지지·저항 구간과 파동 분석은 최근 6개월 4시간봉 기준이에요.`;
 }
@@ -1448,8 +1457,8 @@ function renderWaves(m) {
 
 function renderZones(m) {
   const host = $('#m-zones');
-  const fibSet = macroView === 'long' && m.fib_long ? m.fib_long : m.fib;
-  $('#m-zone-note').textContent = fibSet === m.fib_long ? '표시 기준: 일봉 1년 (장기 구간)' : '표시 기준: 4시간봉 6개월';
+  const fibSet = macroView === 'weekly' && m.fib_weekly ? m.fib_weekly : macroView === 'long' && m.fib_long ? m.fib_long : m.fib;
+  $('#m-zone-note').textContent = fibSet === m.fib_weekly ? '표시 기준: 주봉 3년 (초장기 구간)' : fibSet === m.fib_long ? '표시 기준: 일봉 1년 (장기 구간)' : '표시 기준: 4시간봉 6개월';
   const res = [...fibSet.resistances].reverse();   // 위쪽부터 (가격 높은 순)
   const sup = fibSet.supports;                      // 현재가에 가까운 순 = 가격 높은 순
   if (!res.length && !sup.length) { host.replaceChildren(empty('현재가 주변에 겹치는 라인이 없어요.')); return; }
@@ -1991,7 +2000,7 @@ selectTab(TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'recs
 $('#m-range').addEventListener('click', (ev) => {
   const btn = ev.target.closest('button[data-bars]');
   if (!btn || !DATA || !DATA.macro) return;
-  macroView = btn.dataset.view === 'long' ? 'long' : 'short';
+  macroView = btn.dataset.view === 'weekly' ? 'weekly' : btn.dataset.view === 'long' ? 'long' : 'short';
   if (macroView === 'short') macroBars = Number(btn.dataset.bars);
   document.querySelectorAll('#m-range button').forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
   renderFib(DATA.macro);
