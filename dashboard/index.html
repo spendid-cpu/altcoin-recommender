@@ -143,6 +143,10 @@
   .tab:focus-visible { outline: 2px solid var(--s1); outline-offset: -2px; border-radius: 6px; }
 
   /* 비트코인 분석 탭 */
+  .period-bar { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 12px; }
+  .period-bar .btn { border: 1px solid var(--border); border-radius: 8px; }
+  .period-custom { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 0 0 12px; font-size: 13px; color: var(--ink2); }
+  .period-custom input { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; }
   .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
   .seg .btn { border: 0; border-radius: 0; }
   .seg .btn + .btn { border-left: 1px solid var(--border); }
@@ -426,6 +430,12 @@
     </section>
 
     <h2 id="p-sec" class="section-title">성과 (익절·손절)</h2>
+    <div id="p-period" class="period-bar" role="group" aria-label="기간 필터"></div>
+    <div id="p-custom" class="period-custom" hidden>
+      <label>시작 <input type="date" id="p-from"></label>
+      <label>끝 <input type="date" id="p-to"></label>
+      <span class="muted">한국시간 기준, 비워 두면 처음/오늘까지예요</span>
+    </div>
     <section id="p-tiles" class="tiles" aria-label="성과 요약"></section>
 
     <section class="card" aria-labelledby="h-pbar">
@@ -444,7 +454,7 @@
       <div class="card-head">
         <div>
           <h2 id="h-plist">추천별 결과와 근거</h2>
-          <p class="sub">추천 시각, 종료 시각, 손익과 그 추천이 어떤 근거로 나왔는지 (최신순)</p>
+          <p id="p-list-sub" class="sub">추천 시각, 종료 시각, 손익과 그 추천이 어떤 근거로 나왔는지 (최신순)</p>
         </div>
       </div>
       <div id="p-list" class="table-wrap"></div>
@@ -1601,15 +1611,75 @@ function whyNode(r) {
     h('div', { class: 'why-body' }, h('div', { text: d.rule }), list, h('div', { text: `합계 ${d.total}점` })));
 }
 
+/* ---------- 성과 탭 기간 필터 (한국시간 기준) ---------- */
+const KST_MS = 9 * 3600e3, DAY_MS = 86400e3;
+const kstDayStart = (ms) => Math.floor((ms + KST_MS) / DAY_MS) * DAY_MS - KST_MS;
+const PERIODS = [['all', '전체'], ['today', '오늘'], ['yesterday', '어제'], ['week', '최근 1주일'], ['month', '이번 달'],
+  ['lastmonth', '지난 달'], ['3months', '최근 3개월'], ['custom', '직접 지정']];
+let periodFilter = { key: 'all', from: '', to: '' };
+try {
+  const saved = JSON.parse(localStorage.getItem('periodFilter') || 'null');
+  if (saved && PERIODS.some(([k]) => k === saved.key)) periodFilter = { key: saved.key, from: saved.from || '', to: saved.to || '' };
+} catch (e) { /* 무시 */ }
+function periodRange() {  // [시작 ms, 끝 ms) 또는 null(전체)
+  const now = Date.now(), today = kstDayStart(now), kd = new Date(now + KST_MS);
+  const y = kd.getUTCFullYear(), m = kd.getUTCMonth(), day = kd.getUTCDate();
+  const monthStart = (yy, mm) => Date.UTC(yy, mm, 1) - KST_MS;
+  switch (periodFilter.key) {
+    case 'today': return [today, today + DAY_MS];
+    case 'yesterday': return [today - DAY_MS, today];
+    case 'week': return [today - 6 * DAY_MS, today + DAY_MS];
+    case 'month': return [monthStart(y, m), monthStart(y, m + 1)];
+    case 'lastmonth': return [monthStart(y, m - 1), monthStart(y, m)];
+    case '3months': return [Date.UTC(y, m - 3, day) - KST_MS, today + DAY_MS];
+    case 'custom': {
+      const f = periodFilter.from ? Date.parse(`${periodFilter.from}T00:00:00+09:00`) : -Infinity;
+      const t = periodFilter.to ? Date.parse(`${periodFilter.to}T00:00:00+09:00`) + DAY_MS : Infinity;
+      return [f, t];
+    }
+    default: return null;
+  }
+}
+const inPeriod = (r) => {
+  const rg = periodRange();
+  if (!rg) return true;
+  const t = new Date(r.entered_at).getTime();
+  return t >= rg[0] && t < rg[1];
+};
+function periodLabel() {
+  if (periodFilter.key === 'custom') return `${periodFilter.from || '처음'} ~ ${periodFilter.to || '오늘'}`;
+  return (PERIODS.find(([k]) => k === periodFilter.key) || PERIODS[0])[1];
+}
+let periodWired = false;
+function wirePeriodFilter() {
+  const bar = $('#p-period');
+  const save = () => { try { localStorage.setItem('periodFilter', JSON.stringify(periodFilter)); } catch (e) { /* 무시 */ } };
+  if (!periodWired) {
+    periodWired = true;
+    bar.replaceChildren(...PERIODS.map(([k, label]) => h('button', { class: 'btn', type: 'button', 'data-period': k, text: label })));
+    bar.onclick = (ev) => {
+      const b = ev.target.closest('button[data-period]');
+      if (!b) return;
+      periodFilter.key = b.dataset.period; save(); renderPerf(DATA);
+    };
+    const onDate = () => { periodFilter.from = $('#p-from').value; periodFilter.to = $('#p-to').value; save(); renderPerf(DATA); };
+    $('#p-from').onchange = onDate; $('#p-to').onchange = onDate;
+  }
+  bar.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.period === periodFilter.key)));
+  $('#p-custom').hidden = periodFilter.key !== 'custom';
+  $('#p-from').value = periodFilter.from; $('#p-to').value = periodFilter.to;
+}
+
 function renderPerf(d) {
-  const allRecs = recsOf(d);
+  wirePeriodFilter();
+  const allRecs = recsOf(d).filter(inPeriod);
   const recs = allRecs;
   const rules = d.exit_rules || {};
   const s = perfSummary(recs);
   const tp = rules.take_profit_pct, sl = rules.stop_loss_pct, days = rules.track_days || d.track_days || 3;
 
   const tpRule = `익절 ${tp == null ? '없음' : `+${tp}%`} · 손절 ${sl == null ? '없음' : `-${sl}%`} · ${days}일 안에 닿지 않으면 기간 만료${rules.btc_exit ? ' · BTC 일봉 종가가 20일선 아래로 마감하면 개선판 전량 정리' : ''}`;
-  $('#p-sec').textContent = `${stratFilter === 'all' ? '전체' : STRAT_LABEL[stratFilter]} 성과`;
+  $('#p-sec').textContent = `${periodFilter.key === 'all' ? '' : `${periodLabel()} · `}${stratFilter === 'all' ? '전체' : STRAT_LABEL[stratFilter]} 성과`;
   $('#p-rule').textContent = stratFilter === 'original' ? `${tpRule} (대조군에는 원래 종료 규칙이 없었지만, 성과를 재려고 개선판과 같은 규칙을 씀)` : tpRule;
 
   const avgClosed = avg(s.closedRets), avgExp = avg(s.expiredRets);
@@ -1642,12 +1712,14 @@ function renderPerf(d) {
 
   // 추천별 표 (두 전략 모두)
   const host = $('#p-list');
-  if (!allRecs.length) { host.replaceChildren(empty('아직 추천이 없어요.')); return; }
-  const rows = allRecs.map((r) => {
+  $('#p-list-sub').textContent = `추천 시각, 종료 시각, 손익과 그 추천이 어떤 근거로 나왔는지 (최신순) · ${periodFilter.key === 'all' ? '전체' : periodLabel()} 총 ${allRecs.length}건`;
+  if (!allRecs.length) { host.replaceChildren(empty(periodFilter.key === 'all' ? '아직 추천이 없어요.' : '이 기간에는 추천이 없어요.')); return; }
+  const rows = allRecs.map((r, idx) => {
     const o = outcomeOf(r), info = RESULT_INFO[o.key] || RESULT_INFO.expired;
     const endedAt = r.exit ? kst(r.exit.ended_at) : null;
     const endPrice = r.exit ? r.exit.exit_price : r.last_price;
     return h('tr', {},
+      h('td', { class: 'muted', text: String(idx + 1) }),
       h('td', { text: kst(r.entered_at) }),
       h('td', {}, h('div', { text: r.market }), h('div', {}, stratPill(r), h('span', { class: 'muted', text: ` ${r.score == null ? '' : `${r.score}점`}` }))),
       h('td', { class: 'num', text: `${fmtKRW(r.entry_price)} → ${fmtKRW(endPrice)}${r.exit ? '' : ' (현재)'}` }),
@@ -1657,7 +1729,7 @@ function renderPerf(d) {
       h('td', { class: 'why' }, whyNode(r)));
   });
   host.replaceChildren(h('table', {},
-    h('thead', {}, h('tr', {}, ['추천 시각', '종목 · 전략', '추천가 → 종료가', '종료 시각', '손익', '결과', '추천 근거'].map((x, i) => h('th', { class: i === 2 || i === 4 ? 'num' : '', text: x })))),
+    h('thead', {}, h('tr', {}, ['번호', '추천 시각', '종목 · 전략', '추천가 → 종료가', '종료 시각', '손익', '결과', '추천 근거'].map((x, i) => h('th', { class: i === 3 || i === 5 ? 'num' : '', text: x })))),
     h('tbody', {}, rows)));
 }
 
