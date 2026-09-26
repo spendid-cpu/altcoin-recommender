@@ -909,7 +909,7 @@ function renderCandidates(d) {
     return;
   }
   host.replaceChildren(buildTable(
-    ['종목', '상태', '등급', '점수', '통과 프레임', '5분 저점', '현재가'],
+    ['종목', '상태', '등급', '점수', '통과 프레임', '5분 저점', '현재가', '가까운 지지'],
     cands.map((c) => [
       c.market,
       h('span', { class: c.recommendable ? '' : 'muted', text: c.recommendable ? '추천 대상' : (c.runup_excluded ? `제외 · 최근 3일 +${(c.recent_runup_pct ?? 0).toFixed(0)}% 급등 이력` : '대기 · 5분 저점을 기다려요') }),
@@ -917,6 +917,7 @@ function renderCandidates(d) {
       c.frames.map((f) => FRAME_LABEL[f] || f).join(' › '),
       c.low_15m ? h('span', { class: 'flag', text: c.entry_ready ? '✓ 저점 · 타점' : '✓ 저점' }) : h('span', { class: 'muted', text: '대기' }),
       fmtKRW(c.current_price),
+      c.support_price && c.current_price ? `${fmtKRW(c.support_price)} (${((c.support_price / c.current_price - 1) * 100).toFixed(1)}%)` : '—',
     ]), 3));
 }
 

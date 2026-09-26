@@ -11,11 +11,11 @@ from datetime import datetime, timezone
 from src import config, price_tracker, state_store
 from src.formatting import fmt_price, frames_text, grade_badge
 from src.report import elapsed_text
-from src.scoring import CandidateResult
+from src.scoring import CandidateResult, nearest_support
 
 _EMPTY_STATE = {
     "cleared_frames": [], "entry_ready": False, "grade": "-", "current_price": 0.0, "score": None,
-    "recommendable": False, "low_15m": False, "runup_excluded": False, "recent_runup_pct": 0.0,
+    "recommendable": False, "low_15m": False, "runup_excluded": False, "recent_runup_pct": 0.0, "support_price": None,
     "alerted_frames": [], "alerted_entry": False,
 }
 
@@ -27,12 +27,21 @@ class Alert:
     message: str
 
 
+def _support_line(cur: dict) -> str:
+    """추천 알림에 붙는 '가까운 지지' 줄 (최근 5일 1시간봉 스윙 저점 중 현재가 바로 아래). 지지가 없으면 빈 문자열."""
+    sp, price = cur.get("support_price"), cur.get("current_price")
+    if not sp or not price:
+        return ""
+    return f"\n🧱 가까운 지지 {fmt_price(sp)} ({(sp / price - 1) * 100:+.1f}%) · 참고용, 지켜준다는 보장은 아니에요"
+
+
 def _message(title: str, market: str, cur: dict) -> str:
     score = f"{cur['score']:.1f}" if cur.get("score") is not None else "—"
     return (
         f"{title} · {grade_badge(cur['grade'])}\n"
         f"{market} @ {fmt_price(cur['current_price'])}\n"
         f"점수 {score} · 통과: {frames_text(cur['cleared_frames'])}"
+        f"{_support_line(cur)}"
     )
 
 
@@ -60,6 +69,7 @@ def _snapshot(candidate: CandidateResult) -> dict:
         "score": round(candidate.total_score, 1),
         "recommendable": candidate.recommendable,
         "low_15m": candidate.low_15m,
+        "support_price": nearest_support(candidate.support_lows, candidate.current_price),
         "runup_excluded": candidate.runup_excluded,
         "recent_runup_pct": round(candidate.recent_runup_pct, 1),
     }

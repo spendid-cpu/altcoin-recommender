@@ -145,6 +145,7 @@ def build_candidates(latest_by_market: dict[str, dict]) -> tuple[list[dict], str
             "entry_ready": bool(state.get("entry_ready")),
             "low_15m": bool(state.get("low_15m")),
             "recommendable": bool(state.get("recommendable")),
+            "support_price": state.get("support_price"),
             "runup_excluded": bool(state.get("runup_excluded")),
             "recent_runup_pct": state.get("recent_runup_pct"),
             "current_price": state.get("current_price"),

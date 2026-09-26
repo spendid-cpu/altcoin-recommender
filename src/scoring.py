@@ -176,6 +176,12 @@ def find_support_lows(close: pd.Series, pivot: int = 3) -> list[float]:
     return [float(values[i]) for i in range(pivot, len(values) - pivot) if values[i] <= values[i - pivot:i + pivot + 1].min()]
 
 
+def nearest_support(lows: list[float], price: float) -> float | None:
+    """현재가 바로 아래에 있는 가장 가까운 지지(스윙 저점) 가격. 없으면 None."""
+    below = [x for x in lows if x < price * 0.999]
+    return max(below) if below else None
+
+
 def check_entry(close: pd.Series) -> bool:
     """저점 프레임(LOW_FRAME, 5분봉) 종가 시리즈로부터 매수 타점(단기 스토 골든크로스) 여부를 판단한다."""
     short = stoch_rsi_all_periods(close)["short"]
