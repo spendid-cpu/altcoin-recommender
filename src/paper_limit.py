@@ -77,6 +77,12 @@ async def update(session: aiohttp.ClientSession, btc_favorable: bool) -> None:
         for market, rec_at, placed_at, level, status, filled_at, fill_price in rows:
             try:
                 price = prices.get(market)
+                if market in config.EXCLUDED_MARKETS or market in config.NO_RECOMMEND_MARKETS:
+                    if status == "pending":
+                        _close(conn, market, rec_at, now, None, "excluded", "cancelled", 0.0)
+                    elif price is not None:
+                        _close(conn, market, rec_at, now, price, "excluded", "closed", (price / fill_price - 1) * 100)
+                    continue
                 if status == "pending":
                     if not btc_favorable:
                         _close(conn, market, rec_at, now, None, "btc_off", "cancelled", 0.0)

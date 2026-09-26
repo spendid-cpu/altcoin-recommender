@@ -162,7 +162,10 @@ MIN_DAILY_TRADE_VALUE_KRW = 300_000_000  # 일봉 거래대금 3억원 미만은
 
 # 스테이블코인은 가격이 거의 안 움직여 스토캐스틱이 미세한 잡음만으로 극단값(저점권/고점권)을 찍는다 —
 # '바닥에서 반등' 신호가 실제로는 의미 없는 노이즈라 대조군·개선판 둘 다에서 제외한다 (지금 업비트 KRW 마켓 기준).
-EXCLUDED_MARKETS = {"KRW-USDT", "KRW-USDC"}
+EXCLUDED_MARKETS = {
+    "KRW-USDT", "KRW-USDC", "KRW-USD1", "KRW-USDE", "KRW-USDG", "KRW-USDS", "KRW-RLUSD", "KRW-PYUSD",  # 스테이블코인
+    "KRW-XAUT",  # 테더골드(금 연동 토큰) — 알트코인 추천 대상이 아니다
+}
 # 개선판 종목 추천에서만 뺀다(스캔은 하고 캔들 캐시는 채워서 대조군에는 영향이 없다). BTC는 종목 추천 대신
 # '관찰 알림'(src/btc_watch.py, 대시보드 비트코인 분석 탭)으로 다룬다.
 NO_RECOMMEND_MARKETS = {"KRW-BTC"}

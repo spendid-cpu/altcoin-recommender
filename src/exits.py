@@ -24,6 +24,12 @@ REASONS = {
 EXPIRY_NOTICE_WINDOW = timedelta(days=1)
 
 
+def _is_excluded(rec: dict) -> bool:
+    """지금 추천 대상이 아닌 종목의 진행 중 추천인지. EXCLUDED_MARKETS는 세 전략 공통, NO_RECOMMEND_MARKETS(BTC)는 개선판만."""
+    market = rec["market"]
+    return market in config.EXCLUDED_MARKETS or (market in config.NO_RECOMMEND_MARKETS and rec["strategy"] != "original")
+
+
 def check_exit(rec: dict, current: float, now: datetime, btc_filter_on: bool = True) -> str | None:
     """종료 사유(REASONS의 키) 또는 None. 같은 시점에 여러 개가 걸리면 손절 > BTC 이탈 > 되돌림 > 익절 > 만료 순.
     BTC 이탈은 개선판 추천에만 적용한다(대조군은 원래 규칙 그대로) — btc_filter_on이 False면 BTC 일봉 종가가 MA20 아래다."""
@@ -80,6 +86,14 @@ async def process_exits(
         if rec["exit"] is not None:
             continue
         try:
+            if _is_excluded(rec):
+                # 스캔 대상에서 빠진 종목(스테이블코인·금 토큰·BTC 등)에 남아 있는 진행 중 추천은 알림 없이 '제외 정리'로 끝낸다
+                current = prices.get(rec["market"]) or (rec["snaps"][-1][1] if rec["snaps"] else rec["entry_price"])
+                price_tracker.record_exit(rec["market"], rec["entered_at"], current,
+                                          (current / rec["entry_price"] - 1) * 100 if rec["entry_price"] else 0.0, "excluded")
+                print(f"(제외 정리) {rec['market']} — 추천 대상에서 빠진 종목")
+                closed += 1
+                continue
             age = now - rec["entered_at"]
             if age < timedelta(days=price_tracker.TRACK_DAYS):
                 current = prices.get(rec["market"])
