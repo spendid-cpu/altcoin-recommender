@@ -6,9 +6,11 @@ alerted_entry)를 따로 둔다. 추천 후 추적 기간(price_tracker.TRACK_DA
 """
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 from src import config, price_tracker, state_store
 from src.formatting import fmt_price, frames_text, grade_badge
+from src.report import elapsed_text
 from src.scoring import CandidateResult
 
 _EMPTY_STATE = {
@@ -32,6 +34,21 @@ def _message(title: str, market: str, cur: dict) -> str:
         f"{market} @ {fmt_price(cur['current_price'])}\n"
         f"점수 {score} · 통과: {frames_text(cur['cleared_frames'])}"
     )
+
+
+def _since_recommended(market: str, cur: dict) -> str:
+    """이미 추천한 종목의 추가 알림에 붙이는 '언제 얼마에 추천했고 지금 얼마인지' 줄. 기록을 못 찾으면 빈 문자열."""
+    try:
+        recs = [r for r in price_tracker.load_recommendations() if r["market"] == market and r["strategy"] != "original"]
+        if not recs:
+            return ""
+        rec = recs[-1]
+        entry = rec["entry_price"]
+        change = (cur["current_price"] / entry - 1) * 100 if entry else 0.0
+        since = datetime.now(timezone.utc) - rec["entered_at"]
+        return f"\n↩️ {elapsed_text(since)} 전 {fmt_price(entry)}에 추천 → 지금 {change:+.2f}% (새 추천이 아니라 같은 추천의 추가 알림)"
+    except Exception:
+        return ""
 
 
 def _snapshot(candidate: CandidateResult) -> dict:
@@ -90,6 +107,7 @@ def diff_alerts(candidates: list[CandidateResult]) -> tuple[list[Alert], dict[st
 
         alerted_frames = prev["alerted_frames"]
         alerted_entry = prev["alerted_entry"]
+        new_alert_index = None
 
         if not cur["recommendable"]:
             # 추천 시점(5분 저점)을 기다리는 후보. 최근 추천한 종목이면 이미 알린 단계를 기억해 둔다
@@ -109,13 +127,21 @@ def diff_alerts(candidates: list[CandidateResult]) -> tuple[list[Alert], dict[st
                 continue
             if market not in tracked:
                 alerts.append(Alert(market, "new_candidate", _message("🆕 [개선판] 신규 추천", market, cur)))
+                new_alert_index = len(alerts) - 1
             alerted_frames = cur["cleared_frames"]  # 알림을 생략해도 기준선은 갱신한다
         elif len(cur["cleared_frames"]) > len(alerted_frames):
             alerts.append(Alert(market, "frame_advance", _message("📈 [개선판] 단계 상승", market, cur)))
             alerted_frames = cur["cleared_frames"]
 
         if cur["entry_ready"] and not alerted_entry:
-            alerts.append(Alert(market, "entry_ready", _message("🎯 [개선판] 5분 매수 타점", market, cur)))
+            if new_alert_index is not None:
+                # 같은 스캔에서 신규 추천과 5분 타점이 함께 나오면 한 통으로 합친다 (같은 종목 알림이 연달아 두 번 가지 않게)
+                alerts[new_alert_index] = Alert(
+                    market, "new_candidate", _message("🆕🎯 [개선판] 신규 추천 · 5분 매수 타점 동시 발생", market, cur))
+            else:
+                alerts.append(Alert(
+                    market, "entry_ready",
+                    _message("🎯 [개선판] 5분 매수 타점 · 이미 추천한 종목의 추가 알림", market, cur) + _since_recommended(market, cur)))
             alerted_entry = True
 
         new_states[market] = {**cur, "alerted_frames": alerted_frames, "alerted_entry": alerted_entry}
