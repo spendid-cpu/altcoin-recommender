@@ -31,13 +31,16 @@ DEFAULT_OUT = Path(__file__).resolve().parent.parent / "dashboard" / "dashboard.
 
 async def build_btc(session: aiohttp.ClientSession) -> dict:
     try:
-        df = await binance_client.fetch_klines(session, config.BINANCE_SYMBOL, "1d", 100)
+        df = await binance_client.fetch_klines(session, config.BINANCE_SYMBOL, "1d", 260)  # MA120을 표시 기간(45일) 내내 그리려면 165일 이상 필요
     except Exception as exc:  # 바이낸스 조회가 실패해도 나머지 화면은 그려야 한다
         return {"error": f"{type(exc).__name__}: {exc}"}
 
     now = pd.Timestamp.now(tz="UTC").tz_localize(None)
     ma20 = df["close"].rolling(20).mean()
-    shown = df.assign(ma20=ma20).dropna().tail(BTC_DAYS_SHOWN)
+    # 알림·추천 필터는 MA20 기준이고, MA5/MA60/MA120은 차트에 참고로만 같이 그린다
+    shown = df.assign(
+        ma5=df["close"].rolling(5).mean(), ma20=ma20, ma60=df["close"].rolling(60).mean(), ma120=df["close"].rolling(120).mean(),
+    ).dropna().tail(BTC_DAYS_SHOWN)
     return {
         "symbol": config.BINANCE_SYMBOL,
         "favorable": is_trend_favorable(df["close"]),
@@ -49,7 +52,8 @@ async def build_btc(session: aiohttp.ClientSession) -> dict:
         "last_candle_open": bool(df["time"].iloc[-1] > now),
         "series": [
             {"date": (row.time - pd.Timedelta(seconds=1)).strftime("%Y-%m-%d"), "close": round(float(row.close), 2),
-             "ma20": round(float(row.ma20), 2)}
+             "ma5": round(float(row.ma5), 2), "ma20": round(float(row.ma20), 2),
+             "ma60": round(float(row.ma60), 2), "ma120": round(float(row.ma120), 2)}
             for row in shown.itertuples()
         ],
     }

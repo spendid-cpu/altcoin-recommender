@@ -261,7 +261,7 @@
     <section class="card" aria-labelledby="h-btc">
       <div class="card-head">
         <div>
-          <h2 id="h-btc">BTC 일봉 종가와 MA20</h2>
+          <h2 id="h-btc">BTC 일봉 종가와 이동평균 (MA20 기준)</h2>
           <p id="btc-sub" class="sub">종가가 MA20 위에 있으면 알트코인 추천이 켜져요</p>
         </div>
         <button class="btn" type="button" data-toggle="btc" aria-pressed="false">표로 보기</button>
@@ -688,7 +688,7 @@ function mountLineChart(host, cfg) {
     for (const sr of cfg.series) {
       if (!sr.points.length) continue;
       const d = sr.points.map((p, i) => `${i ? 'L' : 'M'}${sx(p.x).toFixed(1)} ${sy(p.y).toFixed(1)}`).join('');
-      svg.append(s('path', { d, style: `fill:none;stroke:${sr.color};stroke-width:2;stroke-linejoin:round;stroke-linecap:round` }));
+      svg.append(s('path', { d, style: `fill:none;stroke:${sr.color};stroke-width:${sr.width || 2};stroke-linejoin:round;stroke-linecap:round` }));
     }
     // 끝점: 2px 표면색 링으로 선과 겹쳐도 또렷하게
     const ends = cfg.series.filter((sr) => sr.points.length).map((sr) => {
@@ -868,15 +868,21 @@ function renderBtc(btc) {
     note.textContent = ''; return null;
   }
   const pts = btc.series;
+  const hasMa = pts.every((p) => p.ma5 != null && p.ma60 != null && p.ma120 != null);  // 이동평균 5·60·120은 새 데이터부터 있다
   $('#btc-sub').textContent = btc.hold_days_required > 1
     ? `종가가 MA20 위에서 ${btc.hold_days_required}일 연속 유지되면 알트코인 추천이 켜져요`
     : '종가가 MA20 위에 있으면 알트코인 추천이 켜져요';
   const step = Math.max(1, Math.ceil(pts.length / 6));
   const chart = mountLineChart(chartEl, {
-    ariaLabel: `BTC 일봉 종가와 20일 이동평균, 최근 ${pts.length}일`,
+    ariaLabel: `BTC 일봉 종가와 5·20·60·120일 이동평균, 최근 ${pts.length}일`,
     series: [
       { name: '종가', color: 'var(--s1)', points: pts.map((p, i) => ({ x: i, y: p.close })) },
-      { name: 'MA20', color: 'var(--s2)', points: pts.map((p, i) => ({ x: i, y: p.ma20 })) },
+      { name: 'MA20 (알림 기준)', color: 'var(--s2)', width: 2.5, points: pts.map((p, i) => ({ x: i, y: p.ma20 })) },
+      ...(hasMa ? [
+        { name: 'MA5', color: 'var(--s3)', width: 1.5, points: pts.map((p, i) => ({ x: i, y: p.ma5 })) },
+        { name: 'MA60', color: 'var(--s4)', width: 1.5, points: pts.map((p, i) => ({ x: i, y: p.ma60 })) },
+        { name: 'MA120', color: 'var(--s5)', width: 1.5, points: pts.map((p, i) => ({ x: i, y: p.ma120 })) },
+      ] : []),
     ],
     xTicks: pts.map((_, i) => i).filter((i) => (pts.length - 1 - i) % step === 0),
     xFmt: (i) => pts[i].date.slice(5),
@@ -885,17 +891,20 @@ function renderBtc(btc) {
     tipTitle: (i) => `${pts[i].date} (UTC 일봉)`,
     tipFoot: (i) => {
       const diff = (pts[i].close / pts[i].ma20 - 1) * 100;
-      return `MA20 ${diff >= 0 ? '위' : '아래'} ${Math.abs(diff).toFixed(2)}%`;
+      const rel = (m) => `${pts[i].close >= m ? '+' : ''}${((pts[i].close / m - 1) * 100).toFixed(1)}%`;
+      return `MA20 ${diff >= 0 ? '위' : '아래'} ${Math.abs(diff).toFixed(2)}%` + (hasMa ? ` · MA5 ${rel(pts[i].ma5)} · MA60 ${rel(pts[i].ma60)} · MA120 ${rel(pts[i].ma120)}` : '');
     },
     tol: 0,
   });
   charts.push(chart);
-  tableEl.append(buildTable(['날짜(UTC)', '종가', 'MA20', 'MA20 대비'],
-    [...pts].reverse().map((p) => [p.date, nf2.format(p.close), nf2.format(p.ma20), pct((p.close / p.ma20 - 1) * 100)])));
+  tableEl.append(hasMa
+    ? buildTable(['날짜(UTC)', '종가', 'MA5', 'MA20', 'MA60', 'MA120', 'MA20 대비'],
+      [...pts].reverse().map((p) => [p.date, nf2.format(p.close), nf2.format(p.ma5), nf2.format(p.ma20), nf2.format(p.ma60), nf2.format(p.ma120), pct((p.close / p.ma20 - 1) * 100)]))
+    : buildTable(['날짜(UTC)', '종가', 'MA20', 'MA20 대비'],
+      [...pts].reverse().map((p) => [p.date, nf2.format(p.close), nf2.format(p.ma20), pct((p.close / p.ma20 - 1) * 100)])));
   wireToggle('btc', chartEl, tableEl, chart.render);
-  note.textContent = btc.last_candle_open
-    ? '가장 오른쪽 점은 아직 마감되지 않은 오늘 캔들의 현재 값이에요. 바이낸스 일봉은 한국시간 오전 9시에 마감돼요.'
-    : '';
+  note.textContent = (hasMa ? '알트코인 추천 켜짐/꺼짐과 관련 알림은 MA20 기준이고, MA5·MA60·MA120은 추세를 함께 보기 위한 참고선이에요. ' : '')
+    + (btc.last_candle_open ? '가장 오른쪽 점은 아직 마감되지 않은 오늘 캔들의 현재 값이에요. 바이낸스 일봉은 한국시간 오전 9시에 마감돼요.' : '');
   return chart;
 }
 
@@ -1672,7 +1681,10 @@ function wirePeriodFilter() {
 
 function renderPerf(d) {
   wirePeriodFilter();
-  const allRecs = recsOf(d).filter(inPeriod);
+  const viewRecs = recsOf(d);
+  // 번호: 가장 먼저 발견한 추천이 1번 (기간 필터를 바꿔도 번호는 그대로)
+  const orderNo = new Map([...viewRecs].sort((a, b) => new Date(a.entered_at) - new Date(b.entered_at)).map((r, i) => [r, i + 1]));
+  const allRecs = viewRecs.filter(inPeriod);
   const recs = allRecs;
   const rules = d.exit_rules || {};
   const s = perfSummary(recs);
@@ -1712,14 +1724,14 @@ function renderPerf(d) {
 
   // 추천별 표 (두 전략 모두)
   const host = $('#p-list');
-  $('#p-list-sub').textContent = `추천 시각, 종료 시각, 손익과 그 추천이 어떤 근거로 나왔는지 (최신순) · ${periodFilter.key === 'all' ? '전체' : periodLabel()} 총 ${allRecs.length}건`;
+  $('#p-list-sub').textContent = `추천 시각, 종료 시각, 손익과 그 추천이 어떤 근거로 나왔는지 (최신순, 번호는 발견 순서) · ${periodFilter.key === 'all' ? '전체' : periodLabel()} 총 ${allRecs.length}건`;
   if (!allRecs.length) { host.replaceChildren(empty(periodFilter.key === 'all' ? '아직 추천이 없어요.' : '이 기간에는 추천이 없어요.')); return; }
-  const rows = allRecs.map((r, idx) => {
+  const rows = allRecs.map((r) => {
     const o = outcomeOf(r), info = RESULT_INFO[o.key] || RESULT_INFO.expired;
     const endedAt = r.exit ? kst(r.exit.ended_at) : null;
     const endPrice = r.exit ? r.exit.exit_price : r.last_price;
     return h('tr', {},
-      h('td', { class: 'muted', text: String(idx + 1) }),
+      h('td', { class: 'muted', text: String(orderNo.get(r)) }),
       h('td', { text: kst(r.entered_at) }),
       h('td', {}, h('div', { text: r.market }), h('div', {}, stratPill(r), h('span', { class: 'muted', text: ` ${r.score == null ? '' : `${r.score}점`}` }))),
       h('td', { class: 'num', text: `${fmtKRW(r.entry_price)} → ${fmtKRW(endPrice)}${r.exit ? '' : ' (현재)'}` }),
