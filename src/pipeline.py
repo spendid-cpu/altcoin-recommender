@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 
 import aiohttp
 
-from src import config, cycle, exits, macro_job, original_scanner, paper_limit, price_tracker, report, scan_log, state_store, telegram_client
+from src import config, cycle, exits, macro_job, market_cap, original_scanner, paper_limit, price_tracker, report, scan_log, state_store, telegram_client
 from src.exchanges import upbit_client
 from src.notifier import diff_alerts
 from src.scanner import btc_days_above, check_btc_trend, scan_all
@@ -27,6 +27,13 @@ async def run_once(session: aiohttp.ClientSession) -> None:
 
     # 비트코인 매크로 분석 갱신(시간당 1회)과 아침 브리핑. 알트코인 추천/추적과는 독립이라 BTC 추세와 상관없이 돈다.
     await macro_job.run(session)
+
+    # 알트 사이클 탭용 시가총액(참고치). 12시간에 한 번만 실제로 받아오고(market_cap.refresh 내부 판단),
+    # 실패해도 알트코인 스캔이 막히면 안 된다.
+    try:
+        await market_cap.refresh(session)
+    except Exception as exc:
+        print(f"[시가총액] 갱신 실패(이번 사이클은 건너뜀): {exc!r}")
 
     favorable = await check_btc_trend(session)
     print(f"[BTC 추세] 일봉 종가 MA20 위 {config.BTC_HOLD_DAYS}일 이상 유지: {favorable}")
