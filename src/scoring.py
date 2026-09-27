@@ -101,8 +101,9 @@ def score_frame(
     require_rising_regime: bool = False,
 ) -> FrameResult:
     """한 프레임(day/4h/1h/15m)의 종가 시리즈로부터 게이트 통과 여부와 점수를 계산한다.
-    게이트: 단기 스토가 validity_hours(기본: config.VALIDITY_WINDOW_HOURS, '저점 프레임'은 config.LOW_LIKE_FRAMES) 이내에
-    최초 도달 또는 골든크로스한 적이 있으면 통과 (백테스트로 확인된 '조건 유효기간').
+    게이트: 단기 스토가 validity_hours(기본: '저점 프레임'은 config.LOW_LIKE_FRAMES, 그 외는 config.FRAME_VALIDITY_HOURS
+    -> 없으면 config.VALIDITY_WINDOW_HOURS) 이내에 최초 도달 또는 골든크로스한 적이 있으면 통과 (백테스트로 확인된
+    '조건 유효기간', 프레임마다 다르게 검증됨).
     가산점: 골든크로스일 때 TRIGGER 보너스, 중기/장기가 이미 상승 전환(K>D) 상태면 주기 가산점.
     require_rising_regime=True면 중기·장기(config.DIRECTION_FILTER_MID/LONG로 선택)가 상승 체제일 때만 통과시킨다
     (config.DIRECTION_FILTER_ENABLED로 스캐너가 이 인자를 넘길지 결정한다. 65일 백테스트에서 우위가 확인되지
@@ -110,7 +111,7 @@ def score_frame(
     low_like_hours = config.LOW_LIKE_FRAMES.get(frame)
     is_low_like = low_like_hours is not None
     if validity_hours is None:
-        validity_hours = low_like_hours if is_low_like else config.VALIDITY_WINDOW_HOURS
+        validity_hours = low_like_hours if is_low_like else config.FRAME_VALIDITY_HOURS.get(frame, config.VALIDITY_WINDOW_HOURS)
     lookback_bars = max(1, round(validity_hours / config.FRAME_HOURS[frame]))
 
     periods = stoch_rsi_all_periods(close, period_sets)
