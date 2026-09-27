@@ -73,11 +73,16 @@ async def update(session: aiohttp.ClientSession, btc_favorable: bool) -> None:
         if not rows:
             return
         prices = await upbit_client.fetch_ticker_prices(session, sorted({r[0] for r in rows}))
+        try:
+            warned = await upbit_client.fetch_warned_markets(session)
+        except Exception as exc:
+            print(f"  투자유의 종목 조회 실패(모의 주문 정리 판단만 건너뜀): {exc!r}")
+            warned = set()
         now = datetime.now(timezone.utc)
         for market, rec_at, placed_at, level, status, filled_at, fill_price in rows:
             try:
                 price = prices.get(market)
-                if market in config.EXCLUDED_MARKETS or market in config.NO_RECOMMEND_MARKETS:
+                if market in config.EXCLUDED_MARKETS or market in config.NO_RECOMMEND_MARKETS or market in warned:
                     if status == "pending":
                         _close(conn, market, rec_at, now, None, "excluded", "cancelled", 0.0)
                     elif price is not None:

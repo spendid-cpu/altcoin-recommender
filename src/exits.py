@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 import aiohttp
 
 from src import config, price_tracker, telegram_client
+from src.exchanges import upbit_client
 from src.formatting import fmt_pct, fmt_price, strategy_tag
 from src.report import elapsed_text, score_line
 from src.scoring import CandidateResult
@@ -24,10 +25,13 @@ REASONS = {
 EXPIRY_NOTICE_WINDOW = timedelta(days=1)
 
 
-def _is_excluded(rec: dict) -> bool:
-    """지금 추천 대상이 아닌 종목의 진행 중 추천인지. EXCLUDED_MARKETS는 세 전략 공통, NO_RECOMMEND_MARKETS(BTC)는 개선판만."""
+def _is_excluded(rec: dict, warned: set[str]) -> bool:
+    """지금 추천 대상이 아닌 종목의 진행 중 추천인지. EXCLUDED_MARKETS와 '투자유의' 지정(warned)은 세 전략 공통,
+    NO_RECOMMEND_MARKETS(BTC)는 개선판만."""
     market = rec["market"]
-    return market in config.EXCLUDED_MARKETS or (market in config.NO_RECOMMEND_MARKETS and rec["strategy"] != "original")
+    if market in config.EXCLUDED_MARKETS or market in warned:
+        return True
+    return market in config.NO_RECOMMEND_MARKETS and rec["strategy"] != "original"
 
 
 def check_exit(rec: dict, current: float, now: datetime, btc_filter_on: bool = True) -> str | None:
@@ -81,13 +85,18 @@ async def process_exits(
     """종료 규칙에 걸린 추천을 종료 처리하고 알림을 보낸다. 종료한 개수를 돌려준다."""
     now = datetime.now(timezone.utc)
     candidate_by_market = {c.market: c for c in candidates}
+    try:
+        warned = await upbit_client.fetch_warned_markets(session)
+    except Exception as exc:
+        print(f"  투자유의 종목 조회 실패(이번 사이클은 그 판단만 건너뜀): {exc!r}")
+        warned = set()
     closed = 0
     for rec in price_tracker.load_recommendations():
         if rec["exit"] is not None:
             continue
         try:
-            if _is_excluded(rec):
-                # 스캔 대상에서 빠진 종목(스테이블코인·금 토큰·BTC 등)에 남아 있는 진행 중 추천은 알림 없이 '제외 정리'로 끝낸다
+            if _is_excluded(rec, warned):
+                # 스캔 대상에서 빠진 종목(스테이블코인·금 토큰·BTC·투자유의 지정 등)에 남아 있는 진행 중 추천은 알림 없이 '제외 정리'로 끝낸다
                 current = prices.get(rec["market"]) or (rec["snaps"][-1][1] if rec["snaps"] else rec["entry_price"])
                 price_tracker.record_exit(rec["market"], rec["entered_at"], current,
                                           (current / rec["entry_price"] - 1) * 100 if rec["entry_price"] else 0.0, "excluded")

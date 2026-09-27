@@ -106,13 +106,29 @@ async def fetch_candles(
     return df[["time", "close", "low", "high", "value"]]
 
 
-async def fetch_markets(session: aiohttp.ClientSession) -> list[str]:
-    """KRW 마켓 코드 목록만 반환한다 (예: KRW-BTC, KRW-ETH ...). 스테이블코인(config.EXCLUDED_MARKETS)은 뺀다 —
-    이 목록을 두 전략(scan_all/original_scanner)이 공유하므로 여기서 한 번만 걸러내면 전체에 적용된다."""
-    async with session.get(f"{BASE_URL}/market/all") as resp:
+async def _fetch_market_details(session: aiohttp.ClientSession) -> list[dict]:
+    async with session.get(f"{BASE_URL}/market/all", params={"is_details": "true"}) as resp:
         resp.raise_for_status()
-        data = await resp.json()
-    return [m["market"] for m in data if m["market"].startswith("KRW-") and m["market"] not in config.EXCLUDED_MARKETS]
+        return await resp.json()
+
+
+async def fetch_markets(session: aiohttp.ClientSession) -> list[str]:
+    """KRW 마켓 코드 목록만 반환한다 (예: KRW-BTC, KRW-ETH ...). 스테이블코인(config.EXCLUDED_MARKETS)과
+    업비트가 '투자유의' 지정한 종목(market_event.warning)은 뺀다 — 이 목록을 두 전략(scan_all/original_scanner)이
+    공유하므로 여기서 한 번만 걸러내면 전체(추천·알트 사이클 탭 포함)에 적용된다. 이미 상장폐지된 종목은
+    업비트 목록 자체에서 사라지므로 따로 거를 필요가 없다."""
+    data = await _fetch_market_details(session)
+    return [
+        m["market"] for m in data if m["market"].startswith("KRW-") and m["market"] not in config.EXCLUDED_MARKETS
+        and not m.get("market_event", {}).get("warning")
+    ]
+
+
+async def fetch_warned_markets(session: aiohttp.ClientSession) -> set[str]:
+    """지금 '투자유의' 지정된 KRW 마켓 집합. src/exits.py·src/paper_limit.py가 진행 중인 추천을 정리할 때 쓴다
+    (추천 시점엔 안 걸렸다가 나중에 지정된 경우를 잡아낸다)."""
+    data = await _fetch_market_details(session)
+    return {m["market"] for m in data if m["market"].startswith("KRW-") and m.get("market_event", {}).get("warning")}
 
 
 async def _ticker_batch(session: aiohttp.ClientSession, markets: list[str]) -> dict[str, float]:
