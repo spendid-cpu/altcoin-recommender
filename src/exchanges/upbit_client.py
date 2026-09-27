@@ -63,7 +63,9 @@ async def fetch_candles(
 
     closed_only=True(기본)면 아직 마감되지 않은 마지막 캔들은 버린다. 진행 중인 캔들은 값이 계속 바뀌어서
     (repainting) 스토캐스틱 신호와 점수가 스캔마다 흔들리기 때문이다 — 설계 문서의 '캔들 마감 확정 원칙'.
-    현재가가 필요하면 fetch_ticker_prices를 쓴다."""
+    현재가가 필요하면 fetch_ticker_prices를 쓴다.
+    close/value 외에 장중 저가(low)도 함께 담는다(src/cycle.py의 '최근 저점' 계산용). 기존 호출부는 쓰던
+    컬럼만 그대로 골라 쓰므로 영향이 없다."""
     path = _ENDPOINTS[timeframe]
     all_rows: list[dict] = []
     to_param: str | None = None
@@ -85,7 +87,7 @@ async def fetch_candles(
 
     df = pd.DataFrame(all_rows)
     if df.empty:
-        return pd.DataFrame(columns=["time", "close", "value"])
+        return pd.DataFrame(columns=["time", "close", "low", "value"])
     df = df.drop_duplicates(subset="candle_date_time_utc")
     df = df.sort_values("candle_date_time_utc").reset_index(drop=True)  # 오래된순 정렬
     if closed_only:
@@ -96,10 +98,11 @@ async def fetch_candles(
         columns={
             "candle_date_time_kst": "time",
             "trade_price": "close",
+            "low_price": "low",
             "candle_acc_trade_price": "value",
         }
     )
-    return df[["time", "close", "value"]]
+    return df[["time", "close", "low", "value"]]
 
 
 async def fetch_markets(session: aiohttp.ClientSession) -> list[str]:

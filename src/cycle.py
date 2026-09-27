@@ -3,7 +3,7 @@
 
 pipeline이 스캔 중에 이미 받아 둔 일봉 캔들(candle_cache)을 그대로 쓰기 때문에 API를 추가로 부르지 않는다
 (일봉은 게이트를 통과하든 못하든 종목마다 항상 먼저 받아 캐시에 들어있다). 현재가만 한 번 배치로 조회한다.
-업비트 캔들에는 고가/저가가 없어 '저점'은 종가 기준이다(장중 최저가보다 얕게 잡힐 수 있다).
+'저점'은 일봉의 장중 저가(low) 기준이다 — 종가만 보면 하루 안의 급락(꼬리)을 놓친다.
 """
 
 import json
@@ -46,10 +46,11 @@ async def build(session: aiohttp.ClientSession, cache: dict, markets: list[str])
         if float(day["value"].iloc[-1]) < config.MIN_DAILY_TRADE_VALUE_KRW:
             continue
         window = day.tail(config.CYCLE_LOOKBACK_DAYS)
-        low_pos = window["close"].astype(float).idxmin()
+        low_col = window["low"] if "low" in window.columns else window["close"]  # 옛 캐시 방어용 폴백
+        low_pos = low_col.astype(float).idxmin()
         rows.append({
             "market": market,
-            "low": float(window["close"].loc[low_pos]),
+            "low": float(low_col.loc[low_pos]),
             "low_at": str(window["time"].loc[low_pos]),  # 캔들 시작 시각(KST naive) 문자열, 그 날짜만 쓴다
             "last_close": float(day["close"].iloc[-1]),
         })
