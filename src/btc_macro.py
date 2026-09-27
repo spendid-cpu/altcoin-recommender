@@ -480,12 +480,20 @@ STATE_TEXT = {"golden": "골든크로스", "dead": "데드크로스", "up": "상
 
 
 def cell_text(cell: dict) -> str:
-    """예: '골든크로스 · 저점권 반등', '하락 중 · 중간권'."""
+    """예: '골든크로스 · 저점권 반등', '하락 중 · 중간권'.
+    from_extreme이 False인데 지금 반대쪽 극단(골든크로스인데 고점권, 데드크로스인데 저점권)이면 바닥/천장에서
+    반전한 게 아니라 중간에서 크로스가 나고 그 뒤 모멘텀만으로 극단까지 밀려간 것이다 — 헷갈리지 않게 구분해 준다."""
     state = STATE_TEXT[cell["state"]]
-    if cell["state"] == "golden" and cell["from_extreme"]:
-        state += "(저점권 반등)"
-    elif cell["state"] == "dead" and cell["from_extreme"]:
-        state += "(고점권 하락)"
+    if cell["state"] == "golden":
+        if cell["from_extreme"]:
+            state += "(저점권 반등)"
+        elif cell["zone"] == "overbought":
+            state += "(고점 근접)"
+    elif cell["state"] == "dead":
+        if cell["from_extreme"]:
+            state += "(고점권 하락)"
+        elif cell["zone"] == "oversold":
+            state += "(저점 근접)"
     return f"{state} · {ZONE_TEXT[cell['zone']]}"
 
 
@@ -527,9 +535,11 @@ def analyse_stoch(frames: dict[str, pd.DataFrame]) -> dict:
             bull += cell["bias"] == "bull"
             label = f"{FRAME_LABEL[frame]} {PERIOD_LABEL[name]}"
             if cell["state"] == "golden":
-                highlights.append(f"{label} 골든크로스" + ("(저점권 반등)" if cell["from_extreme"] else ""))
+                suffix = "(저점권 반등)" if cell["from_extreme"] else "(고점 근접)" if cell["zone"] == "overbought" else ""
+                highlights.append(f"{label} 골든크로스{suffix}")
             elif cell["state"] == "dead":
-                highlights.append(f"{label} 데드크로스" + ("(고점권 하락)" if cell["from_extreme"] else ""))
+                suffix = "(고점권 하락)" if cell["from_extreme"] else "(저점 근접)" if cell["zone"] == "oversold" else ""
+                highlights.append(f"{label} 데드크로스{suffix}")
             elif cell["zone"] == "oversold":
                 highlights.append(f"{label} 저점권")
             elif cell["zone"] == "overbought":
