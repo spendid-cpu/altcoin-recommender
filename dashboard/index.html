@@ -577,7 +577,8 @@
 // v1.00 (2026-09-27) 지금까지 쌓인 기능 전체의 기준점 — BTC 이탈 정리·급등 제외, 지지선 지정가 모의,
 //   BTC 관찰 알림, 성과 탭 기간 필터·승률 현황, 알트 사이클(상승) 탭 등
 // v1.01 (2026-09-27) 사이클 저점 계산을 종가 -> 장중 저가로 수정, 시가총액 표시·하락(고점 대비) 사이클 추가
-const APP_VERSION = 'v1.01';
+// v1.02 (2026-09-27) 알트 사이클 표에 종목별 최근 추천가·추천 결과('추천 이력' 열) 추가
+const APP_VERSION = 'v1.02';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DATA_URL = 'dashboard.json';
@@ -1928,6 +1929,14 @@ function fmtCap(v) {
   return h('span', { text: `${nf0.format(v)}원` });
 }
 
+function cycleRecCell(market, recByMarket) {
+  const r = recByMarket.get(market);
+  if (!r) return h('span', { class: 'muted', text: '추천 이력 없음' });
+  const label = r.exit ? (EXIT_LABEL[r.exit.reason] || r.exit.reason) : '진행 중';
+  const ret = r.exit ? r.exit.return_pct : r.return_pct;
+  return h('span', {}, `${fmtKRW(r.entry_price)} · ${label} (${kst(r.entered_at).slice(0, 5)}) `, pct(ret));
+}
+
 function renderCycle(d) {
   const c = d.cycle;
   const modeEl = $('#cycle-mode'), tilesEl = $('#cycle-tiles'), ctrlEl = $('#cycle-controls'), tableEl = $('#cycle-table'), note = $('#cycle-note');
@@ -1940,7 +1949,7 @@ function renderCycle(d) {
     const b = ev.target.closest('[data-mode]');
     if (!b || b.dataset.mode === cycleMode) return;
     cycleMode = b.dataset.mode; cycleTierFilter = 'all'; cycleSort = null;
-    try { localStorage.setItem('cycleMode', cycleMode); } catch (e) { /* 무시 */ }
+    try { localStorage.setItem('cycleMode', cycleMode); localStorage.setItem('cycleTierFilter', 'all'); } catch (e) { /* 무시 */ }
     renderCycle(d);
   };
 
@@ -1968,6 +1977,10 @@ function renderCycle(d) {
   };
 
   const candByMarket = new Map((d.candidates || []).map((cc) => [cc.market, cc]));
+  const recByMarket = new Map();  // 종목별 가장 최근 개선판 추천 (d.recommendations는 최신순 정렬)
+  for (const r of d.recommendations || []) {
+    if (stratOf(r) !== 'original' && !recByMarket.has(r.market)) recByMarket.set(r.market, r);
+  }
   const filtered = items.filter((it) => cycleTierFilter === 'all' || String(it[M.tierKey]) === cycleTierFilter);
   const sorted = [...filtered].sort((a, b) => sort === 'asc' ? a[M.pctKey] - b[M.pctKey] : b[M.pctKey] - a[M.pctKey]);
 
@@ -1975,7 +1988,7 @@ function renderCycle(d) {
     tableEl.replaceChildren(empty('이 구간에는 종목이 없어요.'));
   } else {
     tableEl.replaceChildren(buildTable(
-      ['종목', '구간', `최근 ${c.lookback_days}일 ${M.priceLabel}`, M.dateLabel, '현재가', M.pctLabel, '시가총액', '지금 상태'],
+      ['종목', '구간', `최근 ${c.lookback_days}일 ${M.priceLabel}`, M.dateLabel, '현재가', M.pctLabel, '시가총액', '추천 이력', '지금 상태'],
       sorted.map((it) => {
         const st = cycleStatus(it.market, candByMarket);
         const tier = it[M.tierKey];
@@ -1987,6 +2000,7 @@ function renderCycle(d) {
           fmtKRW(it.current),
           pct(it[M.pctKey] * M.pctSign),
           fmtCap(it.market_cap),
+          cycleRecCell(it.market, recByMarket),
           h('span', { class: st.cls, text: st.text }),
         ];
       }),
