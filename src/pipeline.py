@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 
 import aiohttp
 
-from src import config, exits, macro_job, original_scanner, paper_limit, price_tracker, report, scan_log, state_store, telegram_client
+from src import config, cycle, exits, macro_job, original_scanner, paper_limit, price_tracker, report, scan_log, state_store, telegram_client
 from src.exchanges import upbit_client
 from src.notifier import diff_alerts
 from src.scanner import btc_days_above, check_btc_trend, scan_all
@@ -47,8 +47,13 @@ async def run_once(session: aiohttp.ClientSession) -> None:
 
     print("업비트 KRW 마켓 스캔 중...")
     markets = await upbit_client.fetch_markets(session)
-    candle_cache: dict = {}  # 개선판이 받은 일봉 캔들을 기준선이 재사용한다
+    candle_cache: dict = {}  # 개선판이 받은 일봉 캔들을 기준선·사이클 탭이 재사용한다
     candidates = await scan_all(session, markets, candle_cache)
+
+    try:
+        await cycle.refresh(session, candle_cache, markets)
+    except Exception as exc:  # 사이클 탭 계산 실패로 알트코인 추천 자체가 막히면 안 된다
+        print(f"[사이클] 계산 실패(이번 사이클은 건너뜀): {exc!r}")
 
     if not candidates:
         print("일봉 게이트를 통과한 종목이 없습니다.")

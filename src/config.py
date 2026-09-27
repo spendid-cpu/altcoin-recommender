@@ -75,6 +75,11 @@ RUNUP_FILTER_ENABLED = os.environ.get("RUNUP_FILTER_ENABLED", "true").strip().lo
 RUNUP_LOOKBACK_HOURS = int(os.environ.get("RUNUP_LOOKBACK_HOURS") or "72")
 RUNUP_MAX_PCT = float(os.environ.get("RUNUP_MAX_PCT") or "15")
 
+# 알트 사이클 탭(src/cycle.py): 최근 이 일수 안의 최저 '종가' 대비 지금 가격이 몇 % 위인지로 전 종목을 구간으로 나눈다.
+# 업비트 캔들에 고가/저가가 없어 '저점'은 일봉 종가 기준이다(장중 최저가가 아니다). 매수 신호가 아니라
+# 아직 안 오른 종목을 찾아보는 참고용 구간 표시다.
+CYCLE_LOOKBACK_DAYS = int(os.environ.get("CYCLE_LOOKBACK_DAYS") or "30")
+
 # 지지선 지정가 매수 모의 실험(src/paper_limit.py): 실제 주문 없이 기록만 한다. 끄려면 PAPER_LIMIT_ENABLED=false.
 PAPER_LIMIT_ENABLED = os.environ.get("PAPER_LIMIT_ENABLED", "true").strip().lower() != "false"
 PAPER_ORDER_HOURS = 24  # 지정가 유효 시간

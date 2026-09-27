@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import aiohttp
 import pandas as pd
 
-from src import config, jsonutil, macro_job, paper_limit, price_tracker, scan_log
+from src import config, cycle, jsonutil, macro_job, paper_limit, price_tracker, scan_log
 from src.btc_trend import days_above_ma, is_trend_favorable
 from src.exchanges import binance_client
 
@@ -196,6 +196,7 @@ async def main(out_path: Path) -> None:
         },
         "grade_thresholds": config.SCORE_GRADE_THRESHOLDS,
         "paper_limit": paper_limit.export_rows(),
+        "cycle": cycle.load_cached(),
     }
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(jsonutil.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")

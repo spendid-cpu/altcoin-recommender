@@ -186,6 +186,12 @@
   .result { font-weight: 650; }
   .result.tp { color: var(--good); }
   .result.sl { color: var(--bad); }
+  .tier-pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; color: #fff; white-space: nowrap; }
+  .tier-0 { background: var(--good); }
+  .tier-1 { background: var(--s3); }
+  .tier-2 { background: var(--s4); color: #3a2a00; }
+  .tier-3 { background: var(--s2); }
+  .tier-4 { background: var(--bad); }
   td.why { white-space: normal; min-width: 200px; font-size: 12.5px; color: var(--ink2); }
   details.why-box summary { cursor: pointer; color: var(--ink); }
   .why-body { margin-top: 6px; line-height: 1.55; }
@@ -251,6 +257,7 @@
     <button id="tab-perf" class="tab" role="tab" type="button" data-tab="perf" aria-controls="view-perf" aria-selected="false">성과 · 전략 비교</button>
     <button id="tab-macro" class="tab" role="tab" type="button" data-tab="macro" aria-controls="view-macro" aria-selected="false">비트코인 분석</button>
     <button id="tab-chart" class="tab" role="tab" type="button" data-tab="chart" aria-controls="view-chart" aria-selected="false">비트코인 차트</button>
+    <button id="tab-cycle" class="tab" role="tab" type="button" data-tab="cycle" aria-controls="view-cycle" aria-selected="false">알트 사이클</button>
   </nav>
 
   <div id="strat-filter" class="seg strat-filter" role="group" aria-label="전략별 보기" hidden>
@@ -526,6 +533,21 @@
         </div>
       </div>
       <div id="mc-read"></div>
+    </section>
+  </main>
+
+  <main id="view-cycle" role="tabpanel" aria-labelledby="tab-cycle" hidden>
+    <section class="card" aria-labelledby="h-cycle">
+      <div class="card-head">
+        <div>
+          <h2 id="h-cycle">알트 사이클</h2>
+          <p id="cycle-sub" class="sub">최근 며칠 안의 최저 종가 대비 지금 가격이 얼마나 올랐는지로 전 종목을 5구간으로 나눠요. 아직 안 오른 종목(저점권)을 찾아보는 참고 자료이지, 매수 신호가 아니에요. 업비트 캔들에는 장중 고가·저가가 없어 '저점'은 종가 기준이에요.</p>
+        </div>
+      </div>
+      <div id="cycle-tiles" class="tiles" aria-label="사이클 구간별 종목 수"></div>
+      <div id="cycle-controls" class="period-bar" role="group" aria-label="구간 필터"></div>
+      <div id="cycle-table" class="table-wrap"></div>
+      <p id="cycle-note" class="card-note"></p>
     </section>
   </main>
 
@@ -1154,6 +1176,7 @@ function renderAll() {
   renderMultiChart(d);
   renderStoch(d.macro);
   renderMultiChartRead(d);
+  renderCycle(d);
 }
 
 /* ---------- 비트코인 분석 탭 ---------- */
@@ -1856,6 +1879,73 @@ function groupStats(recs) {
 const fmtAvg = (a) => (a.length ? `${signed(avg(a))} (${a.length}건)` : '—');
 const fmtPlus = (a) => (a.length ? `${Math.round(a.filter((v) => v > 0).length / a.length * 100)}% (${a.filter((v) => v > 0).length}/${a.length})` : '—');
 
+/* ---------- 알트 사이클 탭 ---------- */
+const CYCLE_TIER_NAMES = ['저점권', '초기 상승', '상승 중', '고점 근접', '급등'];
+const CYCLE_TIER_RANGES = ['저점 대비 10% 미만', '저점 대비 10~25%', '저점 대비 25~50%', '저점 대비 50~100%', '저점 대비 100% 이상'];
+let cycleTierFilter = 'all';
+try { const saved = localStorage.getItem('cycleTierFilter'); if (saved != null) cycleTierFilter = saved; } catch (e) { /* 무시 */ }
+let cycleSort = 'asc';  // 'asc' = 저점에 가까운 순, 'desc' = 많이 오른 순
+
+function cycleStatus(market, candByMarket) {
+  const c = candByMarket.get(market);
+  if (!c) return { text: '조건 대기', cls: 'muted' };
+  if (c.recommendable) return { text: '지금 추천 대상', cls: '' };
+  if ((c.frames || []).length) return { text: `통과: ${c.frames.map((f) => FRAME_LABEL[f] || f).join(' › ')}`, cls: 'muted' };
+  return { text: '조건 대기', cls: 'muted' };
+}
+
+function renderCycle(d) {
+  const c = d.cycle;
+  const tilesEl = $('#cycle-tiles'), ctrlEl = $('#cycle-controls'), tableEl = $('#cycle-table'), note = $('#cycle-note');
+  if (!c || !c.items || !c.items.length) {
+    tilesEl.replaceChildren(); ctrlEl.replaceChildren();
+    tableEl.replaceChildren(empty('아직 사이클 데이터가 없어요. 다음 스캔(최대 15분) 뒤에 표시돼요. BTC 추세가 불리하면 스캔을 건너뛰어 갱신이 늦어질 수 있어요.'));
+    note.textContent = ''; return;
+  }
+  const items = c.items;
+  const counts = [0, 0, 0, 0, 0];
+  for (const it of items) counts[it.tier] += 1;
+
+  tilesEl.replaceChildren(...CYCLE_TIER_NAMES.map((name, i) => tile(name, [String(counts[i])], CYCLE_TIER_RANGES[i])));
+
+  ctrlEl.replaceChildren(
+    h('button', { class: 'btn', type: 'button', 'data-tier': 'all', text: `전체 ${items.length}` }),
+    ...CYCLE_TIER_NAMES.map((name, i) => h('button', { class: 'btn', type: 'button', 'data-tier': String(i), text: `${name} ${counts[i]}` })),
+    h('button', { class: 'btn', type: 'button', 'data-sort': '1', text: cycleSort === 'asc' ? '저점에 가까운 순 ▾' : '많이 오른 순 ▾' }),
+  );
+  ctrlEl.querySelectorAll('[data-tier]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tier === cycleTierFilter)));
+  ctrlEl.onclick = (ev) => {
+    const tb = ev.target.closest('[data-tier]');
+    if (tb) { cycleTierFilter = tb.dataset.tier; try { localStorage.setItem('cycleTierFilter', cycleTierFilter); } catch (e) { /* 무시 */ } renderCycle(d); return; }
+    if (ev.target.closest('[data-sort]')) { cycleSort = cycleSort === 'asc' ? 'desc' : 'asc'; renderCycle(d); }
+  };
+
+  const candByMarket = new Map((d.candidates || []).map((cc) => [cc.market, cc]));
+  const filtered = items.filter((it) => cycleTierFilter === 'all' || String(it.tier) === cycleTierFilter);
+  const sorted = [...filtered].sort((a, b) => cycleSort === 'asc' ? a.pct_from_low - b.pct_from_low : b.pct_from_low - a.pct_from_low);
+
+  if (!sorted.length) {
+    tableEl.replaceChildren(empty('이 구간에는 종목이 없어요.'));
+  } else {
+    tableEl.replaceChildren(buildTable(
+      ['종목', '구간', `최근 ${c.lookback_days}일 최저(종가)`, '최저 시점', '현재가', '저점 대비', '지금 상태'],
+      sorted.map((it) => {
+        const st = cycleStatus(it.market, candByMarket);
+        return [
+          it.market,
+          h('span', { class: `tier-pill tier-${it.tier}`, text: CYCLE_TIER_NAMES[it.tier] }),
+          fmtKRW(it.low),
+          `${it.low_date} (${it.days_since_low}일 전)`,
+          fmtKRW(it.current),
+          pct(it.pct_from_low),
+          h('span', { class: st.cls, text: st.text }),
+        ];
+      }),
+    ), 2);
+  }
+  note.textContent = `스캔(15분 간격)마다 다시 계산돼요 · 데이터 생성 ${kst(c.generated_at)} KST · 저점 대비 상승률이 낮은 순으로 기본 정렬했어요. 일 거래대금이 3억 원 미만인 종목은 뺐어요. BTC와 스테이블코인·금 토큰은 빠져 있어요.`;
+}
+
 function renderPaper(d) {
   const rows = d.paper_limit || [];
   const tilesEl = $('#pp-tiles'), cmpEl = $('#pp-compare'), note = $('#pp-note');
@@ -2153,7 +2243,7 @@ $('#mc-mode').addEventListener('click', (ev) => {
 });
 
 /* ---------- 탭 ---------- */
-const TABS = ['recs', 'done', 'perf', 'macro', 'chart'];
+const TABS = ['recs', 'done', 'perf', 'macro', 'chart', 'cycle'];
 function selectTab(name, updateHash = true) {
   for (const key of TABS) $(`#view-${key}`).hidden = key !== name;
   $('#strat-filter').hidden = !['recs', 'done', 'perf'].includes(name);
