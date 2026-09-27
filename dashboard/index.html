@@ -192,6 +192,7 @@
   .tier-2 { background: var(--s4); color: #3a2a00; }
   .tier-3 { background: var(--s2); }
   .tier-4 { background: var(--bad); }
+  .tier-new { background: var(--muted); }
   td.why { white-space: normal; min-width: 200px; font-size: 12.5px; color: var(--ink2); }
   details.why-box summary { cursor: pointer; color: var(--ink); }
   .why-body { margin-top: 6px; line-height: 1.55; }
@@ -438,6 +439,8 @@
       <div id="pp-tiles" class="tiles" aria-label="지정가 병행 실험 요약"></div>
       <div id="pp-compare" class="table-wrap"></div>
       <p id="pp-note" class="card-note"></p>
+      <h3 class="section-title" style="margin-top:16px">종목별 내역 (최신순)</h3>
+      <div id="pp-detail" class="table-wrap"></div>
     </section>
 
     <h2 id="p-sec" class="section-title">성과 (익절·손절)</h2>
@@ -578,7 +581,10 @@
 //   BTC 관찰 알림, 성과 탭 기간 필터·승률 현황, 알트 사이클(상승) 탭 등
 // v1.01 (2026-09-27) 사이클 저점 계산을 종가 -> 장중 저가로 수정, 시가총액 표시·하락(고점 대비) 사이클 추가
 // v1.02 (2026-09-27) 알트 사이클 표에 종목별 최근 추천가·추천 결과('추천 이력' 열) 추가
-const APP_VERSION = 'v1.02';
+// v1.03 (2026-09-27) 업비트 '투자유의' 지정 종목은 추천·모의 주문에서 제외(추천 이후 지정된 경우도 자동 정리) — 백엔드만 바뀌어 버전 표시를 못 올렸던 배포, 여기 기록만 남김
+// v1.04 (2026-09-27) 지지선 지정가 병행 실험에 종목별 내역 표 추가, 신규 상장(30일 미만) 종목은 두 전략
+//   모두 추천 금지 + 알트 사이클에서 '신규 상장'으로 따로 구분(상승·하락률 왜곡 방지)
+const APP_VERSION = 'v1.04';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DATA_URL = 'dashboard.json';
@@ -1959,14 +1965,20 @@ function renderCycle(d) {
     note.textContent = ''; return;
   }
   const items = c.items;
+  const matureItems = items.filter((it) => !it.is_new_listing);
+  const newItems = items.filter((it) => it.is_new_listing);
   const counts = [0, 0, 0, 0, 0];
-  for (const it of items) counts[it[M.tierKey]] += 1;
+  for (const it of matureItems) counts[it[M.tierKey]] += 1;
 
-  tilesEl.replaceChildren(...M.names.map((name, i) => tile(name, [String(counts[i])], M.ranges[i])));
+  tilesEl.replaceChildren(
+    ...M.names.map((name, i) => tile(name, [String(counts[i])], M.ranges[i])),
+    tile('신규 상장', [String(newItems.length)], `상장 ${c.new_listing_min_days}일 미만 · 상승·하락률이 왜곡될 수 있어 따로 뺐어요`),
+  );
 
   ctrlEl.replaceChildren(
     h('button', { class: 'btn', type: 'button', 'data-tier': 'all', text: `전체 ${items.length}` }),
     ...M.names.map((name, i) => h('button', { class: 'btn', type: 'button', 'data-tier': String(i), text: `${name} ${counts[i]}` })),
+    h('button', { class: 'btn', type: 'button', 'data-tier': 'new', text: `신규 상장 ${newItems.length}` }),
     h('button', { class: 'btn', type: 'button', 'data-sort': '1', text: M.sortLabels[sort] }),
   );
   ctrlEl.querySelectorAll('[data-tier]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tier === cycleTierFilter)));
@@ -1981,7 +1993,9 @@ function renderCycle(d) {
   for (const r of d.recommendations || []) {
     if (stratOf(r) !== 'original' && !recByMarket.has(r.market)) recByMarket.set(r.market, r);
   }
-  const filtered = items.filter((it) => cycleTierFilter === 'all' || String(it[M.tierKey]) === cycleTierFilter);
+  const filtered = cycleTierFilter === 'all' ? items
+    : cycleTierFilter === 'new' ? newItems
+    : matureItems.filter((it) => String(it[M.tierKey]) === cycleTierFilter);
   const sorted = [...filtered].sort((a, b) => sort === 'asc' ? a[M.pctKey] - b[M.pctKey] : b[M.pctKey] - a[M.pctKey]);
 
   if (!sorted.length) {
@@ -1992,9 +2006,12 @@ function renderCycle(d) {
       sorted.map((it) => {
         const st = cycleStatus(it.market, candByMarket);
         const tier = it[M.tierKey];
+        const tierCell = it.is_new_listing
+          ? h('span', { class: 'tier-pill tier-new', text: `신규 상장 · ${it.listing_days}일` })
+          : h('span', { class: `tier-pill tier-${M.colorOf(tier)}`, text: M.names[tier] });
         return [
           it.market,
-          h('span', { class: `tier-pill tier-${M.colorOf(tier)}`, text: M.names[tier] }),
+          tierCell,
           fmtKRW(it[M.priceKey]),
           `${it[M.dateKey]} (${it[M.agoKey]}일 전)`,
           fmtKRW(it.current),
@@ -2009,14 +2026,50 @@ function renderCycle(d) {
   note.textContent = `스캔(15분 간격)마다 다시 계산돼요 · 데이터 생성 ${kst(c.generated_at)} KST · 일 거래대금이 3억 원 미만인 종목은 뺐어요. BTC와 스테이블코인·금 토큰은 빠져 있어요. 시가총액은 코인게코 참고치라 같은 심볼을 쓰는 다른 프로젝트와 섞이거나 없을 수 있어요.`;
 }
 
+const PAPER_STATUS_LABEL = {
+  pending: { text: '대기 중', cls: '' },
+  open: { text: '체결 · 보유 중', cls: '' },
+  closed: { text: '체결 · 종료', cls: '' },  // exit_reason으로 더 구체화
+  cancelled: { text: '취소', cls: 'muted' },  // exit_reason으로 더 구체화
+  no_level: { text: '지지 자리 없음', cls: 'muted' },
+};
+const PAPER_CANCEL_REASON = { timeout: '24시간 안 미체결', btc_off: 'BTC 이탈', excluded: '제외 종목' };
+
+function paperDetailRows(placed, recByKey) {
+  return placed.map((o) => {
+    const st = PAPER_STATUS_LABEL[o.status] || { text: o.status, cls: '' };
+    let statusText = st.text;
+    if (o.status === 'closed') statusText = `종료 · ${EXIT_LABEL[o.exit_reason] || o.exit_reason}`;
+    if (o.status === 'cancelled') statusText = `취소 · ${PAPER_CANCEL_REASON[o.exit_reason] || o.exit_reason}`;
+    const rec = recByKey.get(`${o.market}|${new Date(o.rec_at).getTime()}`);
+    const marketRet = rec ? (rec.exit ? rec.exit.return_pct : rec.return_pct) : null;
+    const marketLabel = rec ? (rec.exit ? '(종료)' : '(진행 중)') : '';
+    return [
+      o.market,
+      kst(o.rec_at),
+      `${fmtKRW(o.ref_price)} → ${o.level ? fmtKRW(o.level) : '—'}`,
+      h('span', { class: st.cls, text: statusText }),
+      o.fill_price ? fmtKRW(o.fill_price) : '—',
+      o.status === 'closed' ? pct(o.return_pct) : h('span', { class: 'muted', text: '—' }),
+      marketRet == null ? h('span', { class: 'muted', text: '—' }) : h('span', {}, pct(marketRet), ` ${marketLabel}`),
+    ];
+  });
+}
+
 function renderPaper(d) {
   const rows = d.paper_limit || [];
-  const tilesEl = $('#pp-tiles'), cmpEl = $('#pp-compare'), note = $('#pp-note');
+  const tilesEl = $('#pp-tiles'), cmpEl = $('#pp-compare'), note = $('#pp-note'), detailEl = $('#pp-detail');
   const placed = rows.filter((r) => r.status !== 'no_level');
+  const allRecs = (d.recommendations || []).filter((r) => stratOf(r) === 'legacy');
+  const recByKey = new Map(allRecs.map((r) => [`${r.market}|${new Date(r.entered_at).getTime()}`, r]));
   if (!placed.length) {
     tilesEl.replaceChildren(); cmpEl.replaceChildren(empty('아직 기록된 모의 주문이 없어요. 개선판이 새로 추천하면 여기에 쌓여요.'));
-    note.textContent = ''; return;
+    detailEl.replaceChildren(); note.textContent = ''; return;
   }
+  detailEl.replaceChildren(buildTable(
+    ['종목', '추천 시각', '기준가 → 지정가', '상태', '체결가', '모의 손익', '같은 추천을 시장가로 샀다면'],
+    paperDetailRows(placed, recByKey), 4,
+  ));
   const noLevel = rows.length - placed.length;
   const filled = placed.filter((r) => r.status === 'open' || r.status === 'closed');
   const cancelled = placed.filter((r) => r.status === 'cancelled');

@@ -1,5 +1,7 @@
 """대조군(최초 커밋의 첫 버전 규칙) 스캔. 개선판과 성과를 나란히 비교하려고 첫 커밋의 추천 규칙을 그대로 병행 운영한다.
-절대 규칙을 바꾸지 않는다 — 비교의 기준점이다.
+점수·게이트 로직은 절대 바꾸지 않는다 — 비교의 기준점이다. 다만 스테이블코인·BTC·투자유의 지정 종목(fetch_markets가
+이미 목록에서 뺌), 신규 상장 종목(NEW_LISTING_MIN_DAYS)처럼 '이 자산 자체를 투자 대상으로 볼지'를 가르는
+데이터 필터는 두 전략에 똑같이 적용한다 — 전략 규칙이 아니라 투자 유니버스를 정하는 문제라서다.
 
   - 추천: 일봉 게이트만 통과하면 추천 (일봉 단기 스토RSI가 24시간 안에 저점권 최초 도달 또는 저점권 골든크로스)
   - 스토RSI 설정: 최초 버전의 것(stoch_rsi.ORIGINAL_PERIOD_SETS, 트레이딩뷰와 순서가 반대) 그대로
@@ -20,6 +22,8 @@ def scan_original(cache: dict, markets: list[str], exclude: set[str]) -> list[tu
     for market in markets:
         day = cache.get((market, "day"))
         if day is None or day.empty:
+            continue
+        if len(day) < config.NEW_LISTING_MIN_DAYS:  # 신규 상장 종목은 대조군도 추천하지 않는다
             continue
         if day["value"].iloc[-1] < config.MIN_DAILY_TRADE_VALUE_KRW:
             continue

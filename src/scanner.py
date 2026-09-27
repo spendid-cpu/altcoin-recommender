@@ -49,6 +49,11 @@ async def scan_market(
             cache[(market, frame)] = candles
         latest_price = float(candles["close"].iloc[-1])
 
+        if frame == "day" and len(candles) < config.NEW_LISTING_MIN_DAYS:
+            # 상장한 지 얼마 안 된 종목은 급등락이 심하고 지표도 아직 안정되지 않아 추천하지 않는다
+            frames.append(FrameResult(frame=frame, passed_gate=False, score=0.0, detail={"reason": "new_listing"}))
+            break
+
         if frame == "day" and candles["value"].iloc[-1] < config.MIN_DAILY_TRADE_VALUE_KRW:
             # 체결이 어려운 저유동성 종목은 여기서 걸러낸다 (가산점이 아니라 필터 —
             # 요인 분석 결과 거래대금 자체는 수익률과 뚜렷한 상관이 없었음)
