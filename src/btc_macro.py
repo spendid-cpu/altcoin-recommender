@@ -61,6 +61,7 @@ CROSS_RECENT_BARS = 3  # 최근 이 캔들 수 안에 교차가 있었으면 골
 EXTREME_LOOKBACK = 5  # 교차 직전 이 캔들 수 안에 저점권/고점권을 찍었는지 (과매도 반등/과열 하락 구분)
 OVERSOLD = float(config.OVERSOLD_THRESHOLD)
 OVERBOUGHT = 100.0 - OVERSOLD
+EXTREME_THRESHOLD = 10.0  # 표시 전용: 저점권 중에서도 이보다 깊으면 '저점권' 대신 '저점'(고점권 -> '고점')으로 보여준다
 
 CHART_SHOWN_BARS = CANDLES_4H  # 차트에 담는 4시간봉
 
@@ -476,6 +477,16 @@ def analyse_cell(k: pd.Series, d: pd.Series) -> dict | None:
 
 
 ZONE_TEXT = {"oversold": "저점권", "overbought": "고점권", "middle": "중간권"}
+
+
+def zone_label(k: float, zone: str) -> str:
+    """표시용 구간 이름. 게이트·from_extreme 판정에 쓰는 zone(oversold/overbought/middle)은 그대로 두고,
+    화면에 보여줄 때만 EXTREME_THRESHOLD보다 더 깊이 들어간 경우를 '저점권'/'고점권'에서 '저점'/'고점'으로 세분한다."""
+    if zone == "oversold" and k <= EXTREME_THRESHOLD:
+        return "저점"
+    if zone == "overbought" and k >= 100.0 - EXTREME_THRESHOLD:
+        return "고점"
+    return ZONE_TEXT[zone]
 STATE_TEXT = {"golden": "골든크로스", "dead": "데드크로스", "up": "상승 중", "down": "하락 중"}
 
 
@@ -494,7 +505,7 @@ def cell_text(cell: dict) -> str:
             state += "(고점권 하락)"
         elif cell["zone"] == "oversold":
             state += "(저점 근접)"
-    return f"{state} · {ZONE_TEXT[cell['zone']]}"
+    return f"{state} · {zone_label(cell['k'], cell['zone'])}"
 
 
 def frame_read(cells: dict[str, dict | None]) -> str:
@@ -540,10 +551,8 @@ def analyse_stoch(frames: dict[str, pd.DataFrame]) -> dict:
             elif cell["state"] == "dead":
                 suffix = "(고점권 하락)" if cell["from_extreme"] else "(저점 근접)" if cell["zone"] == "oversold" else ""
                 highlights.append(f"{label} 데드크로스{suffix}")
-            elif cell["zone"] == "oversold":
-                highlights.append(f"{label} 저점권")
-            elif cell["zone"] == "overbought":
-                highlights.append(f"{label} 고점권")
+            elif cell["zone"] in ("oversold", "overbought"):
+                highlights.append(f"{label} {zone_label(cell['k'], cell['zone'])}")
         out_frames[frame] = {"cells": cells, "read": frame_read(cells)}
 
     if total == 0:
