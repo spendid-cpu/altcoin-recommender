@@ -171,6 +171,20 @@ def max_runup_pct(close: pd.Series) -> float:
     return float((values / np.minimum.accumulate(values)).max() - 1) * 100
 
 
+def nearest_ma_gap_pct(close: pd.Series, price: float, periods: tuple[int, ...]) -> float | None:
+    """4시간봉 종가 close로 periods(예: 20/50/100/200) 단순이동평균을 계산해, 지금 가격 price가 그중
+    가장 가까운 것과 몇 % 떨어져 있는지(방향 무관, 절대값)를 낸다. 이력이 부족해 계산 가능한 게 하나도 없으면 None."""
+    values = close.dropna().to_numpy(dtype=float)
+    gaps = []
+    for p in periods:
+        if len(values) < p:
+            continue
+        ma = float(values[-p:].mean())
+        if ma:
+            gaps.append(abs(price / ma - 1) * 100)
+    return min(gaps) if gaps else None
+
+
 def find_support_lows(close: pd.Series, pivot: int = 3) -> list[float]:
     """1시간 마감 종가 시리즈에서 확정된 스윙 저점(좌우 pivot개 봉 이하인 종가). 마지막 pivot개 봉은 아직 확정 전이라 제외한다."""
     values = close.dropna().to_numpy(dtype=float)
@@ -209,6 +223,7 @@ class CandidateResult:
     recent_runup_pct: float = 0.0  # 진입 직전 config.RUNUP_LOOKBACK_HOURS 시간 안의 최대 상승폭
     support_lows: list = field(default_factory=list)  # 지지선 후보(1시간봉 스윙 저점), 모의 지정가용
     ma20: float = 0.0  # 일봉 종가 20일 이동평균(비트코인 필터와 같은 기준을 알트코인에도 참고용으로 보여준다)
+    ma_confluence_gap_pct: float | None = None  # 4시간봉 MA20/50/100/200 중 가장 가까운 것까지의 거리(%)
 
     @property
     def above_ma20(self) -> bool:
@@ -222,6 +237,16 @@ class CandidateResult:
     def runup_excluded(self) -> bool:
         """최근 급등 이력 때문에 추천에서 빼는 종목인지 (config.RUNUP_*)."""
         return config.RUNUP_FILTER_ENABLED and self.recent_runup_pct > config.RUNUP_MAX_PCT
+
+    @property
+    def ma_confluence_excluded(self) -> bool:
+        """4시간봉 주요 이동평균(20/50/100/200) 중 어느 것과도 가깝지 않아 추천에서 빼는 종목인지 (config.MA_CONFLUENCE_*).
+        계산 자체가 안 됐으면(이력 부족) 보수적으로 제외한다."""
+        if not config.MA_CONFLUENCE_FILTER_ENABLED:
+            return False
+        if self.ma_confluence_gap_pct is None:
+            return True
+        return self.ma_confluence_gap_pct > config.MA_CONFLUENCE_MAX_GAP_PCT
 
     @property
     def cleared_frames(self) -> list[str]:
@@ -274,8 +299,9 @@ class CandidateResult:
     @property
     def recommendable(self) -> bool:
         """추천 대상인지. 기본은 일봉/4시간/1시간/15분을 모두 통과하고 5분봉이 저점일 때만 True.
-        최근 급등 이력이 있는 종목(runup_excluded)은 조건을 통과해도 추천하지 않는다."""
-        if self.runup_excluded:
+        최근 급등 이력이 있는 종목(runup_excluded)이거나 4시간봉 주요 이평선 근처가 아닌 종목
+        (ma_confluence_excluded)은 조건을 통과해도 추천하지 않는다."""
+        if self.runup_excluded or self.ma_confluence_excluded:
             return False
         if config.RECOMMEND_ONLY_AT_15M_LOW:
             return self.cleared_frames == [*config.FRAME_ORDER, config.LOW_FRAME]

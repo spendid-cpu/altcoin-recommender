@@ -166,6 +166,8 @@ def build_candidates(latest_by_market: dict[str, dict]) -> tuple[list[dict], str
             "recent_runup_pct": state.get("recent_runup_pct"),
             "ma20": state.get("ma20"),
             "above_ma20": bool(state.get("above_ma20")),
+            "ma_confluence_excluded": bool(state.get("ma_confluence_excluded")),
+            "ma_confluence_gap_pct": state.get("ma_confluence_gap_pct"),
             "current_price": state.get("current_price"),
             "entry_price": rec["entry_price"] if rec else None,
             "entered_at": rec["entered_at"] if rec else None,

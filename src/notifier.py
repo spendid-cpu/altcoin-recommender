@@ -16,7 +16,7 @@ from src.scoring import CandidateResult, nearest_support
 _EMPTY_STATE = {
     "cleared_frames": [], "entry_ready": False, "grade": "-", "current_price": 0.0, "score": None,
     "recommendable": False, "low_15m": False, "runup_excluded": False, "recent_runup_pct": 0.0, "support_price": None,
-    "ma20": 0.0, "above_ma20": False,
+    "ma20": 0.0, "above_ma20": False, "ma_confluence_excluded": False, "ma_confluence_gap_pct": None,
     "alerted_frames": [], "alerted_entry": False,
 }
 
@@ -75,6 +75,8 @@ def _snapshot(candidate: CandidateResult) -> dict:
         "recent_runup_pct": round(candidate.recent_runup_pct, 1),
         "ma20": round(candidate.ma20, 8),
         "above_ma20": candidate.above_ma20,
+        "ma_confluence_excluded": candidate.ma_confluence_excluded,
+        "ma_confluence_gap_pct": round(candidate.ma_confluence_gap_pct, 2) if candidate.ma_confluence_gap_pct is not None else None,
     }
 
 

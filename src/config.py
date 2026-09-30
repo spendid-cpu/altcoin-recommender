@@ -75,6 +75,16 @@ RUNUP_FILTER_ENABLED = os.environ.get("RUNUP_FILTER_ENABLED", "true").strip().lo
 RUNUP_LOOKBACK_HOURS = int(os.environ.get("RUNUP_LOOKBACK_HOURS") or "72")
 RUNUP_MAX_PCT = float(os.environ.get("RUNUP_MAX_PCT") or "15")
 
+# MA 합류(confluence) 필터: 4시간봉 종가 기준 단순이동평균 20/50/100/200 중 어느 것과도 MA_CONFLUENCE_MAX_GAP_PCT
+# 이내로 가깝지 않으면(= 주요 이평선 근처가 아니라 허공에 떠 있으면) 최종 추천에서 뺀다. 120일 백테스트에서
+# 3% 기준으로 봤을 때 '어느 MA와도 3% 넘게 떨어진' 진입(221건)이 기준선 대비 초과 -0.55%로 앞/뒤 절반 모두
+# 뚜렷하게 나빴고(-0.14%/-1.06%), 3% 이내인 진입(733건)은 +0.15%로 앞/뒤 절반 모두 양수였다. 신뢰구간 하한은
+# 0을 못 넘어 통계적으로 확정된 우위는 아니지만, 방향이 일관돼 사용자 판단으로 적용한다. 1%/2% 기준은
+# 방향이 불안정해 채택하지 않았다. 끄려면 MA_CONFLUENCE_FILTER_ENABLED=false.
+MA_CONFLUENCE_FILTER_ENABLED = os.environ.get("MA_CONFLUENCE_FILTER_ENABLED", "true").strip().lower() != "false"
+MA_CONFLUENCE_PERIODS = (20, 50, 100, 200)  # 4시간봉 단순이동평균 기간들
+MA_CONFLUENCE_MAX_GAP_PCT = float(os.environ.get("MA_CONFLUENCE_MAX_GAP_PCT") or "3")
+
 # 알트 사이클 탭(src/cycle.py): 최근 이 일수 안의 최저가(일봉 장중 저가) 대비 지금 가격이 몇 % 위인지로
 # 전 종목을 구간으로 나눈다. 매수 신호가 아니라 아직 안 오른 종목을 찾아보는 참고용 구간 표시다.
 CYCLE_LOOKBACK_DAYS = int(os.environ.get("CYCLE_LOOKBACK_DAYS") or "30")
