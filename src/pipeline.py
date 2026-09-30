@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 import aiohttp
 
 from src import config, cycle, exits, macro_job, market_cap, original_alerts, original_scanner, paper_limit, price_tracker, report, scan_log, state_store, telegram_client
+from src.scoring import find_support_lows
 from src.exchanges import upbit_client
 from src.notifier import diff_alerts
 from src.scanner import btc_days_above, check_btc_trend, scan_all
@@ -122,7 +123,7 @@ async def _update_paper(session: aiohttp.ClientSession, btc_favorable: bool) -> 
 
 
 async def _run_baseline_scan(session: aiohttp.ClientSession, markets: list[str], cache: dict) -> None:
-    """기준선(최초 알고리즘) 병행 기록. 텔레그램은 config.ALERT_STRATEGY가 'original'일 때만 묶어서 보낸다. 실패해도 개선판에는 영향을 주지 않는다."""
+    """기준선(최초 알고리즘) 병행 기록과 모의 지정가 기록. 텔레그램은 config.ALERT_STRATEGY가 'original'일 때만 묶어서 보낸다. 실패해도 개선판에는 영향을 주지 않는다."""
     if not config.ORIGINAL_ENABLED:
         return
     try:
@@ -140,8 +141,14 @@ async def _run_baseline_scan(session: aiohttp.ClientSession, markets: list[str],
             price = prices.get(market)
             if price is None:
                 continue
-            price_tracker.record_entry(market, price, "-", round(result.score, 1), original_scanner.breakdown(result), strategy="original")
+            rec_at = price_tracker.record_entry(market, price, "-", round(result.score, 1), original_scanner.breakdown(result), strategy="original")
             entered.append((market, price, round(result.score, 1)))
+            # 모의 지정가: 1시간봉 스윙 저점에 기록 (개선판과 동일)
+            support_lows = []
+            hour_candles = cache.get((market, "1h"))
+            if hour_candles is not None and not hour_candles.empty:
+                support_lows = find_support_lows(hour_candles["close"].tail(config.PAPER_SUPPORT_WINDOW_HOURS))
+            paper_limit.place(market, rec_at, price, support_lows)
         alert_on = config.ALERT_STRATEGY == "original"
         print(f"기준선: 새 추천 {len(entered)}건 기록" + (" (텔레그램 묶음 알림)" if alert_on else " (알림 없음)"))
         if alert_on and entered:
