@@ -16,6 +16,7 @@ from src.scoring import CandidateResult, nearest_support
 _EMPTY_STATE = {
     "cleared_frames": [], "entry_ready": False, "grade": "-", "current_price": 0.0, "score": None,
     "recommendable": False, "low_15m": False, "runup_excluded": False, "recent_runup_pct": 0.0, "support_price": None,
+    "ma20": 0.0, "above_ma20": False,
     "alerted_frames": [], "alerted_entry": False,
 }
 
@@ -72,6 +73,8 @@ def _snapshot(candidate: CandidateResult) -> dict:
         "support_price": nearest_support(candidate.support_lows, candidate.current_price),
         "runup_excluded": candidate.runup_excluded,
         "recent_runup_pct": round(candidate.recent_runup_pct, 1),
+        "ma20": round(candidate.ma20, 8),
+        "above_ma20": candidate.above_ma20,
     }
 
 

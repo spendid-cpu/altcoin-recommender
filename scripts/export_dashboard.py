@@ -32,15 +32,25 @@ DEFAULT_OUT = Path(__file__).resolve().parent.parent / "dashboard" / "dashboard.
 async def build_btc(session: aiohttp.ClientSession) -> dict:
     try:
         df = await binance_client.fetch_klines(session, config.BINANCE_SYMBOL, "1d", 260)  # MA120을 표시 기간(45일) 내내 그리려면 165일 이상 필요
+        weekly = await binance_client.fetch_klines(session, config.BINANCE_SYMBOL, "1w", 60)  # 주봉 20주 이평 계산용
     except Exception as exc:  # 바이낸스 조회가 실패해도 나머지 화면은 그려야 한다
         return {"error": f"{type(exc).__name__}: {exc}"}
 
     now = pd.Timestamp.now(tz="UTC").tz_localize(None)
     ma20 = df["close"].rolling(20).mean()
-    # 알림·추천 필터는 MA20 기준이고, MA5/MA60/MA120은 차트에 참고로만 같이 그린다
+    ma20w_all = weekly["close"].rolling(20).mean()
+    # 주봉 MA20은 그 주가 마감돼야 값이 나오므로, 일봉 각 날짜 시점에는 '그날까지 마감된 가장 최근 주봉'의
+    # 값을 그대로 이어 쓴다(asof) — 미래 정보가 안 섞이게. 한 주 동안은 계단처럼 같은 값이 유지된다.
+    weekly_ma = pd.DataFrame({"time": weekly["time"], "ma20w": ma20w_all}).dropna().sort_values("time")
+    # 알림·추천 필터는 MA20 기준이고, MA5/MA60/MA120·주봉 MA20은 차트에 참고로만 같이 그린다
     shown = df.assign(
         ma5=df["close"].rolling(5).mean(), ma20=ma20, ma60=df["close"].rolling(60).mean(), ma120=df["close"].rolling(120).mean(),
     ).dropna().tail(BTC_DAYS_SHOWN)
+    if not weekly_ma.empty:
+        merged = pd.merge_asof(shown[["time"]].sort_values("time"), weekly_ma, on="time", direction="backward")
+        shown = shown.assign(ma20w=merged["ma20w"].to_numpy())
+    else:
+        shown = shown.assign(ma20w=float("nan"))
     return {
         "symbol": config.BINANCE_SYMBOL,
         "favorable": is_trend_favorable(df["close"]),
@@ -49,11 +59,13 @@ async def build_btc(session: aiohttp.ClientSession) -> dict:
         "close": round(float(df["close"].iloc[-1]), 2),
         "prev_close": round(float(df["close"].iloc[-2]), 2),
         "ma20": round(float(ma20.iloc[-1]), 2),
+        "ma20_weekly": round(float(weekly_ma["ma20w"].iloc[-1]), 2) if not weekly_ma.empty else None,
         "last_candle_open": bool(df["time"].iloc[-1] > now),
         "series": [
             {"date": (row.time - pd.Timedelta(seconds=1)).strftime("%Y-%m-%d"), "close": round(float(row.close), 2),
              "ma5": round(float(row.ma5), 2), "ma20": round(float(row.ma20), 2),
-             "ma60": round(float(row.ma60), 2), "ma120": round(float(row.ma120), 2)}
+             "ma60": round(float(row.ma60), 2), "ma120": round(float(row.ma120), 2),
+             "ma20w": None if pd.isna(row.ma20w) else round(float(row.ma20w), 2)}
             for row in shown.itertuples()
         ],
     }
@@ -152,6 +164,8 @@ def build_candidates(latest_by_market: dict[str, dict]) -> tuple[list[dict], str
             "support_price": state.get("support_price"),
             "runup_excluded": bool(state.get("runup_excluded")),
             "recent_runup_pct": state.get("recent_runup_pct"),
+            "ma20": state.get("ma20"),
+            "above_ma20": bool(state.get("above_ma20")),
             "current_price": state.get("current_price"),
             "entry_price": rec["entry_price"] if rec else None,
             "entered_at": rec["entered_at"] if rec else None,

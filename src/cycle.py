@@ -6,6 +6,8 @@ pipeline이 스캔 중에 이미 받아 둔 일봉 캔들(candle_cache)을 그�
 (일봉은 게이트를 통과하든 못하든 종목마다 항상 먼저 받아 캐시에 들어있다). 현재가만 한 번 배치로 조회한다.
 '저점/고점'은 일봉의 장중 저가·고가 기준이다 — 종가만 보면 하루 안의 급등락(꼬리)을 놓친다.
 시가총액은 src/market_cap.py가 따로 갱신해 둔 캐시를 그대로 붙인다(참고치, 없으면 null).
+일봉 종가 20일 이동평균(ma20)과 지금 가격이 그 위인지(above_ma20)도 참고용으로 같이 담는다 — 비트코인
+추천 필터와 같은 기준을 알트코인에도 보여 주는 것뿐, 알트코인 추천 여부에는 쓰지 않는다.
 상장한 지 NEW_LISTING_MIN_DAYS일이 안 된 종목은 tier_up/tier_down을 그대로 계산하되 is_new_listing으로
 표시해 둔다 — 상장 초반 며칠치 데이터만으로 나온 상승·하락률은 왜곡되기 쉬워서(예: 첫날 급등락), 화면에서
 '신규 상장'으로 따로 구별해 보여주기 위해서다(대시보드가 태그를 보고 표시를 바꾼다).
@@ -69,6 +71,7 @@ async def build(session: aiohttp.ClientSession, cache: dict, markets: list[str])
             "high": float(high_col.loc[high_pos]), "high_at": str(window["time"].loc[high_pos]),
             "last_close": float(day["close"].iloc[-1]),
             "listing_days": len(day),  # 상장 후 며칠째인지 추정(일봉 개수) — 짧으면 상승·하락 폭이 왜곡될 수 있다
+            "ma20": float(day["close"].tail(20).mean()) if len(day) >= 20 else None,
         })
 
     now = datetime.now(timezone.utc)
@@ -97,6 +100,8 @@ async def build(session: aiohttp.ClientSession, cache: dict, markets: list[str])
             "market_cap": market_cap.get(symbol),
             "listing_days": r["listing_days"],
             "is_new_listing": r["listing_days"] < config.NEW_LISTING_MIN_DAYS,
+            "ma20": round(r["ma20"], 8) if r["ma20"] is not None else None,
+            "above_ma20": r["ma20"] is not None and current > r["ma20"],
         })
     items.sort(key=lambda x: x["pct_from_low"])
     return {"generated_at": now.isoformat(), "lookback_days": config.CYCLE_LOOKBACK_DAYS,

@@ -208,6 +208,15 @@ class CandidateResult:
     current_price: float = 0.0
     recent_runup_pct: float = 0.0  # 진입 직전 config.RUNUP_LOOKBACK_HOURS 시간 안의 최대 상승폭
     support_lows: list = field(default_factory=list)  # 지지선 후보(1시간봉 스윙 저점), 모의 지정가용
+    ma20: float = 0.0  # 일봉 종가 20일 이동평균(비트코인 필터와 같은 기준을 알트코인에도 참고용으로 보여준다)
+
+    @property
+    def above_ma20(self) -> bool:
+        return bool(self.ma20) and self.current_price > self.ma20
+
+    @property
+    def ma20_dist_pct(self) -> float:
+        return (self.current_price / self.ma20 - 1) * 100 if self.ma20 else 0.0
 
     @property
     def runup_excluded(self) -> bool:
