@@ -1,0 +1,48 @@
+name: watchdog
+
+permissions:
+  contents: write   # data/state.db(감시 상태) 커밋용
+  actions: read     # scan/track 최근 실행 이력 조회용
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch: {}
+
+# scan.yml/track.yml과 일부러 다른 그룹을 쓴다 — 그 그룹이 막혀도(2026-09-28에 실제로 43시간 막혔던 것처럼)
+# 이 감시 장치는 영향받지 않고 계속 돌아야 알림을 보낼 수 있다.
+concurrency:
+  group: watchdog
+  cancel-in-progress: true
+
+jobs:
+  watchdog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r requirements.txt
+
+      - run: python scripts/run_watchdog.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          WATCHDOG_STALE_MINUTES: ${{ vars.WATCHDOG_STALE_MINUTES }}
+          WATCHDOG_REMIND_MINUTES: ${{ vars.WATCHDOG_REMIND_MINUTES }}
+
+      - name: 상태 파일(data/state.db) 변경사항 커밋
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/state.db
+          git diff --staged --quiet || git commit -m "state: 감시 장치 상태 갱신 [skip ci]"
+          git pull --rebase origin master
+          git push
