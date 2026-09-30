@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo
 import aiohttp
 import pandas as pd
 
-from src import btc_macro, btc_watch, config, jsonutil, state_store, telegram_client
+from src import btc_macro, btc_watch, config, jsonutil, macro_calendar, state_store, telegram_client
 from src.exchanges import binance_client
 
 KST = ZoneInfo("Asia/Seoul")
@@ -167,6 +167,8 @@ def format_briefing(macro: dict, now: datetime) -> str:
         f"₿ ${_fmt(macro['price'])}{change_text}",
         f"🎯 알트코인 추천 필터: {filter_text}",
         f"📏 일봉 MA20 {_fmt(trend['ma20'])} · 최근 일봉 종가 {_fmt(trend['close'])}",
+        "",
+        *macro_calendar.briefing_lines(now),
         "",
         "📐 피보나치 (4시간 종가 기준)",
     ]

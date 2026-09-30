@@ -270,6 +270,17 @@
   <main id="view-recs" role="tabpanel" aria-labelledby="tab-recs">
     <section id="tiles" class="tiles" aria-label="핵심 지표"></section>
 
+    <section class="card" aria-labelledby="h-cal">
+      <div class="card-head">
+        <div>
+          <h2 id="h-cal">거시경제 일정 (미국 · 한국시간)</h2>
+          <p class="sub">FOMC 금리 결정·CPI·PPI·고용·GDP 발표 일정이에요. 참고용 정보이고 추천 여부에는 반영하지 않아요</p>
+        </div>
+      </div>
+      <div id="cal" class="table-wrap"></div>
+      <p id="cal-note" class="card-note"></p>
+    </section>
+
     <section class="card" aria-labelledby="h-btc">
       <div class="card-head">
         <div>
@@ -935,6 +946,40 @@ function buildTable(head, rows, numFrom = 1) {
     h('tbody', {}, rows.map((r) => h('tr', {}, r.map((c, i) => h('td', { class: i >= numFrom ? 'num' : '' }, c))))));
 }
 
+/* ---------- 거시경제 일정 ---------- */
+const CAL_SHOWN = 6;
+function calDayGap(ms) {  // 한국 날짜 기준으로 며칠 뒤인지
+  const day = (t) => { const p = new Date(t + 9 * 3600e3); return Date.UTC(p.getUTCFullYear(), p.getUTCMonth(), p.getUTCDate()); };
+  return Math.round((day(ms) - day(Date.now())) / 86400e3);
+}
+function calWhen(ms) {
+  if (ms < Date.now()) return '발표됨';
+  const gap = calDayGap(ms);
+  return gap === 0 ? '오늘' : gap === 1 ? '내일' : `D-${gap}`;
+}
+function renderCalendar(d) {
+  const host = $('#cal'), note = $('#cal-note');
+  const cal = d.calendar;
+  const shown = ((cal && cal.events) || []).filter((e) => Date.parse(e.at) >= Date.now() - 6 * 3600e3).slice(0, CAL_SHOWN);
+  if (!shown.length) {
+    host.replaceChildren(empty('등록된 일정이 없어요. 일정표(src/macro_calendar.py)를 갱신해야 해요.'));
+    note.textContent = '';
+    return;
+  }
+  const wk = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', weekday: 'short' });
+  host.replaceChildren(buildTable(
+    ['일정 (KST)', '남은 기간', '이벤트'],
+    shown.map((e) => {
+      const ms = Date.parse(e.at), soon = ms >= Date.now() && calDayGap(ms) <= 1;
+      return [
+        `${kst(e.at)} (${wk.format(new Date(e.at))})`,
+        h('span', { class: soon ? 'pill A' : 'muted', text: calWhen(ms) }),
+        h('span', {}, e.major ? h('span', { class: 'pill B', text: '주요' }) : null, e.major ? ' ' : null, e.title),
+      ];
+    }), 3));
+  note.textContent = '발표 시각은 미국 동부 8:30(연준은 14:00) 기준을 한국시간으로 바꾼 것이고 일정은 바뀔 수 있어요. 주요 = 금리 결정·물가(CPI)·고용.';
+}
+
 function renderBtc(btc) {
   const chartEl = $('#btc-chart'), tableEl = $('#btc-table'), note = $('#btc-note');
   chartEl.replaceChildren(); tableEl.replaceChildren();
@@ -1212,6 +1257,7 @@ function renderAll() {
   $('#updated').textContent = d.generated_at ? `데이터 생성 ${kst(d.generated_at)} KST` : '';
   renderTicker(d);
   renderTiles(d);
+  renderCalendar(d);
   renderBtc(d.btc);
   renderCandidates(d);
   renderTracking(d);
