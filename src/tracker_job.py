@@ -13,12 +13,19 @@
 
 import aiohttp
 
-from src import exits, macro_job, pipeline, report
+from src import exits, gap_replay, macro_job, pipeline, report
 from src.scanner import check_btc_trend
 
 
 async def run_once(session: aiohttp.ClientSession) -> None:
     await macro_job.run(session)
+
+    try:  # 2026-09-28 스캔 중단(43시간) 때 잘못 기록된 종료를 한 번 정정한다. 실패해도 추적은 계속한다
+        fixed = await gap_replay.repair_recorded_gaps(session, exits.check_exit)
+        if fixed:
+            print(f"[공백 정정] 종료 기록 {fixed}건 정정 (원래 값은 rec_exit_repairs 표에 보관)")
+    except Exception as exc:
+        print(f"[공백 정정] 실패(이번 사이클은 건너뜀): {exc!r}")
 
     # 종료 알림의 BTC 필터 표기, BTC 이탈 정리, 모의 지정가 취소 판단에 모두 쓰이는 실제 추세.
     # (여기서는 새 후보를 스캔하지 않으므로 candidates=[]는 항상 빈 목록이다.)

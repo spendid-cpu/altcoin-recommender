@@ -133,9 +133,12 @@ def recent_recommendation_markets(strategy: str = "legacy") -> list[str]:
         conn.close()
 
 
-def record_exit(market: str, entered_at: datetime, exit_price: float, return_pct: float, reason: str) -> None:
-    """추천 종료를 기록하고 종료 시점 가격을 마지막 스냅샷으로 남긴다 (차트가 종료 지점까지 이어지게)."""
-    now = datetime.now(timezone.utc).isoformat()
+def record_exit(
+    market: str, entered_at: datetime, exit_price: float, return_pct: float, reason: str, ended_at: datetime | None = None
+) -> None:
+    """추천 종료를 기록하고 종료 시점 가격을 마지막 스냅샷으로 남긴다 (차트가 종료 지점까지 이어지게).
+    ended_at은 스캔 공백을 5분봉으로 복원해 실제 도달 시각을 아는 경우에만 넘긴다 (기본은 지금)."""
+    now = (ended_at or datetime.now(timezone.utc)).astimezone(timezone.utc).isoformat()  # 시각 문자열끼리 정렬·비교하므로 항상 UTC
     conn = connect()
     try:
         conn.execute(

@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 
 import aiohttp
 
-from src import config, price_tracker, telegram_client
+from src import config, gap_replay, price_tracker, telegram_client
 from src.exchanges import upbit_client
 from src.formatting import fmt_pct, fmt_price, strategy_tag
 from src.report import elapsed_text, score_line
@@ -60,19 +60,21 @@ def check_exit(rec: dict, current: float, now: datetime, btc_filter_on: bool = T
 
 
 def build_exit_message(
-    rec: dict, reason: str, exit_price: float, now: datetime, cand: CandidateResult | None, btc_filter_on: bool
+    rec: dict, reason: str, exit_price: float, now: datetime, cand: CandidateResult | None, btc_filter_on: bool,
+    restored: bool = False,
 ) -> str:
     entry = rec["entry_price"]
     ret = (exit_price / entry - 1) * 100
     peak = max([entry, exit_price] + [p for _, p in rec["snaps"]])
     entered_kst = rec["entered_at"].astimezone(KST).strftime("%m-%d %H:%M")
+    note = (f"\n⏪ 추적이 멈춰 있던 동안 {now.astimezone(KST):%m-%d %H:%M}에 도달한 것을 5분봉 종가로 복원한 판정" if restored else "")
     return (
         f"🏁 추천 종료 · {REASONS[reason]}\n"
         f"{strategy_tag(rec)}  {rec['market']}  {fmt_pct(ret)}\n"
         f"💰 {fmt_price(entry)} → {fmt_price(exit_price)}\n"
         f"🕐 {entered_kst} 추천 → {elapsed_text(now - rec['entered_at'])} 보유\n"
         f"🏔 최고 {(peak / entry - 1) * 100:+.2f}%\n"
-        f"{score_line(rec, cand, btc_filter_on)}"
+        f"{score_line(rec, cand, btc_filter_on)}{note}"
     )
 
 
@@ -112,14 +114,23 @@ async def process_exits(
                 # 추적이 이미 끝난 종목이라 현재가를 따로 받지 않는다 — 마지막으로 기록한 가격이 만료 시점 가격이다
                 current = rec["snaps"][-1][1] if rec["snaps"] else rec["entry_price"]
 
-            reason = check_exit(rec, current, now, btc_filter_on)
-            if reason is None:
-                continue
+            # 추적이 멈췄다 재개된 직후라면 그동안 이미 닿은 -5%/+5%(또는 만료)를 5분봉으로 먼저 복원한다
+            hit = None
+            try:
+                hit = await gap_replay.find_gap_exit(session, rec, now, check_exit)
+            except Exception as exc:
+                print(f"  {rec['market']} 공백 구간 복원 실패(현재가 기준으로만 판단): {exc!r}")
+            if hit:
+                at, current, reason = hit
+            else:
+                at, reason = now, check_exit(rec, current, now, btc_filter_on)
+                if reason is None:
+                    continue
             ret = (current / rec["entry_price"] - 1) * 100
-            price_tracker.record_exit(rec["market"], rec["entered_at"], current, ret, reason)
+            price_tracker.record_exit(rec["market"], rec["entered_at"], current, ret, reason, ended_at=at if hit else None)
             closed += 1
 
-            text = build_exit_message(rec, reason, current, now, candidate_by_market.get(rec["market"]), btc_filter_on)
+            text = build_exit_message(rec, reason, current, at, candidate_by_market.get(rec["market"]), btc_filter_on, restored=bool(hit))
             # 최초 알고리즘 추천은 기록만 한다 (텔레그램에 알리지 않음)
             silent = rec["strategy"] == "original" or (
                 reason == "expired" and age >= timedelta(days=price_tracker.TRACK_DAYS) + EXPIRY_NOTICE_WINDOW)
