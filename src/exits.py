@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 
 import aiohttp
 
-from src import config, gap_replay, price_tracker, telegram_client
+from src import config, gap_replay, original_alerts, price_tracker, telegram_client
 from src.exchanges import upbit_client
 from src.formatting import fmt_pct, fmt_price, strategy_tag
 from src.report import elapsed_text, score_line
@@ -93,6 +93,7 @@ async def process_exits(
         print(f"  투자유의 종목 조회 실패(이번 사이클은 그 판단만 건너뜀): {exc!r}")
         warned = set()
     closed = 0
+    original_lines: list[str] = []
     for rec in price_tracker.load_recommendations():
         if rec["exit"] is not None:
             continue
@@ -131,13 +132,23 @@ async def process_exits(
             closed += 1
 
             text = build_exit_message(rec, reason, current, at, candidate_by_market.get(rec["market"]), btc_filter_on, restored=bool(hit))
-            # 최초 알고리즘 추천은 기록만 한다 (텔레그램에 알리지 않음)
-            silent = rec["strategy"] == "original" or (
+            # 알림 주체(config.ALERT_STRATEGY)가 아닌 전략의 추천은 기록만 한다 (텔레그램에 알리지 않음)
+            silent = rec["strategy"] != config.ALERT_STRATEGY or (
                 reason == "expired" and age >= timedelta(days=price_tracker.TRACK_DAYS) + EXPIRY_NOTICE_WINDOW)
             print(text if not silent else f"(조용히 종료) {rec['market']} {reason}")
-            if not silent and telegram_client.is_configured():
+            if silent:
+                continue
+            if rec["strategy"] == "original":
+                # 대조군은 만료·익절·손절이 한꺼번에 몰리므로 종목마다 보내지 않고 사이클 끝에 한 통으로 묶는다
+                original_lines.append(original_alerts.exit_line(rec, reason, current, at, restored=bool(hit)))
+            elif telegram_client.is_configured():
                 await telegram_client.send_message(session, text)
         except Exception as exc:
             # 종목 하나(알림 전송 실패 등)에서 난 오류로 나머지 종목의 종료 판단이 막히면 안 된다
             print(f"  {rec['market']} 종료 처리 실패(이번 사이클은 건너뜀): {exc!r}")
+    if original_lines:
+        try:
+            await original_alerts.send_all(session, original_alerts.exit_header(len(original_lines), now), original_lines)
+        except Exception as exc:
+            print(f"  대조군 종료 묶음 알림 전송 실패(기록은 완료): {exc!r}")
     return closed

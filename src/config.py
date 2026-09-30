@@ -201,11 +201,16 @@ SCORE_GRADE_THRESHOLDS = {"A": 16, "B": 13}  # 이 값 이상이면 해당 등�
 
 # 대조군(최초 커밋의 첫 버전 규칙)을 개선판과 나란히 돌려 성과를 비교한다. 끄려면 저장소 변수 ORIGINAL_ENABLED=false.
 # 규칙: 일봉 게이트만 통과하면 추천 + 최초 스토RSI 설정(트레이딩뷰와 순서가 반대인 오독) + BTC 일봉 종가 MA20 위
-# 2일 유지. 절대 안 바꾼다 — 비교의 기준점이라 바꾸면 지금까지의 비교가 무의미해진다. 조용히(텔레그램 없이) 기록만 한다.
+# 2일 유지. 절대 안 바꾼다 — 비교의 기준점이라 바꾸면 지금까지의 비교가 무의미해진다. 알림 여부는 ALERT_STRATEGY가 정한다.
 # 종료 규칙은 최초에는 없었지만 성과를 재려고 개선판과 같은 익절 +5% / 손절 -5% / 3일을 쓴다. 마감된 캔들만 쓰는 것도
 # 개선판과 같다 (최초 버전의 진행 중 캔들 사용은 신호가 스캔마다 바뀌는 오류였다).
 ORIGINAL_ENABLED = os.environ.get("ORIGINAL_ENABLED", "true").strip().lower() != "false"
 ORIGINAL_BTC_HOLD_DAYS = 2
+
+# 텔레그램 알림(신규 추천·종료·현황 리포트)을 보내는 쪽. 다른 전략은 알림 없이 기록만 하고 성과 비교는 계속된다.
+# 규칙은 바꾸지 않고 알림 주체만 바꾼다 — 2026-09-30부터 대조군('original')이 메인 알림, 원래대로 되돌리려면 저장소 변수
+# ALERT_STRATEGY=legacy.
+ALERT_STRATEGY = "legacy" if (os.environ.get("ALERT_STRATEGY") or "original").strip().lower() == "legacy" else "original"
 
 UPBIT_MARKET = "KRW-BTC"
 BINANCE_SYMBOL = "BTCUSDT"

@@ -1,12 +1,12 @@
 """한 번의 스캔 사이클: BTC 추세 확인 -> (유리하면) 전체 스캔 -> 상태 비교 -> 알림.
 scripts/run_scan.py(1회 실행)와 scripts/run_loop.py(계속 실행)가 공유해서 쓴다."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 import aiohttp
 
-from src import config, cycle, exits, macro_job, market_cap, original_scanner, paper_limit, price_tracker, report, scan_log, state_store, telegram_client
+from src import config, cycle, exits, macro_job, market_cap, original_alerts, original_scanner, paper_limit, price_tracker, report, scan_log, state_store, telegram_client
 from src.exchanges import upbit_client
 from src.notifier import diff_alerts
 from src.scanner import btc_days_above, check_btc_trend, scan_all
@@ -78,7 +78,8 @@ async def run_once(session: aiohttp.ClientSession) -> None:
     alerts, new_states = diff_alerts(candidates)
     state_store.save_all(new_states)
 
-    print(f"\n알림 대상 {len(alerts)}건 (상태가 바뀐 종목만)")
+    legacy_alerts_on = config.ALERT_STRATEGY == "legacy"
+    print(f"\n알림 대상 {len(alerts)}건 (상태가 바뀐 종목만)" + ("" if legacy_alerts_on else " — 개선판은 알림 없이 기록만(ALERT_STRATEGY=original)"))
     if not telegram_client.is_configured():
         print("(텔레그램 미설정 -> 콘솔에만 출력, .env에 TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID를 넣으면 전송됨)")
     candidate_by_market = {c.market: c for c in candidates}
@@ -86,7 +87,7 @@ async def run_once(session: aiohttp.ClientSession) -> None:
         print(f"  [{a.kind}] {a.message}")
         # 알림 하나(전송 실패 등)에서 난 오류로 나머지 알림·진입 기록이 막히면 안 된다
         try:
-            if telegram_client.is_configured():
+            if legacy_alerts_on and telegram_client.is_configured():
                 await telegram_client.send_message(session, a.message)
         except Exception as exc:
             print(f"  알림 전송 실패({a.market}, 기록은 계속 진행): {exc!r}")
@@ -108,7 +109,7 @@ async def run_once(session: aiohttp.ClientSession) -> None:
     scan_log.record_scan(btc_favorable=True, candidates=len(candidates), alerts=len(alerts))
 
     await _send_heartbeat(
-        session, f"💓 {now} 스캔 완료 — 후보 {len(candidates)}개, 알림 {len(alerts)}건"
+        session, f"💓 {now} 스캔 완료 — 후보 {len(candidates)}개, 알림 {len(alerts) if legacy_alerts_on else 0}건"
     )
 
 
@@ -121,7 +122,7 @@ async def _update_paper(session: aiohttp.ClientSession, btc_favorable: bool) -> 
 
 
 async def _run_baseline_scan(session: aiohttp.ClientSession, markets: list[str], cache: dict) -> None:
-    """기준선(최초 알고리즘) 병행 기록 (텔레그램 없음). 실패해도 개선판에는 영향을 주지 않는다."""
+    """기준선(최초 알고리즘) 병행 기록. 텔레그램은 config.ALERT_STRATEGY가 'original'일 때만 묶어서 보낸다. 실패해도 개선판에는 영향을 주지 않는다."""
     if not config.ORIGINAL_ENABLED:
         return
     try:
@@ -134,12 +135,21 @@ async def _run_baseline_scan(session: aiohttp.ClientSession, markets: list[str],
             print("기준선: 새 추천 없음")
             return
         prices = await upbit_client.fetch_ticker_prices(session, [m for m, _ in found])
+        entered = []
         for market, result in found:
             price = prices.get(market)
             if price is None:
                 continue
             price_tracker.record_entry(market, price, "-", round(result.score, 1), original_scanner.breakdown(result), strategy="original")
-        print(f"기준선: 새 추천 {len(found)}건 기록 (알림 없음)")
+            entered.append((market, price, round(result.score, 1)))
+        alert_on = config.ALERT_STRATEGY == "original"
+        print(f"기준선: 새 추천 {len(entered)}건 기록" + (" (텔레그램 묶음 알림)" if alert_on else " (알림 없음)"))
+        if alert_on and entered:
+            try:  # 기록은 이미 끝났으니 전송 실패가 있어도 추천 기록에는 영향이 없다
+                await original_alerts.send_all(
+                    session, original_alerts.entry_header(len(entered), datetime.now(timezone.utc)), original_alerts.entry_lines(entered))
+            except Exception as exc:
+                print(f"기준선: 알림 전송 실패(기록은 완료): {exc!r}")
     except Exception as exc:
         print(f"기준선 스캔 실패(개선판은 영향 없음): {exc!r}")
 

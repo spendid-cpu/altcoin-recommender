@@ -7,7 +7,7 @@
   - 스토RSI 설정: 최초 버전의 것(stoch_rsi.ORIGINAL_PERIOD_SETS, 트레이딩뷰와 순서가 반대) 그대로
   - BTC 필터: 일봉 종가가 MA20 위에서 2일 이상 (config.ORIGINAL_BTC_HOLD_DAYS)
   - 종목당 3일에 한 번만 추천, 일봉 거래대금 3억원 미만은 제외 (모두 최초부터 있던 규칙)
-개선판 스캔이 이미 받아 둔 일봉 캔들을 재사용하므로 추가 API 호출이 없다. 텔레그램으로는 알리지 않고 기록만 한다."""
+개선판 스캔이 이미 받아 둔 일봉 캔들을 재사용하므로 추가 API 호출이 없다. 텔레그램 알림 여부는 config.ALERT_STRATEGY가 정한다 (규칙과는 무관)."""
 
 from src import config
 from src.indicators.stoch_rsi import ORIGINAL_PERIOD_SETS

@@ -31,6 +31,8 @@ def elapsed_text(delta: timedelta) -> str:
 def score_line(rec: dict, cand: CandidateResult | None, btc_filter_on: bool) -> str:
     """발굴 때 점수와 지금 점수의 변화 한 줄 (현황 리포트와 종료 알림에서 같이 쓴다)."""
     start = f"{rec['score']:.1f}" if rec["score"] is not None else "—"
+    if rec.get("strategy") == "original":  # 개선판 후보 점수와는 다른 기준이라 비교하지 않는다
+        return f"📐 일봉 점수 {start} (최초 규칙)"
     if cand is not None:
         tail = f" · 5분 저점 {'✅' if cand.low_15m else '대기'}{' · 타점 ✅' if cand.entry_ready else ''}"
         return f"📐 점수 {start} → {cand.total_score:.1f} ({cand.grade}) · {frames_text(cand.cleared_frames)}{tail}"
@@ -43,7 +45,7 @@ def active_recommendations(now: datetime) -> list[dict]:
     """지금 추적 중인 추천 (추적 기간 안이고 아직 종료되지 않은 것)."""
     cutoff = now - timedelta(days=price_tracker.TRACK_DAYS)
     return [r for r in price_tracker.load_recommendations()
-            if r["entered_at"] >= cutoff and r["exit"] is None and r["strategy"] != "original"]  # 대조군은 조용히 기록만
+            if r["entered_at"] >= cutoff and r["exit"] is None and r["strategy"] == config.ALERT_STRATEGY]  # 알림 주체가 아닌 전략은 기록만
 
 
 def build_report(
@@ -124,7 +126,7 @@ def build_delta_report(
 ) -> str | None:
     """지난 리포트 이후 바뀐 것만: 신규/종료 건수(개별 알림은 이미 나갔으니 건수만), 추천가 대비 수익률이 크게 움직인 종목,
     전체 평균. 알릴 변화가 없으면 None."""
-    all_recs = [r for r in price_tracker.load_recommendations() if r["strategy"] != "original"]
+    all_recs = [r for r in price_tracker.load_recommendations() if r["strategy"] == config.ALERT_STRATEGY]
     new_n = sum(1 for r in all_recs if r["entered_at"] > since)
     ended = [r["exit"]["reason"] for r in all_recs if r["exit"] and r["exit"]["ended_at"] > since]
     labels = {"take_profit": "익절", "stop_loss": "손절", "btc_exit": "BTC 이탈", "expired": "만료", "trailing": "되돌림"}
@@ -148,7 +150,7 @@ def build_delta_report(
     if ended:
         summary.append(f"종료 {len(ended)}건 ({ended_text})")
     if summary:
-        lines.append("🆕 " + " · ".join(summary) + " (개별 알림으로 이미 전달)")
+        lines.append("🆕 " + " · ".join(summary) + " (알림으로 이미 전달)")
     if movers:
         lines.append("")
         lines.append(f"📈 추천가 대비 수익률이 {config.REPORT_MOVE_PCT:g}%p 이상 움직인 종목")
