@@ -4,86 +4,212 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>알트코인 투자 매크로</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <style>
   :root {
     color-scheme: light;
-    --page: #f9f9f7; --surface: #fcfcfb;
-    --ink: #0b0b0b; --ink2: #52514e; --muted: #898781;
-    --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11, 11, 11, 0.10);
-    --good: #006300; --bad: #d03b3b; --warn: #fab219;
+    --page: #f3f4f7; --surface: #ffffff; --surface2: #f6f7fa;
+    --ink: #10141a; --ink2: #454d5a; --muted: #838c9a;
+    --grid: #e8eaef; --axis: #c6cbd5; --border: #e3e6ec; --border-strong: #cfd4dd;
+    --accent: #2f5bea; --on-accent: #ffffff;
+    --good: #0b8a52; --bad: #d6403a; --warn: #e7a008;
     --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
     --s5: #e87ba4; --s6: #008300; --s7: #4a3aa7; --s8: #e34948;
-    --other: #898781;
+    --other: #838c9a;
+    --shadow: 0 1px 2px rgba(16, 20, 26, .04), 0 2px 10px rgba(16, 20, 26, .045);
+    --radius: 14px;
+    --font: "Pretendard Variable", Pretendard, system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
   }
   @media (prefers-color-scheme: dark) {
     :root:where(:not([data-theme="light"])) {
       color-scheme: dark;
-      --page: #0d0d0d; --surface: #1a1a19;
-      --ink: #ffffff; --ink2: #c3c2b7; --muted: #898781;
-      --grid: #2c2c2a; --axis: #383835; --border: rgba(255, 255, 255, 0.10);
-      --good: #0ca30c; --bad: #d03b3b;
+      --page: #0a0c10; --surface: #13171d; --surface2: #191e26;
+      --ink: #f1f3f7; --ink2: #b5bbc7; --muted: #7d8696;
+      --grid: #222831; --axis: #343b47; --border: #212731; --border-strong: #303846;
+      --accent: #7f9eff; --on-accent: #0a0c10;
+      --good: #34c98a; --bad: #ff7d76; --warn: #f0b429;
       --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
       --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .35);
     }
   }
   :root[data-theme="dark"] {
     color-scheme: dark;
-    --page: #0d0d0d; --surface: #1a1a19;
-    --ink: #ffffff; --ink2: #c3c2b7; --muted: #898781;
-    --grid: #2c2c2a; --axis: #383835; --border: rgba(255, 255, 255, 0.10);
-    --good: #0ca30c; --bad: #d03b3b;
+    --page: #0a0c10; --surface: #13171d; --surface2: #191e26;
+    --ink: #f1f3f7; --ink2: #b5bbc7; --muted: #7d8696;
+    --grid: #222831; --axis: #343b47; --border: #212731; --border-strong: #303846;
+    --accent: #7f9eff; --on-accent: #0a0c10;
+    --good: #34c98a; --bad: #ff7d76; --warn: #f0b429;
     --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
     --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .35);
   }
 
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
+  html { -webkit-text-size-adjust: 100%; }
   body {
     margin: 0; background: var(--page); color: var(--ink);
-    font: 14px/1.5 system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
-    word-break: keep-all;
+    font: 14.5px/1.55 var(--font);
+    word-break: keep-all; overflow-wrap: anywhere;
+    -webkit-font-smoothing: antialiased;
   }
-  .wrap { max-width: 1080px; margin: 0 auto; padding: 24px 16px 64px; }
-  .top { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
-  h1 { font-size: 22px; font-weight: 650; margin: 0 0 2px; }
-  .sub { margin: 0; color: var(--ink2); font-size: 13px; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 18px 20px 72px; }
+  h1, h2, h3 { letter-spacing: -.012em; }
+  .sub { margin: 3px 0 0; color: var(--ink2); font-size: 13px; line-height: 1.5; }
   .muted { color: var(--muted); }
-  .top-actions { display: flex; align-items: center; gap: 12px; font-size: 12.5px; }
+
+  /* ---------- 상단 바 ---------- */
+  .topbar { position: sticky; top: 0; z-index: 30; background: color-mix(in srgb, var(--page) 88%, transparent); backdrop-filter: saturate(1.4) blur(12px); -webkit-backdrop-filter: saturate(1.4) blur(12px); border-bottom: 1px solid var(--border); }
+  .topbar-inner { max-width: 1120px; margin: 0 auto; padding: 10px 20px; display: flex; align-items: center; gap: 12px; }
+  .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .logo { flex: none; width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 15px;
+    background: linear-gradient(140deg, var(--accent), color-mix(in srgb, var(--accent) 45%, #9b5cff)); }
+  .brand h1 { margin: 0; font-size: 16px; font-weight: 750; line-height: 1.2; white-space: nowrap; }
+  .brand > div { min-width: 0; }
+  .brand .ver { font-size: 11.5px; color: var(--muted); line-height: 1.3; }
+  .top-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .status-chip { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--ink2); white-space: nowrap; }
+  .status-chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--good); box-shadow: 0 0 0 3px color-mix(in srgb, var(--good) 22%, transparent); }
+  .status-chip.stale .dot { background: var(--warn); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 28%, transparent); }
+  .icon-btn { width: 34px; height: 34px; flex: none; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--ink2); display: grid; place-items: center; cursor: pointer; padding: 0; }
+  .icon-btn:hover { color: var(--ink); border-color: var(--border-strong); }
+  .icon-btn svg { width: 18px; height: 18px; }
 
   .btn {
-    font: inherit; font-size: 12.5px; color: var(--ink2); background: transparent;
-    border: 1px solid var(--border); border-radius: 8px; padding: 5px 10px; cursor: pointer;
+    font: inherit; font-size: 13px; color: var(--ink2); background: transparent;
+    border: 1px solid var(--border); border-radius: 10px; padding: 6px 12px; cursor: pointer; line-height: 1.3;
   }
-  .btn:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); }
-  .btn[aria-pressed="true"] { color: var(--ink); border-color: var(--ink2); }
-  .btn:focus-visible, svg:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
+  .btn:hover { background: color-mix(in srgb, var(--ink) 5%, transparent); color: var(--ink); }
+  .btn[aria-pressed="true"] { color: var(--ink); border-color: var(--border-strong); background: var(--surface2); font-weight: 600; }
+  .btn:focus-visible, svg:focus-visible, .tab:focus-visible, .link-btn:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .link-btn { font: inherit; font-size: 13px; color: var(--accent); background: none; border: 0; padding: 4px 2px; cursor: pointer; font-weight: 600; }
+  .link-btn:hover { text-decoration: underline; }
 
   main { transition: opacity .15s; }
   body.loading main { opacity: .6; }
 
-  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 16px; }
-  .tile, .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
-  .tile { padding: 14px 16px; min-width: 0; }
-  .tile .label { color: var(--ink2); font-size: 13px; }
-  .tile .value { display: flex; align-items: center; gap: 8px; font-size: 28px; font-weight: 650; line-height: 1.25; margin: 4px 0 2px; }
-  .tile .note { color: var(--ink2); font-size: 12.5px; }
-  .tile .spark { margin-top: 8px; }
+  /* ---------- 탭 (PC: 위쪽 알약형, 모바일: 아래 고정 바) ---------- */
+  .tabs { display: flex; gap: 3px; padding: 4px; margin: 0 0 16px; background: var(--surface2); border: 1px solid var(--border); border-radius: 14px; width: max-content; max-width: 100%; }
+  .tab {
+    font: inherit; font-size: 14px; font-weight: 550; color: var(--ink2); background: none; border: 0; border-radius: 10px;
+    padding: 8px 18px; cursor: pointer; display: flex; align-items: center; gap: 7px; white-space: nowrap;
+  }
+  .tab svg { width: 17px; height: 17px; flex: none; }
+  .tab:hover { color: var(--ink); }
+  .tab[aria-selected="true"] { color: var(--ink); font-weight: 700; background: var(--surface); box-shadow: var(--shadow); }
+  .tab[aria-selected="true"] svg { color: var(--accent); }
+
+  /* ---------- 필터·구분 스위치 ---------- */
+  .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 0 0 14px; }
+  .seg { display: inline-flex; max-width: 100%; overflow-x: auto; scrollbar-width: none; padding: 3px; gap: 2px; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; }
+  .seg::-webkit-scrollbar, .period-bar::-webkit-scrollbar { display: none; }
+  .seg .btn { border: 0; border-radius: 9px; background: none; padding: 6px 13px; white-space: nowrap; }
+  .seg .btn[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); font-weight: 650; }
+  .seg .btn .n { color: var(--muted); font-weight: 500; margin-left: 4px; font-variant-numeric: tabular-nums; }
+  .strat-filter { margin: 0 0 14px; }
+  .period-bar { display: flex; flex-wrap: nowrap; gap: 6px; margin: 0 0 10px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+  .period-bar .btn { border-radius: 999px; padding: 5px 13px; white-space: nowrap; flex: none; }
+  .period-bar .btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 650; }
+  .period-custom { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 0 0 12px; font-size: 13px; color: var(--ink2); }
+  .period-custom input { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px 9px; }
+  .head-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+  /* ---------- 카드·지표 타일 ---------- */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(205px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .tile, .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+  .tile { padding: 14px 16px 13px; min-width: 0; }
+  .tile.hero { background: linear-gradient(165deg, color-mix(in srgb, var(--accent) 10%, var(--surface)) 0%, var(--surface) 62%); border-color: color-mix(in srgb, var(--accent) 26%, var(--border)); }
+  .tile .label { color: var(--ink2); font-size: 12.5px; font-weight: 550; }
+  .tile .value { display: flex; align-items: center; gap: 8px; font-size: 27px; font-weight: 750; line-height: 1.2; margin: 5px 0 3px; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .tile .value .unit { font-size: 14px; font-weight: 550; color: var(--ink2); margin-left: -3px; }
+  .tile .note { color: var(--ink2); font-size: 12.5px; line-height: 1.45; }
+  .tile .spark { margin-top: 8px; height: 30px; }
   .status-icon { flex: none; }
+  .up { color: var(--good); } .down { color: var(--bad); }
 
-  .card { padding: 16px; margin-bottom: 16px; }
-  .card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
-  .card h2 { font-size: 16px; font-weight: 650; margin: 0; }
-  .card-note { margin: 10px 0 0; color: var(--ink2); font-size: 12.5px; }
+  .card { padding: 18px; margin-bottom: 16px; }
+  .card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .card h2, .sec-head h2 { font-size: 16.5px; font-weight: 700; margin: 0; }
+  .card-note { margin: 12px 0 0; color: var(--ink2); font-size: 12.5px; line-height: 1.55; }
+  .section-title { font-size: 16px; font-weight: 700; margin: 22px 2px 10px; }
+  .sec-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin: 2px 2px 12px; }
+  .sec-head .count { margin-left: 6px; font-size: 13px; font-weight: 600; color: var(--muted); }
 
+  .notice { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; margin-bottom: 14px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--border)); background: color-mix(in srgb, var(--warn) 10%, var(--surface)); font-size: 13.5px; }
+  .notice strong { font-weight: 700; }
+
+  details.fold { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 16px; }
+  details.fold > summary { list-style: none; cursor: pointer; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; gap: 10px; font-weight: 650; font-size: 15px; border-radius: var(--radius); }
+  details.fold > summary::-webkit-details-marker { display: none; }
+  details.fold > summary::after { content: ""; flex: none; width: 8px; height: 8px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); margin-top: -3px; transition: transform .15s; }
+  details.fold[open] > summary::after { transform: rotate(-135deg); margin-top: 3px; }
+  details.fold[open] > summary { border-bottom: 1px solid var(--border); border-radius: var(--radius) var(--radius) 0 0; }
+  details.fold > summary .hint { margin-left: 8px; font-weight: 450; font-size: 12.5px; color: var(--muted); }
+  .fold-body { padding: 16px 18px 18px; }
+  .fold-body > .sub:first-child { margin: 0 0 12px; }
+
+  /* ---------- 홈 레이아웃 ---------- */
+  .home-grid { display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+  .home-side > .card, .home-side > details { margin-bottom: 14px; }
+  .home-side h2 { font-size: 15.5px; }
+
+  /* ---------- 추천 카드 ---------- */
+  .rec-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 262px), 1fr)); gap: 12px; }
+  .rec { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 15px 12px; box-shadow: var(--shadow); display: grid; gap: 11px; min-width: 0; align-content: start; }
+  .rec-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .rec-name { font-weight: 750; font-size: 17px; letter-spacing: -.015em; line-height: 1.2; }
+  .rec-name small { font-weight: 550; color: var(--muted); font-size: 11.5px; margin-right: 4px; letter-spacing: 0; }
+  .rec-meta { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+  .rec-ret { font-size: 21px; font-weight: 750; font-variant-numeric: tabular-nums; text-align: right; line-height: 1.1; letter-spacing: -.02em; white-space: nowrap; }
+  .rec-ret small { display: block; margin-top: 4px; font-size: 11.5px; color: var(--muted); font-weight: 500; letter-spacing: 0; }
+  .rec-price { font-size: 13px; color: var(--ink2); font-variant-numeric: tabular-nums; }
+  .rec-foot { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .gauge { color: var(--muted); }
+  .gauge.up { color: var(--good); } .gauge.down { color: var(--bad); }
+  .gauge-bar { position: relative; height: 8px; border-radius: 99px; background: linear-gradient(90deg, color-mix(in srgb, var(--bad) 20%, var(--grid)) 0 50%, color-mix(in srgb, var(--good) 20%, var(--grid)) 50% 100%); }
+  .gauge-bar .mid { position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--axis); }
+  .gauge-bar .fill { position: absolute; top: 0; bottom: 0; border-radius: 99px; background: currentColor; opacity: .85; }
+  .gauge-bar .knob { position: absolute; top: 50%; width: 15px; height: 15px; border-radius: 50%; background: var(--surface); border: 3px solid currentColor; transform: translate(-50%, -50%); box-shadow: 0 1px 3px rgba(0, 0, 0, .25); }
+  .gauge-labels { display: flex; justify-content: space-between; margin-top: 6px; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .done-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr)); gap: 8px; }
+  .done-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 12px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--muted); border-radius: 12px; padding: 10px 13px; }
+  .done-item.tp { border-left-color: var(--good); } .done-item.sl { border-left-color: var(--bad); }
+  .done-item .nm { font-weight: 700; font-size: 15px; }
+  .done-item .nm small { color: var(--muted); font-size: 11px; font-weight: 550; margin-right: 4px; }
+  .done-item .ret { font-weight: 750; font-size: 16px; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .done-item .line { font-size: 12.5px; color: var(--ink2); font-variant-numeric: tabular-nums; min-width: 0; }
+  .done-item .line.r { text-align: right; color: var(--muted); }
+  .more-row { display: flex; justify-content: center; margin: 14px 0 4px; }
+
+  .cal-list { display: grid; gap: 2px; }
+  .cal-row { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 9px 2px; border-bottom: 1px solid var(--grid); }
+  .cal-row:last-child { border-bottom: 0; }
+  .cal-row .t { font-size: 13.5px; font-weight: 550; }
+  .cal-row .w { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .mini-rows { display: grid; gap: 0; }
+  .mini-row { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 9px 2px; border-bottom: 1px solid var(--grid); font-size: 13.5px; }
+  .mini-row:last-child { border-bottom: 0; }
+  .mini-row .nm { font-weight: 650; }
+  .mini-row .nm small { color: var(--muted); font-size: 11px; font-weight: 500; margin-right: 4px; }
+  .mini-row .when { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .mini-row .r { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .badge { display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 650; white-space: nowrap; background: color-mix(in srgb, var(--muted) 16%, transparent); color: var(--ink2); }
+  .badge.tp { background: color-mix(in srgb, var(--good) 16%, transparent); color: var(--good); }
+  .badge.sl { background: color-mix(in srgb, var(--bad) 16%, transparent); color: var(--bad); }
+
+  /* ---------- 표 ---------- */
   .chart-host { position: relative; width: 100%; }
   .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0 0 8px; font-size: 12.5px; color: var(--ink2); }
   .legend .key { display: inline-block; width: 14px; height: 2px; border-radius: 1px; vertical-align: middle; margin-right: 6px; }
+  .legend .swatch { display: inline-block; width: 18px; height: 0; border-top: 2px solid var(--ink2); vertical-align: middle; margin-right: 6px; }
   svg text { font-family: inherit; }
-
   .tooltip {
     position: absolute; z-index: 5; pointer-events: none; min-width: 150px;
-    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
-    padding: 8px 10px; font-size: 12.5px; box-shadow: 0 4px 16px rgba(0, 0, 0, .14);
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 8px 10px; font-size: 12.5px; box-shadow: 0 6px 20px rgba(0, 0, 0, .16);
   }
   .tooltip .t-title { color: var(--ink2); margin-bottom: 4px; }
   .tooltip .t-row { display: flex; align-items: center; gap: 8px; }
@@ -92,75 +218,38 @@
   .tooltip .t-row .val { margin-left: auto; padding-left: 12px; color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
   .tooltip .t-foot { color: var(--ink2); margin-top: 4px; }
 
-  .table-wrap { overflow-x: auto; }
-  table { border-collapse: collapse; width: 100%; font-size: 13px; }
-  th, td { padding: 8px 10px; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--grid); }
-  th { color: var(--ink2); font-weight: 500; font-size: 12px; }
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  th, td { padding: 9px 11px; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--grid); }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; }
+  tbody tr:hover td { background: color-mix(in srgb, var(--ink) 3%, transparent); }
   tr:last-child td { border-bottom: 0; }
   td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .delta.up { color: var(--good); }
   .delta.down { color: var(--bad); }
-  .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; border: 1px solid var(--border); color: var(--ink2); }
-  .pill.A { background: color-mix(in srgb, var(--s1) 18%, transparent); color: var(--ink); border-color: transparent; font-weight: 600; }
-  .pill.B { background: color-mix(in srgb, var(--s1) 9%, transparent); color: var(--ink); border-color: transparent; }
-  .strat { font-size: 11px; color: var(--muted); margin-right: 5px; }
-  .strat-filter { margin: 0 0 14px; }
-  .section-title { font-size: 15px; margin: 22px 2px 10px; }
+  .pill { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 12px; border: 1px solid var(--border); color: var(--ink2); white-space: nowrap; }
+  .pill.A { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--ink); border-color: transparent; font-weight: 650; }
+  .pill.B { background: color-mix(in srgb, var(--accent) 8%, transparent); color: var(--ink); border-color: transparent; }
+  .pill.vol-lo { background: color-mix(in srgb, var(--s1) 12%, transparent); color: var(--ink); border-color: transparent; }
+  .pill.vol-hi { background: color-mix(in srgb, var(--s2) 14%, transparent); color: var(--ink); border-color: transparent; }
+  .strat { font-size: 11.5px; color: var(--muted); margin-right: 5px; font-weight: 550; }
   .flag { display: inline-flex; align-items: center; gap: 4px; }
 
-  .empty { padding: 28px 8px; text-align: center; color: var(--ink2); }
-  .error { margin-bottom: 12px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; color: var(--ink2); }
-  footer { margin-top: 24px; color: var(--muted); font-size: 12px; }
-  /* 전광판 티커: 탭을 옮겨도 계속 보이는 최근 추천·종료 소식. 화면 모드와 상관없이 항상 검은 배경으로 둔다 */
-  .ticker { background: #050607; border-radius: 8px; margin: 0 0 16px; overflow: hidden; }
-  .ticker-track {
-    display: flex; width: max-content; padding: 9px 0;
-    animation: ticker-scroll 45s linear infinite;
-  }
-  .ticker-track.static { animation: none; flex-wrap: wrap; padding: 9px 14px; }
-  .ticker-track:hover, .ticker-track:focus-within { animation-play-state: paused; }
-  .ticker-item {
-    display: inline-flex; align-items: center; white-space: nowrap;
-    padding: 0 18px; font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums;
-    color: #d1d5db; border-right: 1px solid #1f2937;
-  }
-  .ticker-item.new { color: #38bdf8; }
-  .ticker-item.tp { color: #4ade80; }
-  .ticker-item.sl { color: #f87171; }
-  .ticker-item.ex { color: #9ca3af; }
-  @keyframes ticker-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-  @media (prefers-reduced-motion: reduce) {
-    .ticker-track { animation: none; flex-wrap: wrap; padding: 9px 14px; }
-  }
-  /* 탭 */
-  .tabs { display: flex; gap: 4px; margin: 0 0 16px; border-bottom: 1px solid var(--border); }
-  .tab {
-    font: inherit; font-size: 14px; color: var(--ink2); background: none; border: 0;
-    border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 8px 14px; cursor: pointer;
-  }
-  .tab:hover { color: var(--ink); }
-  .tab[aria-selected="true"] { color: var(--ink); font-weight: 650; border-bottom-color: var(--ink); }
-  .tab:focus-visible { outline: 2px solid var(--s1); outline-offset: -2px; border-radius: 6px; }
+  .empty { padding: 30px 10px; text-align: center; color: var(--ink2); font-size: 13.5px; }
+  .error { margin-bottom: 12px; padding: 9px 13px; border: 1px solid var(--border); border-radius: 10px; color: var(--ink2); background: var(--surface); }
+  footer { margin-top: 28px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+  footer .upd { display: block; margin-bottom: 3px; }
 
   /* 비트코인 분석 탭 */
-  .period-bar { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 12px; }
-  .period-bar .btn { border: 1px solid var(--border); border-radius: 8px; }
   .wl-strip { display: flex; flex-wrap: wrap; gap: 4px; margin: 12px 0 4px; }
-  .wl { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 5px; font-size: 11.5px; font-weight: 600; color: #fff; }
+  .wl { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 6px; font-size: 11.5px; font-weight: 650; color: #fff; }
   .wl.w { background: var(--good); }
   .wl.l { background: var(--bad); }
-  .period-custom { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 0 0 12px; font-size: 13px; color: var(--ink2); }
-  .period-custom input { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; }
-  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-  .seg .btn { border: 0; border-radius: 0; }
-  .seg .btn + .btn { border-left: 1px solid var(--border); }
-  .head-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-  .legend .swatch { display: inline-block; width: 18px; height: 0; border-top: 2px solid var(--ink2); vertical-align: middle; margin-right: 6px; }
-  .wave-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
-  .wave { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; min-width: 0; }
+  .wave-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 12px; }
+  .wave { border: 1px solid var(--border); border-radius: 12px; padding: 13px 15px; min-width: 0; background: var(--surface2); }
   .wave-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
   .wave-name { color: var(--ink2); font-size: 13px; }
-  .verdict { font-weight: 650; font-size: 16px; }
+  .verdict { font-weight: 700; font-size: 16px; }
   .verdict.bull { color: var(--good); }
   .verdict.bear { color: var(--bad); }
   .wave-text { margin: 6px 0 10px; }
@@ -172,21 +261,21 @@
   tr.zone-3 td:not(.members), tr.zone-4 td:not(.members), tr.zone-5 td:not(.members) { font-weight: 650; }
   tr.zone-3 td, tr.zone-4 td { background: color-mix(in srgb, var(--s1) 8%, transparent); }
   tr.zone-5 td { background: color-mix(in srgb, var(--s1) 14%, transparent); }
-  /* 성과(익절·손절) 탭 */
-  .stack { display: flex; gap: 2px; height: 22px; }
-  .stack > span { display: block; min-width: 3px; border-radius: 3px; }
+  /* 성과 탭 */
+  .stack { display: flex; gap: 2px; height: 24px; }
+  .stack > span { display: block; min-width: 3px; border-radius: 4px; }
   .stack .tp { background: var(--good); }
   .stack .sl { background: var(--bad); }
   .stack .exp { background: var(--muted); }
   .stack .exc { background: var(--muted); }
   .stack .bx { background: var(--warn, var(--muted)); }
   .stack .act { background: var(--s1); }
-  .stack-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 10px; font-size: 12.5px; color: var(--ink2); }
-  .stack-legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+  .stack-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 11px; font-size: 12.5px; color: var(--ink2); }
+  .stack-legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
   .result { font-weight: 650; }
   .result.tp { color: var(--good); }
   .result.sl { color: var(--bad); }
-  .tier-pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; color: #fff; white-space: nowrap; }
+  .tier-pill { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 12px; font-weight: 650; color: #fff; white-space: nowrap; }
   .tier-0 { background: var(--good); }
   .tier-1 { background: var(--s3); }
   .tier-2 { background: var(--s4); color: #3a2a00; }
@@ -197,264 +286,220 @@
   details.why-box summary { cursor: pointer; color: var(--ink); }
   .why-body { margin-top: 6px; line-height: 1.55; }
   .why-body ul { margin: 4px 0 4px; padding-left: 18px; }
-  .ref-box { margin: 10px 0 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 12.5px; color: var(--ink2); }
+  .ref-box { margin: 12px 0 0; padding: 11px 13px; border: 1px solid var(--border); border-radius: 10px; font-size: 12.5px; color: var(--ink2); background: var(--surface2); line-height: 1.55; }
+  .cmp-table td:first-child, .cmp-table th:first-child { font-weight: 600; color: var(--ink2); }
+  .cmp-cards { display: none; }
+  .cmp-card { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; background: var(--surface2); }
+  .cmp-card h3 { margin: 0 0 6px; font-size: 14px; font-weight: 700; }
+  .cmp-card .kv { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; padding: 6px 0; border-bottom: 1px solid var(--grid); font-size: 13px; }
+  .cmp-card .kv:last-child { border-bottom: 0; }
+  .cmp-card .k { color: var(--muted); flex: none; }
+  .cmp-card .v { font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
   /* 비트코인 멀티 차트 */
-  .mc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
-  .mc-col { min-width: 0; border: 1px solid var(--border); border-radius: 10px; padding: 8px 6px 2px; }
+  .mc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 12px; }
+  .mc-col { min-width: 0; border: 1px solid var(--border); border-radius: 12px; padding: 8px 6px 2px; background: var(--surface); }
   .mc-title { font-size: 13px; margin: 0 0 4px 6px; }
-  .stoch-frame { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
-  .stoch-frame h3 { margin: 0 0 8px; font-size: 14px; font-weight: 650; }
-  .stoch-cells { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+  .stoch-frame { border: 1px solid var(--border); border-radius: 12px; padding: 13px 15px; margin-bottom: 10px; background: var(--surface2); }
+  .stoch-frame h3 { margin: 0 0 8px; font-size: 14px; font-weight: 700; }
+  .stoch-cells { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 10px; }
   .cell { min-width: 0; }
   .cell .cell-name { color: var(--ink2); font-size: 12px; }
-  .cell .cell-state { font-weight: 600; font-size: 13.5px; }
+  .cell .cell-state { font-weight: 650; font-size: 13.5px; }
   .cell.bull .cell-state { color: var(--good); }
   .cell.bear .cell-state { color: var(--bad); }
   .cell .cell-num { color: var(--ink2); font-size: 12px; font-variant-numeric: tabular-nums; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-  .howto { margin: 0; padding-left: 18px; color: var(--ink2); font-size: 12.5px; }
-  .howto li { margin: 4px 0; }
+  .howto { margin: 0; padding-left: 18px; color: var(--ink2); font-size: 13px; }
+  .howto li { margin: 5px 0; }
   /* 로그인 (데이터가 암호화돼 있을 때) */
-  .login { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; padding: 16px; background: var(--page); }
-  .login-card { width: 100%; max-width: 360px; display: grid; gap: 12px; padding: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
-  .login-card h2 { margin: 0; font-size: 18px; font-weight: 650; }
+  .login { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; padding: 16px; background: var(--page); }
+  .login-card { width: 100%; max-width: 360px; display: grid; gap: 12px; padding: 26px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); }
+  .login-card h2 { margin: 0; font-size: 18px; font-weight: 700; }
   .login-card label { display: grid; gap: 4px; font-size: 13px; color: var(--ink2); }
   .login-card input[type="text"], .login-card input[type="password"] {
-    font: inherit; font-size: 15px; padding: 9px 10px; color: var(--ink); background: var(--page);
-    border: 1px solid var(--border); border-radius: 8px;
+    font: inherit; font-size: 16px; padding: 10px 11px; color: var(--ink); background: var(--page);
+    border: 1px solid var(--border); border-radius: 10px;
   }
-  .login-card input:focus-visible { outline: 2px solid var(--s1); outline-offset: 1px; }
+  .login-card input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .login-card .check { display: flex; align-items: center; gap: 8px; }
   .login-error { margin: 0; color: var(--bad); font-size: 13px; }
-  .btn.primary { color: var(--page); background: var(--ink); border-color: var(--ink); font-weight: 600; font-size: 14px; padding: 9px 12px; }
-  .btn.primary:hover { background: var(--ink); opacity: .88; }
+  .btn.primary { color: var(--on-accent); background: var(--accent); border-color: var(--accent); font-weight: 650; font-size: 14.5px; padding: 10px 12px; }
+  .btn.primary:hover { background: var(--accent); opacity: .9; color: var(--on-accent); }
   .btn.primary:disabled { opacity: .55; cursor: default; }
-  body.locked .wrap { visibility: hidden; }
+  body.locked .wrap, body.locked .topbar { visibility: hidden; }
+
+  /* ---------- 좁은 화면 ---------- */
+  @media (max-width: 980px) {
+    .home-grid { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+    .home-side { margin-top: 8px; }
+  }
+  @media (max-width: 760px) {
+    .wrap { padding: 14px 14px 96px; }
+    .topbar-inner { padding: 9px 14px; }
+    .brand .ver { display: none; }
+    .tabs {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; width: auto; max-width: none; margin: 0; border-radius: 0; border: 0; border-top: 1px solid var(--border);
+      background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: saturate(1.4) blur(14px); -webkit-backdrop-filter: saturate(1.4) blur(14px);
+      padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); gap: 0; justify-content: space-around;
+    }
+    .tab { flex: 1; flex-direction: column; gap: 3px; font-size: 11px; font-weight: 600; padding: 6px 2px; border-radius: 10px; min-width: 0; }
+    .tab svg { width: 23px; height: 23px; }
+    .tab[aria-selected="true"], .tab[aria-selected="true"] svg { background: none; box-shadow: none; color: var(--accent); }
+    .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+    .tile { padding: 12px 13px 11px; }
+    .tile .value { font-size: 22px; }
+    .tile .note { font-size: 12px; }
+    .card { padding: 15px 14px; border-radius: 13px; }
+    .fold-body { padding: 14px 14px 16px; }
+    details.fold > summary { padding: 13px 14px; }
+    .rec-grid { grid-template-columns: minmax(0, 1fr); }
+    .cmp-wide { display: none; }
+    .cmp-cards { display: grid; gap: 10px; }
+    th, td { padding: 8px 9px; }
+    .table-wrap table td:first-child, .table-wrap table th:first-child { position: sticky; left: 0; z-index: 1; background: var(--surface); box-shadow: 1px 0 0 var(--grid); }
+    .table-wrap table tr.divider td:first-child { position: static; box-shadow: none; }
+    .seg { max-width: 100%; }
+    .status-chip { padding: 4px 9px; font-size: 12px; }
+  }
+  @media (max-width: 400px) {
+    .brand h1 { font-size: 15px; }
+    .status-chip { padding: 4px 8px; font-size: 11.5px; }
+    .logo { width: 28px; height: 28px; font-size: 13px; }
+    .tiles { gap: 8px; }
+    .tile .value { font-size: 20px; }
+    .rec-ret { font-size: 19px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header class="top">
-    <div>
-      <h1 id="app-title">알트코인 투자 매크로</h1>
-      <p class="sub">업비트 KRW 마켓 스캔 · 비트코인 분석(바이낸스 USDT)</p>
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">A</div>
+      <div>
+        <h1 id="app-title">알트코인 매크로</h1>
+        <div class="ver" id="app-ver"></div>
+      </div>
     </div>
     <div class="top-actions">
-      <span id="updated" class="muted"></span>
+      <span id="scan-chip" class="status-chip" hidden><span class="dot" aria-hidden="true"></span><span id="scan-chip-text"></span></span>
       <button id="logout" class="btn" type="button" hidden>로그아웃</button>
-      <button id="theme" class="btn" type="button">화면 모드 전환</button>
+      <button id="theme" class="icon-btn" type="button" aria-label="화면 모드 전환" title="화면 모드 전환">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>
+      </button>
     </div>
-  </header>
-
-  <div id="ticker" class="ticker" aria-label="최근 추천·종료 소식" hidden>
-    <div id="ticker-track" class="ticker-track"></div>
   </div>
+</header>
+
+<div class="wrap">
+  <nav class="tabs" role="tablist" aria-label="화면 선택">
+    <button id="tab-home" class="tab" role="tab" type="button" data-tab="home" aria-controls="view-home" aria-selected="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 11 12 4l8.5 7M5.5 9.5V20h13V9.5"/></svg><span>오늘</span></button>
+    <button id="tab-recs" class="tab" role="tab" type="button" data-tab="recs" aria-controls="view-recs" aria-selected="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/></svg><span>추천</span></button>
+    <button id="tab-perf" class="tab" role="tab" type="button" data-tab="perf" aria-controls="view-perf" aria-selected="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20v-9M12 20V4M19 20v-6"/></svg><span>성과</span></button>
+    <button id="tab-btc" class="tab" role="tab" type="button" data-tab="btc" aria-controls="view-btc" aria-selected="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3.5v3M7 17.5v3M5 6.5h4v11H5zM17 2.5v3M17 14.5v4M15 5.5h4v9h-4z"/></svg><span>비트코인</span></button>
+    <button id="tab-cycle" class="tab" role="tab" type="button" data-tab="cycle" aria-controls="view-cycle" aria-selected="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v4.2h-4.2"/></svg><span>사이클</span></button>
+  </nav>
 
   <div id="error" class="error" role="status" hidden>데이터를 불러오지 못했어요. 잠시 후 다시 시도할게요.</div>
 
-  <nav class="tabs" role="tablist" aria-label="화면 선택">
-    <button id="tab-recs" class="tab" role="tab" type="button" data-tab="recs" aria-controls="view-recs" aria-selected="true">알트코인 추천</button>
-    <button id="tab-done" class="tab" role="tab" type="button" data-tab="done" aria-controls="view-done" aria-selected="false">완료</button>
-    <button id="tab-perf" class="tab" role="tab" type="button" data-tab="perf" aria-controls="view-perf" aria-selected="false">성과 · 전략 비교</button>
-    <button id="tab-macro" class="tab" role="tab" type="button" data-tab="macro" aria-controls="view-macro" aria-selected="false">비트코인 분석</button>
-    <button id="tab-chart" class="tab" role="tab" type="button" data-tab="chart" aria-controls="view-chart" aria-selected="false">비트코인 차트</button>
-    <button id="tab-cycle" class="tab" role="tab" type="button" data-tab="cycle" aria-controls="view-cycle" aria-selected="false">알트 사이클</button>
-  </nav>
-
   <div id="strat-filter" class="seg strat-filter" role="group" aria-label="전략별 보기" hidden>
     <button class="btn" type="button" data-strat="all" aria-pressed="true">전체</button>
-    <button class="btn" type="button" data-strat="original" aria-pressed="false">① 대조군</button>
-    <button class="btn" type="button" data-strat="legacy" aria-pressed="false">② 개선판</button>
+    <button class="btn" type="button" data-strat="original" aria-pressed="false">대조군</button>
+    <button class="btn" type="button" data-strat="legacy" aria-pressed="false">개선판</button>
   </div>
 
-  <main id="view-recs" role="tabpanel" aria-labelledby="tab-recs">
+  <!-- ===== 오늘 ===== -->
+  <main id="view-home" role="tabpanel" aria-labelledby="tab-home">
+    <div id="home-notice" class="notice" hidden></div>
     <section id="tiles" class="tiles" aria-label="핵심 지표"></section>
 
-    <section class="card" aria-labelledby="h-cal">
-      <div class="card-head">
-        <div>
-          <h2 id="h-cal">거시경제 일정 (미국 · 한국시간)</h2>
-          <p class="sub">FOMC 금리 결정·CPI·PPI·고용·GDP 발표 일정이에요. 참고용 정보이고 추천 여부에는 반영하지 않아요</p>
+    <div class="home-grid">
+      <section class="home-main" aria-labelledby="h-home-active">
+        <div class="sec-head">
+          <h2 id="h-home-active">진행 중인 대조군 추천<span id="home-active-count" class="count"></span></h2>
+          <button class="link-btn" type="button" data-goto="recs">전체 보기</button>
         </div>
-      </div>
-      <div id="cal" class="table-wrap"></div>
-      <p id="cal-note" class="card-note"></p>
-    </section>
-
-    <section class="card" aria-labelledby="h-btc">
-      <div class="card-head">
-        <div>
-          <h2 id="h-btc">BTC 일봉 종가와 이동평균 (MA20 기준)</h2>
-          <p id="btc-sub" class="sub">종가가 MA20 위에 있으면 알트코인 추천이 켜져요</p>
-        </div>
-        <button class="btn" type="button" data-toggle="btc" aria-pressed="false">표로 보기</button>
-      </div>
-      <div id="btc-chart"></div>
-      <div id="btc-table" class="table-wrap" hidden></div>
-      <p id="btc-note" class="card-note"></p>
-    </section>
-
-    <section class="card" aria-labelledby="h-cand">
-      <div class="card-head">
-        <div>
-          <h2 id="h-cand">현재 후보 (개선판)</h2>
-          <p class="sub">일봉 조건을 통과한 관찰 대상이에요. 4시간·1시간·15분을 지나 5분봉이 저점에 오면 추천돼요. 이미 추천한 종목은 빼고 보여줘요 (점수 높은 순)</p>
-        </div>
-      </div>
-      <div id="cand" class="table-wrap"></div>
-    </section>
-
-    <section class="card" aria-labelledby="h-track">
-      <div class="card-head">
-        <div>
-          <h2 id="h-track">발굴 후 가격 추적</h2>
-          <p class="sub">진행 중인 추천의 발굴 이후 수익률 (발굴 시점을 0%로 맞춤, 최대 3일)</p>
-        </div>
-        <button class="btn" type="button" data-toggle="track" aria-pressed="false">표로 보기</button>
-      </div>
-      <div id="track-chart"></div>
-      <div id="track-table" class="table-wrap" hidden></div>
-    </section>
-
-    <section class="card" aria-labelledby="h-hist">
-      <div class="card-head">
-        <div>
-          <h2 id="h-hist">진행 중인 추천</h2>
-          <p class="sub">발굴 후 지금까지의 수익률이에요. 익절·손절·기간 만료로 끝나면 완료 탭으로 옮겨져요</p>
-        </div>
-      </div>
-      <div id="hist" class="table-wrap"></div>
-      <p id="hist-note" class="card-note"></p>
-    </section>
-
-    <section class="card" aria-labelledby="h-scan">
-      <div class="card-head">
-        <div>
-          <h2 id="h-scan">스캔 기록</h2>
-          <p class="sub">실제 실행 간격이 15분에 얼마나 가까운지 확인해요</p>
-        </div>
-      </div>
-      <div id="scan" class="table-wrap"></div>
-      <p id="scan-note" class="card-note"></p>
-    </section>
-  </main>
-
-  <main id="view-macro" role="tabpanel" aria-labelledby="tab-macro" hidden>
-    <div id="m-empty" class="card empty" hidden>비트코인 분석이 아직 만들어지지 않았어요. 다음 스캔이 끝나면 표시돼요.</div>
-    <div id="m-body">
-      <section id="m-tiles" class="tiles" aria-label="비트코인 핵심 지표"></section>
-
-      <section class="card" aria-labelledby="h-watch">
-        <div class="card-head">
-          <div>
-            <h2 id="h-watch">비트코인 관찰 알림 (종목 추천 아님)</h2>
-            <p class="sub">일봉과 4시간봉 스토캐스틱 RSI가 모두 저점권이면 '관찰 중', 그 안에서 큰 급락과 거래량 급증(투매)이 나오면 '투매 발생'으로 알려요. 매수 신호가 아니에요.</p>
-          </div>
-        </div>
-        <div id="m-watch"></div>
-        <p class="card-note">7년치 비트코인 백테스트에서 투매 직후에 샀다면 이후 7일 평균 -1.6%였고, 14일 안 추가 하락이 평균 -12.9%로 대체로 바닥이 아니라 하락 중간이었어요. 저점 확인 조건(저점 지킴·거래량 소진)을 붙여도 좋아진다는 증거가 없어서 매수 구간은 만들지 않았어요.</p>
+        <div id="home-active" class="rec-grid"></div>
       </section>
 
-      <section class="card" aria-labelledby="h-fib">
-        <div class="card-head">
-          <div>
-            <h2 id="h-fib">지지·저항 (4시간봉)</h2>
-            <p class="sub">최근 6개월의 피보나치 라인과 실제로 가격이 반등·꺾인 자리를 모아, 겹치는 곳을 구간으로 표시해요. 1년 보기는 일봉 기준의 장기 구간, 3년 보기는 주봉 기준의 초장기 구간이에요</p>
-          </div>
-          <div class="head-actions">
-            <div id="m-range" class="seg" role="group" aria-label="차트 기간">
-              <button class="btn" type="button" data-bars="180" aria-pressed="true">1개월</button>
-              <button class="btn" type="button" data-bars="540" aria-pressed="false">3개월</button>
-              <button class="btn" type="button" data-bars="1080" aria-pressed="false">6개월</button>
-              <button class="btn" type="button" data-bars="365" data-view="long" aria-pressed="false">1년 (일봉)</button>
-              <button class="btn" type="button" data-bars="156" data-view="weekly" aria-pressed="false">3년 (주봉)</button>
-            </div>
-            <button class="btn" type="button" data-toggle="fib" aria-pressed="false">표로 보기</button>
-          </div>
-        </div>
-        <div id="fib-legend" class="legend"></div>
-        <div id="fib-chart"></div>
-        <div id="fib-table" class="table-wrap" hidden></div>
-        <p id="fib-note" class="card-note"></p>
-      </section>
+      <aside class="home-side">
+        <section class="card" aria-labelledby="h-home-closed">
+          <div class="card-head"><h2 id="h-home-closed">최근 종료</h2><button class="link-btn" type="button" data-goto="recs/done">더 보기</button></div>
+          <div id="home-closed" class="mini-rows"></div>
+        </section>
 
-      <section class="card" aria-labelledby="h-wave">
-        <div class="card-head">
-          <div>
-            <h2 id="h-wave">파동 판단</h2>
-            <p class="sub">직전 저점과 고점을 기준으로 4시간봉 종가가 피보나치 라인 어디에 있는지 봐요</p>
-          </div>
-        </div>
-        <div id="m-waves" class="wave-grid"></div>
-        <p id="m-read" class="card-note"></p>
-      </section>
+        <section class="card" aria-labelledby="h-cal">
+          <div class="card-head"><h2 id="h-cal">다가오는 일정</h2><span class="muted" style="font-size:12px">미국 · 한국시간</span></div>
+          <div id="cal" class="cal-list"></div>
+          <p id="cal-note" class="card-note"></p>
+        </section>
 
-      <section class="card" aria-labelledby="h-zone">
-        <div class="card-head">
-          <div>
-            <h2 id="h-zone">지지·저항 구간</h2>
-            <p class="sub">현재가 위쪽은 저항, 아래쪽은 지지예요. 겹침은 피보나치 라인과 가격 반응 자리의 개수이고, ◆는 둘이 함께 겹친 구간이에요</p>
-          </div>
-        </div>
-        <div id="m-zones" class="table-wrap"></div>
-        <p id="m-zone-note" class="card-note"></p>
-      </section>
+        <section id="home-legacy" class="card" aria-labelledby="h-home-legacy">
+          <div class="card-head"><h2 id="h-home-legacy">개선판 (참고)</h2><button class="link-btn" type="button" data-goto="perf">비교 보기</button></div>
+          <div id="home-legacy-body"></div>
+        </section>
 
-      <section class="card" aria-labelledby="h-how">
-        <div class="card-head"><h2 id="h-how">이 분석을 읽는 법</h2></div>
-        <ul class="howto">
-          <li>피보나치 라인은 저점을 0, 고점을 1로 놓고 계산해요. 상승 파동에서는 0.618 라인 위를 지키면 상승 지속, 종가가 0.382 라인 아래로 마감되면 상승이 무마된 것으로 봐요. 하락 파동은 반대로 봐요.</li>
-          <li>가격 반응 자리는 4시간봉에서 24시간 동안 가장 높거나 낮았고 그 뒤 1% 이상 반대로 움직인 고점·저점이에요. 이런 자리와 피보나치 라인이 겹치면(◆) 한 단계 더 강하게 봐요. 정확히 같은 가격이 아니어도 가까이 모이면 하나의 구간으로 묶어요.</li>
-          <li>겹침이 많은 구간일수록 여러 근거가 같은 가격대를 가리키는 자리라 반응이 나올 가능성이 커요. 다만 확률을 보장하지는 않아요.</li>
-          <li>모든 판단은 마감된 캔들 기준이에요. 현재가는 라인까지의 거리를 재는 데만 써요. 일봉은 한국시간 오전 9시에, 4시간봉은 9·13·17·21·1·5시에 마감돼요.</li>
-          <li>이 탭은 5분마다 갱신되고, 같은 내용이 매일 오전 8시에 텔레그램으로도 와요.</li>
-          <li>스토캐스틱 RSI 단기·중기·장기 현황과 해설은 '비트코인 차트' 탭에서 볼 수 있어요.</li>
-        </ul>
-      </section>
+        <details class="fold">
+          <summary>스캔 기록<span class="hint">실제 실행 간격 확인</span></summary>
+          <div class="fold-body">
+            <div id="scan" class="table-wrap"></div>
+            <p id="scan-note" class="card-note"></p>
+          </div>
+        </details>
+      </aside>
     </div>
   </main>
 
-  <main id="view-done" role="tabpanel" aria-labelledby="tab-done" hidden>
-    <section class="card" aria-labelledby="h-done">
-      <div class="card-head">
-        <div>
-          <h2 id="h-done">완료된 추천</h2>
-          <p class="sub">익절·손절·기간 만료로 끝난 추천이에요 (종료 시각 최신순). 각 추천의 점수 근거는 성과 탭에서 볼 수 있어요</p>
-        </div>
+  <!-- ===== 추천 ===== -->
+  <main id="view-recs" role="tabpanel" aria-labelledby="tab-recs" hidden>
+    <div class="toolbar">
+      <div id="recs-seg" class="seg" role="group" aria-label="추천 구분">
+        <button class="btn" type="button" data-sub="active" aria-pressed="true">진행 중<span class="n" id="n-active"></span></button>
+        <button class="btn" type="button" data-sub="done" aria-pressed="false">완료<span class="n" id="n-done"></span></button>
+        <button class="btn" type="button" data-sub="cand" aria-pressed="false">개선판 후보<span class="n" id="n-cand"></span></button>
       </div>
-      <div id="done-list" class="table-wrap"></div>
+    </div>
+
+    <section id="recs-active">
+      <div id="hist" class="rec-grid"></div>
+      <p id="hist-note" class="card-note"></p>
+      <details class="fold" style="margin-top:16px">
+        <summary>가격 흐름 차트<span class="hint">발굴 후 수익률 · 최대 3일</span></summary>
+        <div class="fold-body">
+          <div class="head-actions" style="margin-bottom:10px"><button class="btn" type="button" data-toggle="track" aria-pressed="false">표로 보기</button></div>
+          <div id="track-chart"></div>
+          <div id="track-table" class="table-wrap" hidden></div>
+        </div>
+      </details>
+    </section>
+
+    <section id="recs-done" hidden>
+      <div id="done-list" class="done-list"></div>
+      <div class="more-row"><button id="done-more" class="btn" type="button" hidden>더 보기</button></div>
       <p id="done-note" class="card-note"></p>
+    </section>
+
+    <section id="recs-cand" hidden>
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h2 id="h-cand">현재 후보 (개선판)</h2>
+            <p class="sub">일봉 조건을 통과한 관찰 대상이에요. 4시간·1시간·15분을 지나 5분봉이 저점에 오면 추천돼요. 이미 추천한 종목은 빼고 보여줘요 (점수 높은 순)</p>
+          </div>
+        </div>
+        <div id="cand" class="table-wrap"></div>
+      </div>
     </section>
   </main>
 
+  <!-- ===== 성과 ===== -->
   <main id="view-perf" role="tabpanel" aria-labelledby="tab-perf" hidden>
-    <section class="card" aria-labelledby="h-pcmp">
-      <div class="card-head">
-        <div>
-          <h2 id="h-pcmp">전략 비교 · ① 대조군 · ② 개선판</h2>
-          <p class="sub">같은 시장에서 두 전략을 나란히 돌려 결과를 따로 쌓고 있어요. 대조군은 첫 버전 규칙을 그대로 고정해 둔 비교 기준점이고(일봉 조건만 통과하면 추천, 최초 스토RSI 설정, 텔레그램 알림 없음), 개선판은 계속 다듬는 실제 운영 전략이에요(지표 설정 교정 + 일봉·4시간·1시간·15분 통과 + 5분 저점)</p>
-        </div>
-      </div>
-      <div id="p-compare" class="table-wrap"></div>
-      <p id="p-cmp-note" class="card-note"></p>
-      <div id="p-cmp-ref" class="ref-box"></div>
-    </section>
-
-    <section class="card" aria-labelledby="h-paper">
-      <div class="card-head">
-        <div>
-          <h2 id="h-paper">지지선 지정가 병행 실험 (모의 · 실제 주문 아님)</h2>
-          <p class="sub">개선판이 추천할 때마다 (1) 그 가격에 바로 산 결과와 (2) 아래쪽 지지선(현재가 -1%~-6% 사이 1시간봉 스윙 저점)에 24시간짜리 지정가를 건 결과를 나란히 기록해요. 지정가는 안 걸리면 취소(수익 0), 걸리면 익절 +5% / 손절 -5% / BTC 이탈 / 3일 만료 규칙을 체결가 기준으로 적용해요. 백테스트에서는 통계적 우위가 확인되지 않아서 라이브로 확인하는 중이에요.</p>
-        </div>
-      </div>
-      <div id="pp-tiles" class="tiles" aria-label="지정가 병행 실험 요약"></div>
-      <div id="pp-compare" class="table-wrap"></div>
-      <p id="pp-note" class="card-note"></p>
-      <h3 class="section-title" style="margin-top:16px">종목별 내역 (최신순)</h3>
-      <div id="pp-detail" class="table-wrap"></div>
-    </section>
-
-    <h2 id="p-sec" class="section-title">성과 (익절·손절)</h2>
     <div id="p-period" class="period-bar" role="group" aria-label="기간 필터"></div>
     <div id="p-basis" class="period-bar" role="group" aria-label="기간 기준"></div>
     <div id="p-custom" class="period-custom" hidden>
@@ -462,7 +507,20 @@
       <label>끝 <input type="date" id="p-to"></label>
       <span class="muted">한국시간 기준, 비워 두면 처음/오늘까지예요</span>
     </div>
+    <h2 id="p-sec" class="section-title" style="margin-top:6px">성과</h2>
     <section id="p-tiles" class="tiles" aria-label="성과 요약"></section>
+
+    <section class="card" aria-labelledby="h-pcmp">
+      <div class="card-head">
+        <div>
+          <h2 id="h-pcmp">전략 비교</h2>
+          <p class="sub">같은 시장에서 두 전략을 나란히 돌려 결과를 따로 쌓고 있어요. 매도 규칙이 같아서 종료 손익을 그대로 비교할 수 있어요. 기간 필터와 상관없이 전체 기록이에요</p>
+        </div>
+      </div>
+      <div id="p-compare" class="table-wrap"></div>
+      <p id="p-cmp-note" class="card-note"></p>
+      <div id="p-cmp-ref" class="ref-box"></div>
+    </section>
 
     <section class="card" aria-labelledby="h-pwin">
       <div class="card-head">
@@ -489,67 +547,181 @@
       <div id="p-ref" class="ref-box"></div>
     </section>
 
-    <section class="card" aria-labelledby="h-plist">
-      <div class="card-head">
-        <div>
-          <h2 id="h-plist">추천별 결과와 근거</h2>
-          <p id="p-list-sub" class="sub">추천 시각, 종료 시각, 손익과 그 추천이 어떤 근거로 나왔는지 (최신순)</p>
-        </div>
+    <details class="fold">
+      <summary>추천별 결과와 근거<span class="hint">전체 표</span></summary>
+      <div class="fold-body">
+        <p id="p-list-sub" class="sub">추천 시각, 종료 시각, 손익과 그 추천이 어떤 근거로 나왔는지 (최신순)</p>
+        <div id="p-list" class="table-wrap"></div>
       </div>
-      <div id="p-list" class="table-wrap"></div>
-    </section>
+    </details>
 
-    <section class="card" aria-labelledby="h-phow">
-      <div class="card-head"><h2 id="h-phow">이 화면을 읽는 법</h2></div>
-      <ul class="howto">
-        <li>추천이 나온 뒤 추천가 기준 익절선에 닿으면 익절, 손절선에 닿으면 손절로 끝나요. 3일 안에 둘 다 안 닿으면 기간 만료로 끝나고 그때 가격으로 손익을 매겨요.</li>
-        <li>승률은 익절 수 ÷ (익절 수 + 손절 수)예요. 기간 만료는 승패에 넣지 않고 따로 세요.</li>
-        <li>추천된 종목은 5분마다 가격을 확인해서 선을 넘은 직후의 가격으로 기록돼요. 실제로 선에 닿은 가격과 조금 다를 수 있지만, 그 차이는 보통 0.1% 안팎이에요.</li>
-        <li>익절선과 손절선을 같은 폭으로 두면 아무 종목이나 골랐을 때도 승률이 50% 안팎으로 나와요. 그래서 실제 승률이 그보다 뚜렷하게 높은지가 프로그램의 쓸모를 보는 기준이에요. 종료된 추천이 30건쯤 쌓이기 전에는 우연일 수 있어요.</li>
-        <li>대조군과 개선판은 매도 규칙이 같아서(익절 +5%·손절 -5%·3일 만료) 종료 손익을 그대로 비교할 수 있어요. 다만 대조군은 규칙(진입 조건·BTC 필터 일수)이 처음부터 다르니, 결국 비교하는 건 '진입을 어떻게 잡느냐'의 차이예요.</li>
-        <li>투자 권유가 아니에요. 정해 둔 기준에 도달했는지를 기록하는 화면이에요.</li>
-      </ul>
-    </section>
+    <details class="fold">
+      <summary>지지선 지정가 병행 실험<span class="hint">모의 · 실제 주문 아님</span></summary>
+      <div class="fold-body">
+        <p class="sub">개선판이 추천할 때마다 (1) 그 가격에 바로 산 결과와 (2) 아래쪽 지지선(현재가 -1%~-6% 사이 1시간봉 스윙 저점)에 24시간짜리 지정가를 건 결과를 나란히 기록해요. 대조군 추천도 같은 방식으로 기록만 하고 있어요. 지정가는 안 걸리면 취소(수익 0), 걸리면 익절 +5% / 손절 -5% / BTC 이탈 / 3일 만료 규칙을 체결가 기준으로 적용해요. 백테스트에서는 통계적 우위가 확인되지 않아서 라이브로 확인하는 중이에요.</p>
+        <div id="pp-tiles" class="tiles" aria-label="지정가 병행 실험 요약"></div>
+        <div id="pp-compare" class="table-wrap"></div>
+        <p id="pp-note" class="card-note"></p>
+        <h3 class="section-title" style="margin-top:16px">종목별 내역 (최신순)</h3>
+        <div id="pp-detail" class="table-wrap"></div>
+      </div>
+    </details>
+
+    <details class="fold">
+      <summary>이 화면을 읽는 법</summary>
+      <div class="fold-body">
+        <ul class="howto">
+          <li>추천이 나온 뒤 추천가 기준 익절선에 닿으면 익절, 손절선에 닿으면 손절로 끝나요. 3일 안에 둘 다 안 닿으면 기간 만료로 끝나고 그때 가격으로 손익을 매겨요.</li>
+          <li>승률은 익절 수 ÷ (익절 수 + 손절 수)예요. 기간 만료는 승패에 넣지 않고 따로 세요.</li>
+          <li>추천된 종목은 5분마다 가격을 확인해서 선을 넘은 직후의 가격으로 기록돼요. 실제로 선에 닿은 가격과 조금 다를 수 있지만, 그 차이는 보통 0.1% 안팎이에요.</li>
+          <li>익절선과 손절선을 같은 폭으로 두면 아무 종목이나 골랐을 때도 승률이 50% 안팎으로 나와요. 그래서 실제 승률이 그보다 뚜렷하게 높은지가 프로그램의 쓸모를 보는 기준이에요. 종료된 추천이 30건쯤 쌓이기 전에는 우연일 수 있어요.</li>
+          <li>대조군과 개선판은 매도 규칙이 같아서(익절 +5%·손절 -5%·3일 만료) 종료 손익을 그대로 비교할 수 있어요. 다만 대조군은 규칙(진입 조건·BTC 필터 일수)이 처음부터 다르니, 결국 비교하는 건 '진입을 어떻게 잡느냐'의 차이예요. 지금은 대조군이 텔레그램 알림을 보내는 메인이고, 개선판은 알림 없이 기록만 해요.</li>
+          <li>변동폭 표식(🔹낮음 / 🔸높음)은 대조군 추천을 최근 14일 평균 일중 등락폭 7.1%로 나눈 표시예요. 추천 대상은 그대로이고, 표식별 성과를 쌓아서 비교하려는 용도예요.</li>
+          <li>투자 권유가 아니에요. 정해 둔 기준에 도달했는지를 기록하는 화면이에요.</li>
+        </ul>
+      </div>
+    </details>
   </main>
 
-  <main id="view-chart" role="tabpanel" aria-labelledby="tab-chart" hidden>
-    <section class="card" aria-labelledby="h-mc">
-      <div class="card-head">
-        <div>
-          <h2 id="h-mc">비트코인 멀티 차트</h2>
-          <p class="sub">일봉·4시간봉·1시간봉을 나란히 보고, 이동평균선(5·20·60·120)과 스토캐스틱 3종(단기·중기·장기), RSI를 함께 봐요</p>
-        </div>
-        <div id="mc-mode" class="seg" role="group" aria-label="스토캐스틱 종류">
-          <button class="btn" type="button" data-mode="srsi" aria-pressed="true">스토캐스틱 RSI (분석 기준)</button>
-          <button class="btn" type="button" data-mode="stoch" aria-pressed="false">일반 스토캐스틱 (5·3·3 등)</button>
-        </div>
+  <!-- ===== 비트코인 ===== -->
+  <main id="view-btc" role="tabpanel" aria-labelledby="tab-btc" hidden>
+    <div class="toolbar">
+      <div id="btc-seg" class="seg" role="group" aria-label="비트코인 화면">
+        <button class="btn" type="button" data-sub="analysis" aria-pressed="true">분석</button>
+        <button class="btn" type="button" data-sub="chart" aria-pressed="false">차트</button>
       </div>
-      <div id="mc-legend" class="legend"></div>
-      <div id="mc-grid" class="mc-grid"></div>
-      <p id="mc-note" class="card-note"></p>
-    </section>
+    </div>
 
-    <section class="card" aria-labelledby="h-mc-stoch">
-      <div class="card-head">
-        <div>
-          <h2 id="h-mc-stoch">스토캐스틱 RSI 현황</h2>
-          <p class="sub">일봉·4시간봉·1시간봉의 단기·중기·장기 (마감된 캔들 기준). %K 20 이하는 저점권, 80 이상은 고점권이고, %K가 %D를 위로 뚫으면 골든크로스, 아래로 뚫으면 데드크로스예요 (최근 3개 캔들 안에 나온 것만 표시)</p>
+    <div id="view-macro">
+      <section class="card" aria-labelledby="h-btc">
+        <div class="card-head">
+          <div>
+            <h2 id="h-btc">BTC 일봉 종가와 이동평균 (MA20 기준)</h2>
+            <p id="btc-sub" class="sub">종가가 MA20 위에 있으면 알트코인 추천이 켜져요</p>
+          </div>
+          <button class="btn" type="button" data-toggle="btc" aria-pressed="false">표로 보기</button>
         </div>
-      </div>
-      <div id="mc-stoch"></div>
-    </section>
+        <div id="btc-chart"></div>
+        <div id="btc-table" class="table-wrap" hidden></div>
+        <p id="btc-note" class="card-note"></p>
+      </section>
 
-    <section class="card" aria-labelledby="h-mc-read">
-      <div class="card-head">
-        <div>
-          <h2 id="h-mc-read">해설</h2>
-          <p class="sub">위 스토캐스틱 RSI를 정해진 규칙(이동평균 정배열, 과매수·과매도, 골든·데드크로스)으로 자동 해석해요. AI가 그때그때 쓰는 글이 아니라 정해진 문장 조합이에요 · 5분마다 갱신</p>
-        </div>
+      <div id="m-empty" class="card empty" hidden>비트코인 분석이 아직 만들어지지 않았어요. 다음 스캔이 끝나면 표시돼요.</div>
+      <div id="m-body">
+        <section id="m-tiles" class="tiles" aria-label="비트코인 핵심 지표"></section>
+
+        <section class="card" aria-labelledby="h-watch">
+          <div class="card-head">
+            <div>
+              <h2 id="h-watch">비트코인 관찰 알림 (종목 추천 아님)</h2>
+              <p class="sub">일봉과 4시간봉 스토캐스틱 RSI가 모두 저점권이면 '관찰 중', 그 안에서 큰 급락과 거래량 급증(투매)이 나오면 '투매 발생'으로 알려요. 매수 신호가 아니에요.</p>
+            </div>
+          </div>
+          <div id="m-watch"></div>
+          <p class="card-note">7년치 비트코인 백테스트에서 투매 직후에 샀다면 이후 7일 평균 -1.6%였고, 14일 안 추가 하락이 평균 -12.9%로 대체로 바닥이 아니라 하락 중간이었어요. 저점 확인 조건(저점 지킴·거래량 소진)을 붙여도 좋아진다는 증거가 없어서 매수 구간은 만들지 않았어요.</p>
+        </section>
+
+        <section class="card" aria-labelledby="h-fib">
+          <div class="card-head">
+            <div>
+              <h2 id="h-fib">지지·저항 (4시간봉)</h2>
+              <p class="sub">최근 6개월의 피보나치 라인과 실제로 가격이 반등·꺾인 자리를 모아, 겹치는 곳을 구간으로 표시해요. 1년 보기는 일봉 기준의 장기 구간, 3년 보기는 주봉 기준의 초장기 구간이에요</p>
+            </div>
+            <div class="head-actions">
+              <div id="m-range" class="seg" role="group" aria-label="차트 기간">
+                <button class="btn" type="button" data-bars="180" aria-pressed="true">1개월</button>
+                <button class="btn" type="button" data-bars="540" aria-pressed="false">3개월</button>
+                <button class="btn" type="button" data-bars="1080" aria-pressed="false">6개월</button>
+                <button class="btn" type="button" data-bars="365" data-view="long" aria-pressed="false">1년 (일봉)</button>
+                <button class="btn" type="button" data-bars="156" data-view="weekly" aria-pressed="false">3년 (주봉)</button>
+              </div>
+              <button class="btn" type="button" data-toggle="fib" aria-pressed="false">표로 보기</button>
+            </div>
+          </div>
+          <div id="fib-legend" class="legend"></div>
+          <div id="fib-chart"></div>
+          <div id="fib-table" class="table-wrap" hidden></div>
+          <p id="fib-note" class="card-note"></p>
+        </section>
+
+        <section class="card" aria-labelledby="h-wave">
+          <div class="card-head">
+            <div>
+              <h2 id="h-wave">파동 판단</h2>
+              <p class="sub">직전 저점과 고점을 기준으로 4시간봉 종가가 피보나치 라인 어디에 있는지 봐요</p>
+            </div>
+          </div>
+          <div id="m-waves" class="wave-grid"></div>
+          <p id="m-read" class="card-note"></p>
+        </section>
+
+        <section class="card" aria-labelledby="h-zone">
+          <div class="card-head">
+            <div>
+              <h2 id="h-zone">지지·저항 구간</h2>
+              <p class="sub">현재가 위쪽은 저항, 아래쪽은 지지예요. 겹침은 피보나치 라인과 가격 반응 자리의 개수이고, ◆는 둘이 함께 겹친 구간이에요</p>
+            </div>
+          </div>
+          <div id="m-zones" class="table-wrap"></div>
+          <p id="m-zone-note" class="card-note"></p>
+        </section>
+
+        <details class="fold">
+          <summary>이 분석을 읽는 법</summary>
+          <div class="fold-body">
+            <ul class="howto">
+              <li>피보나치 라인은 저점을 0, 고점을 1로 놓고 계산해요. 상승 파동에서는 0.618 라인 위를 지키면 상승 지속, 종가가 0.382 라인 아래로 마감되면 상승이 무마된 것으로 봐요. 하락 파동은 반대로 봐요.</li>
+              <li>가격 반응 자리는 4시간봉에서 24시간 동안 가장 높거나 낮았고 그 뒤 1% 이상 반대로 움직인 고점·저점이에요. 이런 자리와 피보나치 라인이 겹치면(◆) 한 단계 더 강하게 봐요. 정확히 같은 가격이 아니어도 가까이 모이면 하나의 구간으로 묶어요.</li>
+              <li>겹침이 많은 구간일수록 여러 근거가 같은 가격대를 가리키는 자리라 반응이 나올 가능성이 커요. 다만 확률을 보장하지는 않아요.</li>
+              <li>모든 판단은 마감된 캔들 기준이에요. 현재가는 라인까지의 거리를 재는 데만 써요. 일봉은 한국시간 오전 9시에, 4시간봉은 9·13·17·21·1·5시에 마감돼요.</li>
+              <li>이 탭은 5분마다 갱신되고, 같은 내용이 매일 오전 8시에 텔레그램으로도 와요.</li>
+              <li>스토캐스틱 RSI 단기·중기·장기 현황과 해설은 '차트' 화면에서 볼 수 있어요.</li>
+            </ul>
+          </div>
+        </details>
       </div>
-      <div id="mc-read"></div>
-    </section>
+    </div>
+
+    <div id="view-chart" hidden>
+      <section class="card" aria-labelledby="h-mc">
+        <div class="card-head">
+          <div>
+            <h2 id="h-mc">비트코인 멀티 차트</h2>
+            <p class="sub">일봉·4시간봉·1시간봉을 나란히 보고, 이동평균선(5·20·60·120)과 스토캐스틱 3종(단기·중기·장기), RSI를 함께 봐요</p>
+          </div>
+          <div id="mc-mode" class="seg" role="group" aria-label="스토캐스틱 종류">
+            <button class="btn" type="button" data-mode="srsi" aria-pressed="true">스토캐스틱 RSI (분석 기준)</button>
+            <button class="btn" type="button" data-mode="stoch" aria-pressed="false">일반 스토캐스틱 (5·3·3 등)</button>
+          </div>
+        </div>
+        <div id="mc-legend" class="legend"></div>
+        <div id="mc-grid" class="mc-grid"></div>
+        <p id="mc-note" class="card-note"></p>
+      </section>
+
+      <section class="card" aria-labelledby="h-mc-stoch">
+        <div class="card-head">
+          <div>
+            <h2 id="h-mc-stoch">스토캐스틱 RSI 현황</h2>
+            <p class="sub">일봉·4시간봉·1시간봉의 단기·중기·장기 (마감된 캔들 기준). %K 20 이하는 저점권, 80 이상은 고점권이고, %K가 %D를 위로 뚫으면 골든크로스, 아래로 뚫으면 데드크로스예요 (최근 3개 캔들 안에 나온 것만 표시)</p>
+          </div>
+        </div>
+        <div id="mc-stoch"></div>
+      </section>
+
+      <section class="card" aria-labelledby="h-mc-read">
+        <div class="card-head">
+          <div>
+            <h2 id="h-mc-read">해설</h2>
+            <p class="sub">위 스토캐스틱 RSI를 정해진 규칙(이동평균 정배열, 과매수·과매도, 골든·데드크로스)으로 자동 해석해요. AI가 그때그때 쓰는 글이 아니라 정해진 문장 조합이에요 · 5분마다 갱신</p>
+          </div>
+        </div>
+        <div id="mc-read"></div>
+      </section>
+    </div>
   </main>
 
+  <!-- ===== 사이클 ===== -->
   <main id="view-cycle" role="tabpanel" aria-labelledby="tab-cycle" hidden>
     <section class="card" aria-labelledby="h-cycle">
       <div class="card-head">
@@ -566,7 +738,10 @@
     </section>
   </main>
 
-  <footer>자동 스캔 결과를 정리한 참고 자료이며 투자 권유가 아닙니다. 표시 시각은 모두 한국시간(KST)이에요.</footer>
+  <footer>
+    <span id="updated" class="upd"></span>
+    자동 스캔 결과를 정리한 참고 자료이며 투자 권유가 아닙니다. 표시 시각은 모두 한국시간(KST)이에요.
+  </footer>
 </div>
 
 <div id="login" class="login" role="dialog" aria-modal="true" aria-labelledby="login-title" hidden>
@@ -613,7 +788,10 @@
 //   개선판은 알림 없이 기록만 한다. 성과 비교는 그대로 유지되며 저장소 변수 ALERT_STRATEGY=legacy로 되돌린다
 // v1.12 (2026-10-02) 대조군 추천에 '변동폭' 표식(🔹낮음/🔸높음, 14일 평균 일중 등락폭 기준 7.1%) 추가: 알림·추천 목록·성과 비교 열.
 //   추천 대상은 그대로이고 표시만 한다(사전 등록 스크린에서 낮은 변동폭은 손절도 익절도 같이 줄어 우위가 아닌 위험 크기 차이였음)
-const APP_VERSION = 'v1.12';
+// v1.13 (2026-10-03) 화면 전체 개편(기능·계산은 그대로): 탭을 오늘·추천·성과·비트코인·사이클 5개로 정리하고 모바일은 아래 탭바,
+//   첫 화면(오늘)을 대조군 진행 중 추천 카드(손절~익절 위치 게이지) 중심으로 재구성, 추천 목록을 카드/목록으로 바꿔 모바일 깨짐 수정,
+//   성과 탭의 긴 표는 접이식으로, 전광판 티커는 BTC 관찰 알림 배너로 대체, 색·글꼴·간격 새로 정리
+const APP_VERSION = 'v1.13';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DATA_URL = 'dashboard.json';
@@ -695,13 +873,33 @@ const recsOf = (d) => (d.recommendations || []).filter(inFilter);
 // 대조군 변동폭 표식: 14일 평균 일중 등락폭 기준(src/config.py VOL_MARK_PCT와 같은 값). 표시만이고 추천 대상은 그대로다
 const VOL_MARK_PCT = 7.1;
 const volOf = (r) => (r.detail && r.detail.vol14_pct != null ? r.detail.vol14_pct : null);
+function volPill(r) {
+  const v = volOf(r);
+  if (v == null) return null;
+  return h('span', { class: `pill ${v < VOL_MARK_PCT ? 'vol-lo' : 'vol-hi'}`, title: '최근 14일 평균 일중 등락폭', text: `${v < VOL_MARK_PCT ? '🔹 변동폭 낮음' : '🔸 변동폭 높음'} ${v.toFixed(1)}%` });
+}
 function stratPill(r) {
   if (r.strategy === 'original') {
-    const v = volOf(r);
-    return h('span', {}, h('span', { class: 'strat', text: '대조군' }), h('span', { class: 'pill', text: '일봉 통과' }),
-      v == null ? '' : h('span', { class: 'pill', text: `${v < VOL_MARK_PCT ? '🔹 변동폭 낮음' : '🔸 변동폭 높음'} ${v.toFixed(1)}%` }));
+    return h('span', {}, h('span', { class: 'strat', text: '대조군' }), h('span', { class: 'pill', text: '일봉 통과' }), volPill(r));
   }
   return h('span', {}, h('span', { class: 'strat', text: '개선판' }), gradePill(r.grade));
+}
+const shortName = (m) => m.replace(/^KRW-/, '');
+const marketLabel = (m, cls = 'rec-name') => h('span', { class: cls }, h('small', { text: 'KRW' }), shortName(m));
+function exitRulesOf(d) {
+  const x = d.exit_rules || {};
+  return { tp: x.take_profit_pct ?? 5, sl: x.stop_loss_pct ?? 5, days: x.track_days || d.track_days || 3 };
+}
+// 손절(-) ~ 익절(+) 사이에서 지금 수익률이 어디쯤인지 보여주는 막대
+function gaugeBar(ret, tp, sl) {
+  const span = ret >= 0 ? tp : sl;
+  const frac = Math.max(-1, Math.min(1, ret / (span || 5)));
+  const pos = 50 + frac * 50;
+  const dir = ret > 0 ? 'up' : ret < 0 ? 'down' : '';
+  const fillStyle = frac >= 0 ? `left:50%;width:${pos - 50}%` : `left:${pos}%;width:${50 - pos}%`;
+  return h('div', { class: `gauge ${dir}`, role: 'img', 'aria-label': `손절 -${sl}%와 익절 +${tp}% 사이, 현재 ${signed(ret)}` },
+    h('div', { class: 'gauge-bar' }, h('span', { class: 'mid' }), h('span', { class: 'fill', style: fillStyle }), h('span', { class: 'knob', style: `left:${pos}%` })),
+    h('div', { class: 'gauge-labels' }, h('span', { text: `손절 -${sl}%` }), h('span', { text: `익절 +${tp}%` })));
 }
 const signed = (v) => `${v > 0 ? '+' : ''}${v.toFixed(2)}%`;
 
@@ -899,45 +1097,141 @@ function statusIcon(kind) {
 }
 
 /* ---------- 섹션 렌더 ---------- */
-function tile(label, valueNodes, note, extra) {
-  return h('div', { class: 'tile' }, h('div', { class: 'label', text: label }),
+function tile(label, valueNodes, note, extra, cls) {
+  return h('div', { class: cls ? `tile ${cls}` : 'tile' }, h('div', { class: 'label', text: label }),
     h('div', { class: 'value' }, valueNodes), h('div', { class: 'note', text: note }), extra);
 }
 
-function renderTiles(d) {
-  const btc = d.btc || {};
+/* ---------- 오늘(홈) ---------- */
+const originalRecs = (d) => (d.recommendations || []).filter((r) => stratOf(r) === 'original');
+const sgn = (v) => (v == null ? '—' : signed(v));
+const upDown = (v) => (v > 0 ? 'up' : v < 0 ? 'down' : '');
+
+function renderHomeKpis(d) {
   const host = $('#tiles');
+  const orig = originalRecs(d);
+  const active = orig.filter((r) => !isDone(r));
+  const activeAvg = avg(active.map((r) => r.return_pct).filter((v) => v != null));
+  const activePlus = active.filter((r) => (r.return_pct || 0) > 0).length;
   const tiles = [];
 
+  tiles.push(tile('진행 중 (대조군)', [String(active.length), h('span', { class: 'unit', text: '건' })],
+    active.length ? `평균 ${sgn(activeAvg)} · 플러스 ${activePlus}건 · 마이너스 ${active.length - activePlus}건` : '진행 중인 추천이 없어요', null, 'hero'));
+
+  const todayStart = kstDayStart(Date.now());
+  const fresh = orig.filter((r) => !(r.exit && r.exit.reason === 'excluded'));
+  const todayN = fresh.filter((r) => new Date(r.entered_at).getTime() >= todayStart).length;
+  const last = fresh.length ? fresh.reduce((a, b) => (a.entered_at > b.entered_at ? a : b)) : null;
+  const offNote = d.btc && d.btc.favorable === false ? 'BTC 필터가 꺼져 있어 새 추천이 없어요' : null;
+  tiles.push(tile('오늘 새 추천', [String(todayN), h('span', { class: 'unit', text: '종목' })],
+    offNote || (last ? `마지막 추천 ${kst(last.entered_at)} · ${ago(last.entered_at)}` : '추천 기록이 아직 없어요')));
+
+  const s = perfSummary(orig);
+  const avgClosed = avg(s.closedRets);
+  tiles.push(tile('종료 성과', [s.winRate == null ? '—' : `${s.winRate.toFixed(0)}%`],
+    s.decided ? `익절 ${s.take_profit} : 손절 ${s.stop_loss} · 평균 ${sgn(avgClosed)} (종료 ${s.closed}건)${s.decided < 30 ? ' · 표본 적음' : ''}` : '익절·손절로 끝난 추천이 아직 없어요'));
+
+  const btc = d.btc || {};
   if (btc.error || btc.close == null) {
-    tiles.push(tile('BTC 종가 (USDT)', ['—'], '바이낸스 데이터를 불러오지 못했어요'));
-    tiles.push(tile('알트코인 추천', [statusIcon('off'), '알 수 없음'], 'BTC 데이터가 없어 판단할 수 없어요'));
+    tiles.push(tile('BTC 필터', [statusIcon('off'), '알 수 없음'], '바이낸스 데이터를 불러오지 못했어요'));
   } else {
     const change = (btc.close / btc.prev_close - 1) * 100;
     const closes = btc.series.map((p) => p.close).slice(-30);
-    tiles.push(tile('BTC 종가 (USDT)', [nf0.format(btc.close)],
-      `전일 대비 ${change >= 0 ? '▲ +' : '▼ '}${change.toFixed(2)}%${btc.last_candle_open ? ' · 오늘 캔들 진행 중' : ' · 일봉 마감 기준'}`,
+    tiles.push(tile('BTC 필터', [statusIcon(btc.favorable ? 'on' : 'off'), btc.favorable ? '켜짐' : '꺼짐'],
+      `${btc.hold_days_required > 1 ? `MA20 위 ${btc.days_above}일째 (${btc.hold_days_required}일 이상이면 켜짐)` : (btc.favorable ? `MA20 위 ${btc.days_above}일째` : '일봉 종가가 MA20 아래')} · ${nf0.format(btc.close)} (${change >= 0 ? '+' : ''}${change.toFixed(2)}%)`,
       closes.length > 1 ? sparkline(closes) : null));
-    tiles.push(tile('알트코인 추천', [statusIcon(btc.favorable ? 'on' : 'off'), btc.favorable ? '켜짐' : '꺼짐'],
-      btc.hold_days_required > 1
-      ? `MA20 위 ${btc.days_above}일째 · ${btc.hold_days_required}일 연속이면 켜져요`
-      : (btc.favorable ? `일봉 종가가 MA20 위 (${btc.days_above}일째)` : '일봉 종가가 MA20 아래라서 꺼져 있어요')));
-  }
-
-  const hidden = (d.candidates || []).length - freshCandidates(d).length;  // 이미 추천해서 후보에서 뺀 종목
-  const cands = freshCandidates(d);
-  const count = (g) => cands.filter((c) => c.grade === g).length;
-  tiles.push(tile('현재 후보', [String(cands.length)],
-    `A ${count('A')} · B ${count('B')} · 등급 없음 ${cands.length - count('A') - count('B')} · 5분 저점 ${cands.filter((c) => c.low_15m).length}${hidden ? ` · 이미 추천 ${hidden}개 제외` : ''}`));
-
-  if (d.last_scan_at) {
-    const stale = minutesSince(d.last_scan_at) > STALE_MINUTES;
-    tiles.push(tile('마지막 스캔', stale ? [statusIcon('warn'), ago(d.last_scan_at)] : [ago(d.last_scan_at)],
-      `${kst(d.last_scan_at)} KST${stale ? ` · ${STALE_MINUTES}분 넘게 스캔이 없어요` : ''}`));
-  } else {
-    tiles.push(tile('마지막 스캔', ['—'], '스캔 기록이 아직 없어요'));
   }
   host.replaceChildren(...tiles);
+}
+
+function renderScanChip(d) {
+  const chip = $('#scan-chip');
+  if (!d.last_scan_at) { chip.hidden = true; return; }
+  const stale = minutesSince(d.last_scan_at) > STALE_MINUTES;
+  chip.hidden = false;
+  chip.classList.toggle('stale', stale);
+  chip.title = `마지막 스캔 ${kst(d.last_scan_at)} KST`;
+  $('#scan-chip-text').textContent = stale ? `스캔 지연 · ${ago(d.last_scan_at)}` : `스캔 정상 · ${ago(d.last_scan_at)}`;
+}
+
+function renderNotice(d) {
+  const el = $('#home-notice'), w = d.macro && d.macro.watch;
+  if (!w || w.mode === 'normal') { el.hidden = true; return; }
+  const cap = w.mode === 'capitulation';
+  el.hidden = false;
+  el.replaceChildren(h('span', { 'aria-hidden': 'true', text: cap ? '⚠️' : '👀' }),
+    h('div', {}, h('strong', { text: cap ? 'BTC 투매 발생' : 'BTC 저점권 관찰 중' }), ' · 매수 신호가 아니에요. 비트코인 탭에서 자세히 볼 수 있어요.'));
+}
+
+// 추천 카드: 손절~익절 사이 지금 위치를 한눈에 (진행 중이면 현재가, 끝났으면 종료가 기준)
+function recCard(r, d) {
+  const { tp, sl, days } = exitRulesOf(d);
+  const o = outcomeOf(r);
+  const ret = o.ret ?? 0;
+  const elapsed = Date.now() - new Date(r.entered_at).getTime();
+  const endPrice = r.exit ? r.exit.exit_price : r.last_price;
+  const left = days * 86400e3 - elapsed;
+  const slPrice = r.entry_price * (1 - sl / 100), tpPrice = r.entry_price * (1 + tp / 100);
+  const meta = r.strategy === 'original'
+    ? [volPill(r), r.score == null ? null : h('span', { class: 'pill', text: `점수 ${r.score}` })]
+    : [h('span', { class: 'strat', text: '개선판' }), gradePill(r.grade)];
+  const gauge = gaugeBar(ret, tp, sl);
+  gauge.querySelector('.gauge-labels').replaceChildren(h('span', { text: `손절 ${fmtKRW(slPrice)}` }), h('span', { text: `익절 ${fmtKRW(tpPrice)}` }));
+  return h('article', { class: 'rec' },
+    h('div', { class: 'rec-top' },
+      h('div', {}, marketLabel(r.market), h('div', { class: 'rec-meta' }, meta)),
+      h('div', { class: `rec-ret ${upDown(ret)}` }, signed(ret), h('small', { text: `${holdText(elapsed)} 경과` }))),
+    h('div', { class: 'rec-price', text: `${fmtKRW(r.entry_price)} → ${fmtKRW(endPrice)}` }),
+    gauge,
+    h('div', { class: 'rec-foot' }, h('span', { text: `추천 ${kst(r.entered_at)}` }), h('span', { text: left > 0 ? `만료까지 ${holdText(left)}` : '만료 시각 지남' })));
+}
+
+const homeMax = () => (window.matchMedia('(max-width: 760px)').matches ? 6 : 12);  // 모바일은 짧게 보여주고 나머지는 추천 탭으로
+function renderHomeActive(d) {
+  const host = $('#home-active'), max = homeMax();
+  const active = originalRecs(d).filter((r) => !isDone(r)).sort((a, b) => b.entered_at.localeCompare(a.entered_at));
+  $('#home-active-count').textContent = active.length ? `${active.length}건` : '';
+  if (!active.length) {
+    host.replaceChildren(h('div', { style: 'grid-column:1/-1' }, empty(d.btc && d.btc.favorable === false
+      ? 'BTC 필터가 꺼져 있어 새 추천이 없어요. 이미 진행 중인 추천은 끝까지 따라가요.'
+      : '지금 진행 중인 대조군 추천이 없어요. 새 추천은 매일 오전 9시 일봉이 마감된 직후에 나와요.')));
+    return;
+  }
+  host.replaceChildren(
+    ...active.slice(0, max).map((r) => recCard(r, d)),
+    active.length > max
+      ? h('div', { class: 'more-row', style: 'grid-column:1/-1' }, h('button', { class: 'btn', type: 'button', 'data-goto': 'recs', text: `나머지 ${active.length - max}건 더 보기` }))
+      : null);
+}
+
+function renderHomeClosed(d) {
+  const host = $('#home-closed');
+  const closed = originalRecs(d).filter((r) => r.exit && r.exit.reason !== 'excluded')
+    .sort((a, b) => new Date(b.exit.ended_at) - new Date(a.exit.ended_at)).slice(0, 8);
+  if (!closed.length) { host.replaceChildren(empty('아직 끝난 추천이 없어요.')); return; }
+  host.replaceChildren(...closed.map((r) => {
+    const info = RESULT_INFO[r.exit.reason] || RESULT_INFO.expired;
+    return h('div', { class: 'mini-row' },
+      h('span', { class: `badge ${info.cls}`, text: info.label }),
+      h('span', {}, h('span', { class: 'nm' }, h('small', { text: 'KRW' }), shortName(r.market)), h('span', { class: 'when', text: ` · ${kst(r.exit.ended_at)}` })),
+      h('span', { class: `r ${upDown(r.exit.return_pct)}`, text: signed(r.exit.return_pct) }));
+  }));
+}
+
+function renderHomeLegacy(d) {
+  const host = $('#home-legacy-body');
+  const leg = (d.recommendations || []).filter((r) => stratOf(r) === 'legacy');
+  if (!leg.length) { host.replaceChildren(empty('개선판 추천 기록이 없어요.')); return; }
+  const s = perfSummary(leg);
+  const activeN = leg.filter((r) => !isDone(r)).length;
+  const avgClosed = avg(s.closedRets);
+  const stat = (label, value) => h('div', { class: 'mini-row', style: 'grid-template-columns:1fr auto' }, h('span', { class: 'muted', text: label }), h('span', { class: 'r', text: value }));
+  host.replaceChildren(
+    h('p', { class: 'sub', style: 'margin:0 0 6px', text: '지금은 알림 없이 기록만 해요. 대조군과 같은 규칙으로 성과를 비교하고 있어요.' }),
+    h('div', { class: 'mini-rows' },
+      stat('진행 중', `${activeN}건`),
+      stat('종료', `${s.closed}건 · 익절 ${s.take_profit} : 손절 ${s.stop_loss}`),
+      stat('평균 손익 (종료)', avgClosed == null ? '—' : sgn(avgClosed))));
 }
 
 function wireToggle(name, chartEl, tableEl, onShowChart) {
@@ -978,17 +1272,14 @@ function renderCalendar(d) {
     return;
   }
   const wk = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', weekday: 'short' });
-  host.replaceChildren(buildTable(
-    ['일정 (KST)', '남은 기간', '이벤트'],
-    shown.map((e) => {
-      const ms = Date.parse(e.at), soon = ms >= Date.now() && calDayGap(ms) <= 1;
-      return [
-        `${kst(e.at)} (${wk.format(new Date(e.at))})`,
-        h('span', { class: soon ? 'pill A' : 'muted', text: calWhen(ms) }),
-        h('span', {}, e.major ? h('span', { class: 'pill B', text: '주요' }) : null, e.major ? ' ' : null, e.title),
-      ];
-    }), 3));
-  note.textContent = '발표 시각은 미국 동부 8:30(연준은 14:00) 기준을 한국시간으로 바꾼 것이고 일정은 바뀔 수 있어요. 주요 = 금리 결정·물가(CPI)·고용.';
+  host.replaceChildren(...shown.map((e) => {
+    const ms = Date.parse(e.at), soon = ms >= Date.now() && calDayGap(ms) <= 1;
+    return h('div', { class: 'cal-row' },
+      h('div', { class: 't' }, e.major ? h('span', { class: 'pill B', text: '주요' }) : null, e.major ? ' ' : null, e.title),
+      h('span', { class: soon ? 'pill A' : 'muted', text: calWhen(ms) }),
+      h('div', { class: 'w', text: `${kst(e.at)} (${wk.format(new Date(e.at))})` }));
+  }));
+  note.textContent = '참고용이고 추천 여부에는 반영하지 않아요. 발표 시각은 미국 동부 8:30(연준은 14:00) 기준을 한국시간으로 바꾼 것이라 일정이 바뀔 수 있어요. 주요 = 금리 결정·물가(CPI)·고용.';
 }
 
 function renderBtc(btc) {
@@ -1062,6 +1353,7 @@ function renderCandidates(d) {
   const host = $('#cand');
   const all = d.candidates || [];
   const cands = freshCandidates(d);
+  $('#n-cand').textContent = String(cands.length);
   if (!cands.length) {
     host.replaceChildren(empty(all.length
       ? `새로 볼 후보가 없어요. 이미 추천한 ${all.length}개 종목은 아래 '진행 중인 추천'이나 완료 탭에서 볼 수 있어요.`
@@ -1134,46 +1426,44 @@ function holdText(ms) {
 function renderHistory(d) {
   const host = $('#hist'), note = $('#hist-note');
   const all = recsOf(d);
-  const recs = all.filter((r) => !isDone(r));
+  const recs = all.filter((r) => !isDone(r)).sort((a, b) => b.entered_at.localeCompare(a.entered_at));
+  $('#n-active').textContent = String(recs.length);
   if (!recs.length) {
-    host.replaceChildren(empty(all.length ? '진행 중인 추천이 없어요. 끝난 추천은 완료 탭에서 볼 수 있어요.' : '아직 발굴 이력이 없어요.'));
+    host.replaceChildren(h('div', { style: 'grid-column:1/-1' }, empty(all.length ? '진행 중인 추천이 없어요. 끝난 추천은 완료 구분에서 볼 수 있어요.' : '아직 발굴 이력이 없어요.')));
     note.textContent = ''; return;
   }
-  host.replaceChildren(buildTable(
-    ['발굴 시각', '종목', '전략 · 등급', '발굴가', '현재가', '+1시간', '+4시간', '+1일', '+3일', '현재 수익', '경과'],
-    recs.map((r) => [
-      kst(r.entered_at), r.market, stratPill(r), fmtKRW(r.entry_price), fmtKRW(r.last_price),
-      pct(r.horizons['1h']), pct(r.horizons['4h']), pct(r.horizons['24h']), pct(r.horizons['72h']), pct(r.return_pct),
-      holdText(Date.now() - new Date(r.entered_at).getTime()),
-    ]), 3));
-  note.textContent = `진행 중 ${recs.length}건 (전체 ${all.length}건 중). 끝난 추천은 완료 탭에서 볼 수 있어요.`;
+  host.replaceChildren(...recs.map((r) => recCard(r, d)));
+  note.textContent = `진행 중 ${recs.length}건 (전체 ${all.length}건 중). 익절·손절·기간 만료로 끝나면 완료로 옮겨져요.`;
+}
+
+const DONE_PAGE = 30;
+let doneShown = DONE_PAGE;
+function doneItem(r) {
+  const o = outcomeOf(r), info = RESULT_INFO[o.key] || RESULT_INFO.expired;
+  const endMs = new Date(r.exit ? r.exit.ended_at : r.last_at).getTime();
+  const endPrice = r.exit ? r.exit.exit_price : r.last_price;
+  return h('article', { class: `done-item ${info.cls}` },
+    h('div', { class: 'nm' }, h('small', { text: 'KRW' }), shortName(r.market), ' ', h('span', { class: `badge ${info.cls}`, text: info.label })),
+    h('div', { class: `ret ${upDown(o.ret)}`, text: o.ret == null ? '—' : signed(o.ret) }),
+    h('div', { class: 'line', text: `${fmtKRW(r.entry_price)} → ${fmtKRW(endPrice)}` }),
+    h('div', { class: 'line r', text: `${holdText(endMs - new Date(r.entered_at).getTime())} 보유` }),
+    h('div', { class: 'line' }, stratPill(r), h('span', { class: 'muted', text: ` · 추천 ${kst(r.entered_at)}` })),
+    h('div', { class: 'line r', text: `${kst(new Date(endMs).toISOString())} 종료` }));
 }
 
 function renderDone(d) {
-  const host = $('#done-list'), note = $('#done-note');
+  const host = $('#done-list'), note = $('#done-note'), more = $('#done-more');
   const doneAt = (r) => new Date(r.exit ? r.exit.ended_at : r.last_at).getTime();
   const done = recsOf(d).filter(isDone).sort((a, b) => doneAt(b) - doneAt(a));
-  $('#tab-done').textContent = `완료 (${(d.recommendations || []).filter(isDone).length})`;
+  $('#n-done').textContent = String(done.length);
   if (!done.length) {
     host.replaceChildren(empty('아직 끝난 추천이 없어요. 익절·손절·기간 만료가 되면 여기로 옮겨져요.'));
-    note.textContent = ''; return;
+    note.textContent = ''; more.hidden = true; return;
   }
-  const rows = done.map((r) => {
-    const o = outcomeOf(r), info = RESULT_INFO[o.key] || RESULT_INFO.expired;
-    const endMs = doneAt(r);
-    const endPrice = r.exit ? r.exit.exit_price : r.last_price;
-    return h('tr', {},
-      h('td', { text: kst(r.entered_at) }),
-      h('td', {}, h('div', { text: r.market }), h('div', {}, stratPill(r), h('span', { class: 'muted', text: ` ${r.score == null ? '' : `${r.score}점`}` }))),
-      h('td', { class: 'num', text: `${fmtKRW(r.entry_price)} → ${fmtKRW(endPrice)}` }),
-      h('td', { class: 'num' }, pct(o.ret)),
-      h('td', {}, h('span', { class: `result ${info.cls}`, text: `${info.mark} ${info.label}` })),
-      h('td', { text: kst(new Date(endMs).toISOString()) }),
-      h('td', { class: 'num', text: holdText(endMs - new Date(r.entered_at).getTime()) }));
-  });
-  host.replaceChildren(h('table', {},
-    h('thead', {}, h('tr', {}, ['추천 시각', '종목 · 전략', '추천가 → 종료가', '손익', '결과', '종료 시각', '보유'].map((x, i) => h('th', { class: i === 2 || i === 3 || i === 6 ? 'num' : '', text: x })))),
-    h('tbody', {}, rows)));
+  host.replaceChildren(...done.slice(0, doneShown).map(doneItem));
+  more.hidden = done.length <= doneShown;
+  more.textContent = `더 보기 (${Math.min(DONE_PAGE, done.length - doneShown)}건 / 남은 ${done.length - doneShown}건)`;
+  more.onclick = () => { doneShown += DONE_PAGE; renderDone(DATA); };
   const parts = [];
   for (const [key, name] of Object.entries(STRAT_LABEL)) {
     const mine = done.filter((r) => (r.strategy || 'legacy') === key);
@@ -1182,7 +1472,7 @@ function renderDone(d) {
     const detail = Object.keys(RESULT_INFO).filter((k) => k !== 'active' && s[k]).map((k) => `${RESULT_INFO[k].label} ${s[k]}`).join(' · ');
     parts.push(`${name} ${mine.length}건 (${detail})${key === 'legacy' && s.winRate != null ? `, 익절 ÷ (익절+손절) 승률 ${s.winRate.toFixed(0)}%` : ''}`);
   }
-  note.textContent = `완료 ${done.length}건: ${parts.join(' / ')}. 표본이 적을 때는 참고만 하세요.`;
+  note.textContent = `완료 ${done.length}건: ${parts.join(' / ')}. 점수 근거는 성과 탭의 '추천별 결과와 근거'에서 볼 수 있어요. 표본이 적을 때는 참고만 하세요.`;
 }
 
 function renderScans(d) {
@@ -1215,7 +1505,7 @@ function wireStratFilter() {
     filterWired = true;
     bar.querySelectorAll('[data-strat]').forEach((b) => {
       b.onclick = () => {
-        stratFilter = b.dataset.strat;
+        stratFilter = b.dataset.strat; doneShown = DONE_PAGE;
         try { localStorage.setItem('stratFilter', stratFilter); } catch (e) { /* 무시 */ }
         renderAll();
       };
@@ -1224,57 +1514,25 @@ function wireStratFilter() {
   sync();
 }
 
-/* ---------- 전광판 티커 (탭을 옮겨도 계속 보임) ---------- */
-function tickerItems(d) {
-  const items = [];
-  const w = d.macro && d.macro.watch;
-  if (w && w.mode !== 'normal') {
-    items.push({ t: Date.now(), cls: 'ex', text: w.mode === 'capitulation' ? '⚠️ BTC 투매 발생 · 매수 신호 아님' : '👀 BTC 저점권 관찰 중 · 매수 신호 아님' });
-  }
-  for (const r of d.recommendations || []) {
-    const tag = r.strategy === 'original' ? '[대조군] ' : '';
-    // '제외 정리'로 끝난 건 규칙이 생기기 전의 옛 기록이라 '추천'으로는 안 보여준다 (그 사유로 종료된 것만 보여줌)
-    if (!r.exit || r.exit.reason !== 'excluded') {
-      items.push({ t: new Date(r.entered_at).getTime(), cls: 'new', text: `🆕 ${tag}${r.market} 추천` });
-    }
-    if (r.exit) {
-      const cls = r.exit.reason === 'take_profit' ? 'tp' : r.exit.reason === 'stop_loss' ? 'sl' : 'ex';
-      const mark = cls === 'tp' ? '▲' : cls === 'sl' ? '▼' : '■';
-      const label = EXIT_LABEL[r.exit.reason] || r.exit.reason;
-      items.push({ t: new Date(r.exit.ended_at).getTime(), cls, text: `${mark} ${tag}${r.market} ${label} ${signed(r.exit.return_pct)}` });
-    }
-  }
-  items.sort((a, b) => b.t - a.t);
-  return items.slice(0, 16);
-}
-
-function renderTicker(d) {
-  const bar = $('#ticker'), track = $('#ticker-track');
-  const items = tickerItems(d);
-  if (!items.length) { bar.hidden = true; return; }
-  bar.hidden = false;
-  const build = () => items.map((it) => h('span', { class: `ticker-item ${it.cls}`, text: it.text }));
-  const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  track.classList.toggle('static', reduced);
-  // 애니메이션은 내용을 두 벌 이어 붙여 -50% 이동으로 끊김 없이 반복한다 (동작 줄이기 설정이면 한 벌만)
-  track.replaceChildren(...build(), ...(reduced ? [] : build()));
-}
-
 function renderAll() {
   wireStratFilter();
   charts.forEach((c) => c && c.destroy());
   charts = [];
   const d = DATA;
   $('#updated').textContent = d.generated_at ? `데이터 생성 ${kst(d.generated_at)} KST` : '';
-  renderTicker(d);
-  renderTiles(d);
+  renderScanChip(d);
+  renderNotice(d);
+  renderHomeKpis(d);
+  renderHomeActive(d);
+  renderHomeClosed(d);
+  renderHomeLegacy(d);
   renderCalendar(d);
+  renderScans(d);
   renderBtc(d.btc);
   renderCandidates(d);
   renderTracking(d);
   renderHistory(d);
   renderDone(d);
-  renderScans(d);
   renderMacro(d);
   renderPerf(d);
   renderCompare(d);
@@ -2203,10 +2461,10 @@ function renderPaper(d) {
 function renderCompare(d) {
   const all = d.recommendations || [];
   const groups = [
-    ['① 대조군', all.filter((r) => stratOf(r) === 'original')],
-    ['② 개선판', all.filter((r) => stratOf(r) === 'legacy')],
-    ['대조군 🔹변동폭 낮음', all.filter((r) => stratOf(r) === 'original' && volOf(r) != null && volOf(r) < VOL_MARK_PCT)],
-    ['대조군 🔸변동폭 높음', all.filter((r) => stratOf(r) === 'original' && volOf(r) != null && volOf(r) >= VOL_MARK_PCT)],
+    ['대조군', all.filter((r) => stratOf(r) === 'original')],
+    ['개선판', all.filter((r) => stratOf(r) === 'legacy')],
+    ['대조군 🔹낮음', all.filter((r) => stratOf(r) === 'original' && volOf(r) != null && volOf(r) < VOL_MARK_PCT)],
+    ['대조군 🔸높음', all.filter((r) => stratOf(r) === 'original' && volOf(r) != null && volOf(r) >= VOL_MARK_PCT)],
   ];
   const st = groups.map(([, recs]) => groupStats(recs));
   const row = (label, f) => [label, ...st.map((s) => (s == null ? '—' : f(s)))];
@@ -2222,7 +2480,12 @@ function renderCompare(d) {
       return parts.length ? parts.join(' · ') : '—';
     }),
   ];
-  $('#p-compare').replaceChildren(buildTable(['지표', ...groups.map(([name]) => name)], rows, 1));
+  const cmpTable = buildTable(['지표', ...groups.map(([name]) => name)], rows, 1);
+  cmpTable.classList.add('cmp-table');
+  // 좁은 화면에서는 표 대신 전략별 카드로 보여준다 (CSS가 둘 중 하나만 보이게 함)
+  const cmpCards = h('div', { class: 'cmp-cards' }, groups.map(([name], gi) => h('div', { class: 'cmp-card' }, h('h3', { text: name }),
+    ...rows.map((r) => h('div', { class: 'kv' }, h('span', { class: 'k', text: r[0] }), h('span', { class: 'v', text: String(r[gi + 1]) }))))));
+  $('#p-compare').replaceChildren(h('div', { class: 'cmp-wide table-wrap' }, cmpTable), cmpCards);
   $('#p-cmp-note').textContent = '두 전략은 매도 규칙이 같아 종료 손익을 그대로 비교할 수 있어요. 진입 조건 자체를 비교하려면 +1일·+3일 뒤 손익도 함께 보세요. 표본이 30건쯤 쌓이기 전에는 우연일 수 있어요. 오른쪽 두 열은 대조군을 14일 평균 일중 등락폭(기준 7.1%)으로 나눈 것으로 2026-10-02 이후 추천부터 집계돼요(백테스트에서 낮은 쪽은 손절도 익절도 적었어요).';
   $('#p-cmp-ref').textContent = CMP_REF;
 }
@@ -2454,14 +2717,43 @@ $('#mc-mode').addEventListener('click', (ev) => {
 });
 
 /* ---------- 탭 ---------- */
-const TABS = ['recs', 'done', 'perf', 'macro', 'chart', 'cycle'];
+// 최상위 탭 5개 + 추천(진행 중/완료/후보)·비트코인(분석/차트)의 하위 구분. 예전 주소(#done #macro #chart)도 그대로 열린다
+const TABS = ['home', 'recs', 'perf', 'btc', 'cycle'];
+const HASH_ALIAS = { done: 'recs/done', macro: 'btc/analysis', chart: 'btc/chart', active: 'recs/active' };
+let currentTab = 'home', recsSub = 'active', btcSub = 'analysis';
+
+function syncFilterBar() {
+  $('#strat-filter').hidden = !(currentTab === 'perf' || (currentTab === 'recs' && recsSub !== 'cand'));
+}
+function writeHash() {
+  const hash = currentTab === 'home' ? '' : currentTab === 'recs' && recsSub !== 'active' ? `#recs/${recsSub}`
+    : currentTab === 'btc' && btcSub !== 'analysis' ? `#btc/${btcSub}` : `#${currentTab}`;
+  try { history.replaceState(null, '', location.pathname + location.search + hash); } catch (e) { /* 무시 */ }
+}
+function showRecsSub(name) {
+  recsSub = ['active', 'done', 'cand'].includes(name) ? name : 'active';
+  for (const key of ['active', 'done', 'cand']) $(`#recs-${key}`).hidden = key !== recsSub;
+  $('#recs-seg').querySelectorAll('[data-sub]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.sub === recsSub)));
+  syncFilterBar();
+}
+function showBtcSub(name) {
+  btcSub = name === 'chart' ? 'chart' : 'analysis';
+  $('#view-macro').hidden = btcSub !== 'analysis';
+  $('#view-chart').hidden = btcSub !== 'chart';
+  $('#btc-seg').querySelectorAll('[data-sub]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.sub === btcSub)));
+}
 function selectTab(name, updateHash = true) {
-  for (const key of TABS) $(`#view-${key}`).hidden = key !== name;
-  $('#strat-filter').hidden = !['recs', 'done', 'perf'].includes(name);
-  document.querySelectorAll('.tab').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
-  if (updateHash) {
-    try { history.replaceState(null, '', name === 'recs' ? location.pathname + location.search : `#${name}`); } catch (e) { /* 무시 */ }
-  }
+  currentTab = TABS.includes(name) ? name : 'home';
+  for (const key of TABS) $(`#view-${key}`).hidden = key !== currentTab;
+  document.querySelectorAll('.tab').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === currentTab)));
+  syncFilterBar();
+  if (updateHash) { writeHash(); window.scrollTo(0, 0); }
+}
+function gotoSpec(spec) {
+  const [tab, sub] = (HASH_ALIAS[spec] || spec).split('/');
+  if (tab === 'recs' && sub) showRecsSub(sub);
+  if (tab === 'btc' && sub) showBtcSub(sub);
+  selectTab(tab);
 }
 document.querySelectorAll('.tab').forEach((b) => {
   b.addEventListener('click', () => selectTab(b.dataset.tab));
@@ -2472,7 +2764,25 @@ document.querySelectorAll('.tab').forEach((b) => {
     selectTab(next); $(`#tab-${next}`).focus();
   });
 });
-selectTab(TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'recs', false);
+document.addEventListener('click', (ev) => {
+  const go = ev.target.closest('[data-goto]');
+  if (go) gotoSpec(go.dataset.goto);
+});
+$('#recs-seg').addEventListener('click', (ev) => {
+  const b = ev.target.closest('[data-sub]');
+  if (b) { showRecsSub(b.dataset.sub); writeHash(); }
+});
+$('#btc-seg').addEventListener('click', (ev) => {
+  const b = ev.target.closest('[data-sub]');
+  if (b) { showBtcSub(b.dataset.sub); writeHash(); }
+});
+{
+  const raw = location.hash.slice(1);
+  const [tab, sub] = (HASH_ALIAS[raw] || raw).split('/');
+  showRecsSub(tab === 'recs' ? sub : 'active');
+  showBtcSub(tab === 'btc' ? sub : 'analysis');
+  selectTab(TABS.includes(tab) ? tab : 'home', false);
+}
 
 $('#m-range').addEventListener('click', (ev) => {
   const btn = ev.target.closest('button[data-bars]');
@@ -2626,11 +2936,11 @@ async function load() {
     document.body.classList.remove('loading');
   }
 }
-document.title = `알트코인 투자 매크로 ${APP_VERSION}`;
-$('#app-title').textContent = `알트코인 투자 매크로 ${APP_VERSION}`;
+document.title = `알트코인 매크로 ${APP_VERSION}`;
+$('#app-ver').textContent = `${APP_VERSION} · 업비트 KRW · 바이낸스 BTC`;
 load();
 setInterval(load, 5 * 60 * 1000);
-setInterval(() => { if (DATA) { renderTiles(DATA); if (DATA.macro) renderMacroTiles(DATA.macro); } }, 30 * 1000);
+setInterval(() => { if (DATA) { renderHomeKpis(DATA); renderScanChip(DATA); if (DATA.macro) renderMacroTiles(DATA.macro); } }, 30 * 1000);
 })();
 </script>
 </body>
