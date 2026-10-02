@@ -36,8 +36,28 @@ def scan_original(cache: dict, markets: list[str], exclude: set[str]) -> list[tu
     return out
 
 
-def breakdown(result: FrameResult) -> dict:
-    """대시보드 '추천 근거'에 쓰는 기록 (개선판과 같은 형식)."""
+def volatility_pct(day) -> float | None:
+    """마감 일봉 VOL_MARK_DAYS개의 평균 일중 등락폭(%). 표식용 참고값이며 추천 규칙에는 쓰지 않는다. 계산 못 하면 None."""
+    if day is None or day.empty or not {"high", "low", "close"} <= set(day.columns):
+        return None
+    tail = day.tail(config.VOL_MARK_DAYS)
+    if len(tail) < config.VOL_MARK_DAYS:
+        return None
+    value = float(((tail["high"] - tail["low"]) / tail["close"]).mean()) * 100
+    return None if value != value else value  # NaN 방지
+
+
+def vol_icon(vol_pct: float | None) -> str:
+    """🔹 변동폭 낮음 / 🔸 높음 / 빈 문자열(값 없음)."""
+    if vol_pct is None:
+        return ""
+    return "🔹" if vol_pct < config.VOL_MARK_PCT else "🔸"
+
+
+def breakdown(result: FrameResult, vol_pct: float | None = None) -> dict:
+    """대시보드 '추천 근거'에 쓰는 기록 (개선판과 같은 형식). vol_pct가 있으면 변동폭 표식용으로 함께 남긴다."""
     detail = CandidateResult(market="", total_score=result.score, frames=[result]).breakdown()
     detail["rule"] = RULE_TEXT
+    if vol_pct is not None:
+        detail["vol14_pct"] = round(vol_pct, 2)
     return detail

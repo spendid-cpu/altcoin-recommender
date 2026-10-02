@@ -141,8 +141,10 @@ async def _run_baseline_scan(session: aiohttp.ClientSession, markets: list[str],
             price = prices.get(market)
             if price is None:
                 continue
-            rec_at = price_tracker.record_entry(market, price, "-", round(result.score, 1), original_scanner.breakdown(result), strategy="original")
-            entered.append((market, price, round(result.score, 1)))
+            vol_pct = original_scanner.volatility_pct(cache.get((market, "day")))
+            rec_at = price_tracker.record_entry(
+                market, price, "-", round(result.score, 1), original_scanner.breakdown(result, vol_pct), strategy="original")
+            entered.append((market, price, round(result.score, 1), vol_pct))
             # 모의 지정가: 1시간봉 스윙 저점에 기록 (개선판과 동일)
             support_lows = []
             hour_candles = cache.get((market, "1h"))

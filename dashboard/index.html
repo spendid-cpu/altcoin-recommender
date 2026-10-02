@@ -611,7 +611,9 @@
 //   -0.55%로 앞/뒤 절반 모두 뚜렷하게 나빴던 결과를 근거로 사용자가 적용 결정(통계적 확정은 아님)
 // v1.11 (2026-09-30) 텔레그램 알림 주체를 개선판 -> 대조군으로 교체(규칙 변경 없음): 대조군 추천·종료는 한 통으로 묶어 보내고
 //   개선판은 알림 없이 기록만 한다. 성과 비교는 그대로 유지되며 저장소 변수 ALERT_STRATEGY=legacy로 되돌린다
-const APP_VERSION = 'v1.11';
+// v1.12 (2026-10-02) 대조군 추천에 '변동폭' 표식(🔹낮음/🔸높음, 14일 평균 일중 등락폭 기준 7.1%) 추가: 알림·추천 목록·성과 비교 열.
+//   추천 대상은 그대로이고 표시만 한다(사전 등록 스크린에서 낮은 변동폭은 손절도 익절도 같이 줄어 우위가 아닌 위험 크기 차이였음)
+const APP_VERSION = 'v1.12';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DATA_URL = 'dashboard.json';
@@ -690,8 +692,15 @@ try { const saved = localStorage.getItem('stratFilter'); if (saved && (saved ===
 const stratOf = (r) => r.strategy || 'legacy';
 const inFilter = (r) => stratFilter === 'all' || stratOf(r) === stratFilter;
 const recsOf = (d) => (d.recommendations || []).filter(inFilter);
+// 대조군 변동폭 표식: 14일 평균 일중 등락폭 기준(src/config.py VOL_MARK_PCT와 같은 값). 표시만이고 추천 대상은 그대로다
+const VOL_MARK_PCT = 7.1;
+const volOf = (r) => (r.detail && r.detail.vol14_pct != null ? r.detail.vol14_pct : null);
 function stratPill(r) {
-  if (r.strategy === 'original') return h('span', {}, h('span', { class: 'strat', text: '대조군' }), h('span', { class: 'pill', text: '일봉 통과' }));
+  if (r.strategy === 'original') {
+    const v = volOf(r);
+    return h('span', {}, h('span', { class: 'strat', text: '대조군' }), h('span', { class: 'pill', text: '일봉 통과' }),
+      v == null ? '' : h('span', { class: 'pill', text: `${v < VOL_MARK_PCT ? '🔹 변동폭 낮음' : '🔸 변동폭 높음'} ${v.toFixed(1)}%` }));
+  }
   return h('span', {}, h('span', { class: 'strat', text: '개선판' }), gradePill(r.grade));
 }
 const signed = (v) => `${v > 0 ? '+' : ''}${v.toFixed(2)}%`;
@@ -2196,6 +2205,8 @@ function renderCompare(d) {
   const groups = [
     ['① 대조군', all.filter((r) => stratOf(r) === 'original')],
     ['② 개선판', all.filter((r) => stratOf(r) === 'legacy')],
+    ['대조군 🔹변동폭 낮음', all.filter((r) => stratOf(r) === 'original' && volOf(r) != null && volOf(r) < VOL_MARK_PCT)],
+    ['대조군 🔸변동폭 높음', all.filter((r) => stratOf(r) === 'original' && volOf(r) != null && volOf(r) >= VOL_MARK_PCT)],
   ];
   const st = groups.map(([, recs]) => groupStats(recs));
   const row = (label, f) => [label, ...st.map((s) => (s == null ? '—' : f(s)))];
@@ -2212,7 +2223,7 @@ function renderCompare(d) {
     }),
   ];
   $('#p-compare').replaceChildren(buildTable(['지표', ...groups.map(([name]) => name)], rows, 1));
-  $('#p-cmp-note').textContent = '두 전략은 매도 규칙이 같아 종료 손익을 그대로 비교할 수 있어요. 진입 조건 자체를 비교하려면 +1일·+3일 뒤 손익도 함께 보세요. 표본이 30건쯤 쌓이기 전에는 우연일 수 있어요.';
+  $('#p-cmp-note').textContent = '두 전략은 매도 규칙이 같아 종료 손익을 그대로 비교할 수 있어요. 진입 조건 자체를 비교하려면 +1일·+3일 뒤 손익도 함께 보세요. 표본이 30건쯤 쌓이기 전에는 우연일 수 있어요. 오른쪽 두 열은 대조군을 14일 평균 일중 등락폭(기준 7.1%)으로 나눈 것으로 2026-10-02 이후 추천부터 집계돼요(백테스트에서 낮은 쪽은 손절도 익절도 적었어요).';
   $('#p-cmp-ref').textContent = CMP_REF;
 }
 

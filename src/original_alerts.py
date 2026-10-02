@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 
 import aiohttp
 
-from src import config, price_tracker, telegram_client
+from src import config, original_scanner, price_tracker, telegram_client
 from src.formatting import fmt_price
 from src.report import elapsed_text
 
@@ -23,9 +23,13 @@ def _targets(price: float) -> str:
     return " / ".join(parts)
 
 
-def entry_lines(entries: list[tuple[str, float, float]]) -> list[str]:
-    """entries: (종목, 추천가, 점수) 목록 -> 종목별 한 줄."""
-    return [f"{market}  {fmt_price(price)} · {_targets(price)} · 점수 {score:.1f}" for market, price, score in entries]
+def entry_lines(entries: list[tuple[str, float, float, float | None]]) -> list[str]:
+    """entries: (종목, 추천가, 점수, 변동폭%) 목록 -> 종목별 한 줄. 변동폭 표식은 참고용이고 추천 대상은 그대로다."""
+    lines = []
+    for market, price, score, vol_pct in entries:
+        vol = f" · 변동폭 {vol_pct:.1f}%" if vol_pct is not None else ""
+        lines.append(f"{original_scanner.vol_icon(vol_pct) or '▫️'} {market}  {fmt_price(price)} · {_targets(price)} · 점수 {score:.1f}{vol}")
+    return lines
 
 
 def entry_header(count: int, now: datetime) -> str:
@@ -35,7 +39,10 @@ def entry_header(count: int, now: datetime) -> str:
     if config.EXIT_STOP_LOSS_PCT is not None:
         rules.append(f"손절 -{config.EXIT_STOP_LOSS_PCT:g}%")
     rules.append(f"{price_tracker.TRACK_DAYS:g}일 뒤 만료")
-    return f"🆕 대조군 추천 {count}종목 · {now.astimezone(KST):%m-%d %H:%M} KST\n일봉 마감 기준 · " + " / ".join(rules)
+    return (
+        f"🆕 대조군 추천 {count}종목 · {now.astimezone(KST):%m-%d %H:%M} KST\n일봉 마감 기준 · " + " / ".join(rules)
+        + f"\n🔹 변동폭 낮음 · 🔸 높음 (14일 평균 일중 등락폭, 기준 {config.VOL_MARK_PCT:g}%) — 표시만이고 추천 대상은 그대로예요"
+    )
 
 
 def chunk(header: str, lines: list[str]) -> list[str]:
@@ -74,8 +81,9 @@ def exit_line(rec: dict, reason: str, exit_price: float, at: datetime, restored:
     ret = (exit_price / entry - 1) * 100
     icon = "🔺" if ret > 0 else "🔻" if ret < 0 else "➖"
     note = " ⏪공백 복원" if restored else ""
+    vol_mark = original_scanner.vol_icon((rec.get("detail") or {}).get("vol14_pct"))
     return (
-        f"{EXIT_ICON.get(reason, reason)}  {rec['market']}  {icon} {ret:+.2f}% · {fmt_price(entry)} → {fmt_price(exit_price)}"
+        f"{EXIT_ICON.get(reason, reason)}  {vol_mark}{rec['market']}  {icon} {ret:+.2f}% · {fmt_price(entry)} → {fmt_price(exit_price)}"
         f" · {elapsed_text(at - rec['entered_at'])} 보유{note}"
     )
 
