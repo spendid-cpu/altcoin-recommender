@@ -288,6 +288,39 @@
   .why-body ul { margin: 4px 0 4px; padding-left: 18px; }
   .ref-box { margin: 12px 0 0; padding: 11px 13px; border: 1px solid var(--border); border-radius: 10px; font-size: 12.5px; color: var(--ink2); background: var(--surface2); line-height: 1.55; }
   .cmp-table td:first-child, .cmp-table th:first-child { font-weight: 600; color: var(--ink2); }
+  .round-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: 12px; }
+  .round { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 15px 12px; box-shadow: var(--shadow); display: grid; gap: 10px; align-content: start; min-width: 0; }
+  .round-detail > summary { cursor: pointer; font-size: 13px; color: var(--accent); font-weight: 600; list-style: none; }
+  .round-detail > summary::-webkit-details-marker { display: none; }
+  .round-detail[open] > summary { margin-bottom: 6px; }
+  .rbars { position: relative; display: flex; gap: 4px; height: 176px; align-items: stretch; padding: 0 2px 20px; }
+  .rbars::before { content: ""; position: absolute; left: 0; right: 0; top: calc((100% - 20px) / 2); height: 1px; background: var(--axis); }
+  .rbar { position: relative; flex: 1; min-width: 6px; max-width: 48px; }
+  .rbar .fill { position: absolute; left: 12%; right: 12%; border-radius: 4px; }
+  .rbar.up .fill { background: var(--good); }
+  .rbar.down .fill { background: var(--bad); }
+  .rbar.wip .fill { opacity: .5; background-image: repeating-linear-gradient(135deg, transparent 0 4px, rgba(255, 255, 255, .4) 4px 8px); }
+  .rbar .val { position: absolute; left: -4px; right: -4px; text-align: center; font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; line-height: 1.4; }
+  .rbar .lbl { position: absolute; bottom: -20px; left: 50%; transform: translateX(-50%); font-size: 10px; color: var(--muted); white-space: nowrap; }
+  .rbars.dense .val { display: none; }
+  .exp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 12px; margin-bottom: 18px; }
+  .exp { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 15px; box-shadow: var(--shadow); display: grid; gap: 11px; align-content: start; min-width: 0; }
+  .exp-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .exp-top h3 { margin: 0; font-size: 15px; font-weight: 700; line-height: 1.35; }
+  .exp-state { flex: none; font-size: 11.5px; font-weight: 650; padding: 2px 9px; border-radius: 999px; background: color-mix(in srgb, var(--muted) 16%, transparent); color: var(--ink2); white-space: nowrap; }
+  .exp-state.ready { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+  .exp-what { margin: 0; font-size: 12.5px; color: var(--ink2); line-height: 1.55; }
+  .prog-list { display: grid; gap: 7px; }
+  .prog { display: grid; grid-template-columns: minmax(76px, auto) 1fr auto; gap: 8px; align-items: center; font-size: 12px; }
+  .prog .plbl { color: var(--ink2); }
+  .prog .pval { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .prog .track { height: 7px; border-radius: 99px; background: var(--grid); overflow: hidden; }
+  .prog .bar { display: block; height: 100%; border-radius: 99px; background: var(--accent); min-width: 2px; }
+  .exp-read { margin: 0; padding-left: 16px; font-size: 12.5px; line-height: 1.5; }
+  .exp-read li { margin: 2px 0; }
+  .exp-verdict { margin: 0; padding: 9px 11px; border-radius: 10px; background: color-mix(in srgb, var(--accent) 10%, transparent); font-size: 12.5px; font-weight: 600; line-height: 1.5; }
+  .exp-crit { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.55; }
+  .exp-crit strong { color: var(--ink2); }
   .cmp-cards { display: none; }
   .cmp-card { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; background: var(--surface2); }
   .cmp-card h3 { margin: 0 0 6px; font-size: 14px; font-weight: 700; }
@@ -429,6 +462,11 @@
       </section>
 
       <aside class="home-side">
+        <section class="card" aria-labelledby="h-home-rounds">
+          <div class="card-head"><h2 id="h-home-rounds">최근 회차</h2><button class="link-btn" type="button" data-goto="recs/rounds">회차별 보기</button></div>
+          <div id="home-rounds" class="mini-rows"></div>
+        </section>
+
         <section class="card" aria-labelledby="h-home-closed">
           <div class="card-head"><h2 id="h-home-closed">최근 종료</h2><button class="link-btn" type="button" data-goto="recs/done">더 보기</button></div>
           <div id="home-closed" class="mini-rows"></div>
@@ -462,6 +500,7 @@
       <div id="recs-seg" class="seg" role="group" aria-label="추천 구분">
         <button class="btn" type="button" data-sub="active" aria-pressed="true">진행 중<span class="n" id="n-active"></span></button>
         <button class="btn" type="button" data-sub="done" aria-pressed="false">완료<span class="n" id="n-done"></span></button>
+        <button class="btn" type="button" data-sub="rounds" aria-pressed="false">회차별<span class="n" id="n-rounds"></span></button>
         <button class="btn" type="button" data-sub="cand" aria-pressed="false">개선판 후보<span class="n" id="n-cand"></span></button>
       </div>
     </div>
@@ -485,6 +524,17 @@
       <p id="done-note" class="card-note"></p>
     </section>
 
+    <section id="recs-rounds" hidden>
+      <p class="sub" style="margin:0 0 12px">대조군은 하루 한 번 일봉 마감 직후에 여러 종목이 한꺼번에 나오고 같은 시각에 끝나요. 그래서 종목 하나하나보다 '그날 회차' 전체가 한 번의 판단이에요.</p>
+      <div id="rounds-tiles" class="tiles" aria-label="회차 요약"></div>
+      <div class="card">
+        <div class="card-head"><h2 id="h-rounds">회차별 평균 수익률</h2></div>
+        <div id="rounds-chart"></div>
+        <p id="rounds-note" class="card-note"></p>
+      </div>
+      <div id="rounds-list" class="round-list"></div>
+    </section>
+
     <section id="recs-cand" hidden>
       <div class="card">
         <div class="card-head">
@@ -500,6 +550,16 @@
 
   <!-- ===== 성과 ===== -->
   <main id="view-perf" role="tabpanel" aria-labelledby="tab-perf" hidden>
+    <section id="exp-board" aria-labelledby="h-exp">
+      <div class="sec-head" style="margin-bottom:10px">
+        <div>
+          <h2 id="h-exp">라이브 검증 현황</h2>
+          <p class="sub">미리 정해 둔 기준을 표본이 찰 때까지 지켜보는 중이에요. 표본이 모자랄 때는 숫자가 좋아 보여도 결론을 내리지 않아요</p>
+        </div>
+      </div>
+      <div id="exp-grid" class="exp-grid"></div>
+    </section>
+
     <div id="p-period" class="period-bar" role="group" aria-label="기간 필터"></div>
     <div id="p-basis" class="period-bar" role="group" aria-label="기간 기준"></div>
     <div id="p-custom" class="period-custom" hidden>
@@ -791,7 +851,8 @@
 // v1.13 (2026-10-03) 화면 전체 개편(기능·계산은 그대로): 탭을 오늘·추천·성과·비트코인·사이클 5개로 정리하고 모바일은 아래 탭바,
 //   첫 화면(오늘)을 대조군 진행 중 추천 카드(손절~익절 위치 게이지) 중심으로 재구성, 추천 목록을 카드/목록으로 바꿔 모바일 깨짐 수정,
 //   성과 탭의 긴 표는 접이식으로, 전광판 티커는 BTC 관찰 알림 배너로 대체, 색·글꼴·간격 새로 정리
-const APP_VERSION = 'v1.13';
+// v1.14 (2026-10-03) 대조군 '회차별' 보기(하루 배치 단위 요약·막대·종목별) + 홈 최근 회차, 성과 탭 '라이브 검증 현황'(표본 진행 막대와 사전 정한 판정 기준). 표시만 추가, 규칙·계산은 그대로
+const APP_VERSION = 'v1.14';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DATA_URL = 'dashboard.json';
@@ -1514,6 +1575,243 @@ function wireStratFilter() {
   sync();
 }
 
+/* ---------- 회차(일일 배치) ---------- */
+// 대조군은 하루 한 번(일봉 마감 직후) 여러 종목이 한꺼번에 나오고 같은 시각에 끝난다. 같은 한국시간 날짜에 나온 추천을 한 '회차'로 묶는다.
+const KST_DATE = (iso) => new Date(new Date(iso).getTime() + KST_MS).toISOString().slice(0, 10);
+const WEEKDAY = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', weekday: 'short' });
+const T975 = { 1: 12.71, 2: 4.30, 3: 3.18, 4: 2.78, 5: 2.57, 6: 2.45, 7: 2.36, 8: 2.31, 9: 2.26, 10: 2.23, 11: 2.20, 12: 2.18, 13: 2.16, 14: 2.14,
+  15: 2.13, 16: 2.12, 17: 2.11, 18: 2.10, 19: 2.09, 20: 2.09, 25: 2.06, 30: 2.04 };
+function tCrit(df) {
+  const k = Math.max(...Object.keys(T975).map(Number).filter((x) => x <= df));
+  return Number.isFinite(k) ? T975[k] : 12.71;
+}
+function meanCI(a) {  // 평균의 95% 구간 (t 분포 근사, 5개 미만이면 보여주지 않는다)
+  if (a.length < 5) return null;
+  const m = avg(a), sd = Math.sqrt(a.reduce((acc, v) => acc + (v - m) ** 2, 0) / (a.length - 1));
+  const half = tCrit(a.length - 1) * sd / Math.sqrt(a.length);
+  return [m - half, m + half];
+}
+
+function buildRounds(d) {
+  const { days } = exitRulesOf(d);
+  const real = originalRecs(d).filter((r) => !(r.exit && r.exit.reason === 'excluded'));  // '제외 정리'는 실제 결과가 아니라 뺀다
+  const byDay = new Map();
+  for (const r of real) {
+    const k = KST_DATE(r.entered_at);
+    if (!byDay.has(k)) byDay.set(k, []);
+    byDay.get(k).push(r);
+  }
+  return [...byDay.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([date, recs]) => {
+    const os = recs.map((r) => ({ r, o: outcomeOf(r) }));
+    const rets = os.map(({ o }) => o.ret ?? 0);
+    const cnt = (...keys) => os.filter(({ o }) => keys.includes(o.key)).length;
+    const active = cnt('active');
+    const firstAt = recs.reduce((a, r) => (a < r.entered_at ? a : r.entered_at), recs[0].entered_at);
+    const byRet = [...os].sort((a, b) => (b.o.ret ?? 0) - (a.o.ret ?? 0));
+    const tpN = cnt('take_profit'), slN = cnt('stop_loss', 'trailing');
+    return {
+      date, recs, os, n: recs.length, avg: avg(rets), tp: tpN, sl: slN, active, exp: recs.length - tpN - slN - active,
+      plus: rets.filter((v) => v > 0).length, best: byRet[0], worst: byRet[byRet.length - 1], complete: active === 0, firstAt,
+      expiresAt: new Date(new Date(firstAt).getTime() + days * 86400e3).toISOString(),
+    };
+  });
+}
+
+function roundsChart(rounds) {
+  const maxAbs = Math.max(1, ...rounds.map((x) => Math.abs(x.avg)));
+  const every = rounds.length > 12 ? Math.ceil(rounds.length / 10) : 1;
+  const dense = rounds.length > (window.matchMedia('(max-width: 760px)').matches ? 9 : 18);
+  return h('div', { class: dense ? 'rbars dense' : 'rbars', role: 'img', 'aria-label': `회차별 평균 수익률, ${rounds.length}개 회차` },
+    rounds.map((x, i) => {
+      const up = x.avg >= 0, hh = Math.abs(x.avg) / maxAbs * 46;
+      return h('div', { class: `rbar ${up ? 'up' : 'down'}${x.complete ? '' : ' wip'}`, title: `${x.date.slice(5)} · ${x.n}종목 · 평균 ${signed(x.avg)}${x.complete ? '' : ' (진행 중, 잠정)'}` },
+        h('span', { class: 'val', style: up ? `bottom:calc(50% + ${hh}%)` : `top:calc(50% + ${hh}%)`, text: x.avg.toFixed(1) }),
+        h('span', { class: 'fill', style: up ? `bottom:50%;height:${hh}%` : `top:50%;height:${hh}%` }),
+        h('span', { class: 'lbl', text: (rounds.length - 1 - i) % every === 0 ? x.date.slice(5) : '' }));
+    }));
+}
+
+const ROUND_COLOR = { tp: 'var(--good)', sl: 'var(--bad)', exp: 'var(--muted)', act: 'var(--s1)' };
+function roundCard(x) {
+  const parts = [['tp', x.tp, '익절'], ['sl', x.sl, '손절'], ['exp', x.exp, '만료·기타'], ['act', x.active, '진행 중']].filter(([, n]) => n > 0);
+  const lo = x.recs.filter((r) => volOf(r) != null && volOf(r) < VOL_MARK_PCT), hi = x.recs.filter((r) => volOf(r) != null && volOf(r) >= VOL_MARK_PCT);
+  const avgOf = (rs) => avg(rs.map((r) => outcomeOf(r).ret ?? 0));
+  const markLine = (lo.length || hi.length)
+    ? h('div', { class: 'rec-foot' },
+      h('span', { text: `🔹 낮음 ${lo.length}건${lo.length ? ` · 평균 ${sgn(avgOf(lo))}` : ''}` }),
+      h('span', { text: `🔸 높음 ${hi.length}건${hi.length ? ` · 평균 ${sgn(avgOf(hi))}` : ''}` }))
+    : null;
+  const item = ({ r, o }) => {
+    const info = RESULT_INFO[o.key] || RESULT_INFO.expired;
+    return h('div', { class: 'mini-row' },
+      h('span', { class: `badge ${info.cls}`, text: info.label }),
+      h('span', {}, h('span', { class: 'nm' }, h('small', { text: 'KRW' }), shortName(r.market)), volOf(r) == null ? null : h('span', { class: 'when', text: ` · ${volOf(r) < VOL_MARK_PCT ? '🔹' : '🔸'}${volOf(r).toFixed(1)}%` })),
+      h('span', { class: `r ${upDown(o.ret)}`, text: o.ret == null ? '—' : signed(o.ret) }));
+  };
+  return h('article', { class: 'round' },
+    h('div', { class: 'rec-top' },
+      h('div', {},
+        h('div', { class: 'rec-name', text: `${x.date.slice(5)} (${WEEKDAY.format(new Date(x.firstAt))})` }),
+        h('div', { class: 'rec-meta' },
+          h('span', { class: 'pill', text: `${x.n}종목` }),
+          h('span', { class: `pill ${x.complete ? '' : 'A'}`, text: x.complete ? '모두 종료' : `진행 중 ${x.active}건` }))),
+      h('div', { class: `rec-ret ${upDown(x.avg)}` }, signed(x.avg), h('small', { text: x.complete ? '회차 평균' : '회차 평균 (잠정)' }))),
+    h('div', { class: 'stack', role: 'img', 'aria-label': parts.map(([, n, name]) => `${name} ${n}건`).join(', ') },
+      parts.map(([cls, n, name]) => h('span', { class: cls, style: `flex:${n}`, title: `${name} ${n}건` }))),
+    h('div', { class: 'stack-legend', style: 'margin-top:0' },
+      parts.map(([cls, n, name]) => h('span', {}, h('span', { class: 'dot', style: `background:${ROUND_COLOR[cls]}` }), `${name} ${n}`))),
+    h('div', { class: 'rec-foot' },
+      h('span', { text: `플러스 ${x.plus} / ${x.n}` }),
+      h('span', { text: `최고 ${shortName(x.best.r.market)} ${sgn(x.best.o.ret)}` }),
+      h('span', { text: `최저 ${shortName(x.worst.r.market)} ${sgn(x.worst.o.ret)}` })),
+    markLine,
+    h('div', { class: 'rec-foot' },
+      h('span', { text: `추천 ${kst(x.firstAt)}` }),
+      h('span', { text: x.complete ? '전부 끝남' : `만료 ${kst(x.expiresAt)}` })),
+    h('details', { class: 'round-detail' }, h('summary', { text: '종목별 보기' }),
+      h('div', { class: 'mini-rows' }, [...x.os].sort((a, b) => (b.o.ret ?? 0) - (a.o.ret ?? 0)).map(item))));
+}
+
+function renderRounds(d) {
+  const rounds = buildRounds(d);
+  $('#n-rounds').textContent = String(rounds.length);
+  const tilesEl = $('#rounds-tiles'), chartEl = $('#rounds-chart'), listEl = $('#rounds-list'), note = $('#rounds-note');
+  if (!rounds.length) {
+    tilesEl.replaceChildren(); chartEl.replaceChildren(empty('아직 대조군 회차가 없어요. 새 추천이 나오면 여기에 회차별로 쌓여요.'));
+    listEl.replaceChildren(); note.textContent = ''; return;
+  }
+  const done = rounds.filter((x) => x.complete);
+  const doneAvgs = done.map((x) => x.avg);
+  const ci = meanCI(doneAvgs);
+  const plusRounds = done.filter((x) => x.avg > 0).length;
+  const worst = done.length ? done.reduce((a, b) => (a.avg < b.avg ? a : b)) : null;
+  tilesEl.replaceChildren(
+    tile('회차', [String(rounds.length), h('span', { class: 'unit', text: '회' })], `완료 ${done.length} · 진행 중 ${rounds.length - done.length}`, null, 'hero'),
+    tile('완료 회차 평균', [done.length ? sgn(avg(doneAvgs)) : '—'],
+      ci ? `95% 구간 ${ci[0].toFixed(1)} ~ ${ci[1].toFixed(1)}% (참고)` : `완료 회차가 5개 이상이면 구간을 보여줘요 (지금 ${done.length}개)`),
+    tile('플러스 회차', [done.length ? `${plusRounds} / ${done.length}` : '—'], '회차 평균이 플러스였던 비율'),
+    tile('가장 나쁜 회차', [worst ? sgn(worst.avg) : '—'], worst ? `${worst.date.slice(5)} 회차 · ${worst.n}종목` : '끝난 회차가 아직 없어요'));
+  chartEl.replaceChildren(roundsChart(rounds));
+  note.textContent = '막대는 그 회차의 평균 수익률(%)이에요. 연한 막대는 아직 진행 중이라 바뀔 수 있는 잠정값이에요. 한 회차는 같은 날 같은 시장에서 나온 종목들이라 같이 오르고 같이 떨어져서, '
+    + '독립된 표본은 종목 수가 아니라 회차 수예요. 종목 수가 1개인 회차와 20개인 회차도 같은 비중으로 평균하고, 회차 평균은 시장 상승분이 섞인 절대 수익이라 우위의 증거는 아니에요.';
+  listEl.replaceChildren(...[...rounds].reverse().map(roundCard));
+}
+
+function renderHomeRounds(d) {
+  const host = $('#home-rounds');
+  const rounds = buildRounds(d).reverse().slice(0, 3);
+  if (!rounds.length) { host.replaceChildren(empty('아직 회차가 없어요.')); return; }
+  host.replaceChildren(...rounds.map((x) => h('div', { class: 'mini-row' },
+    h('span', { class: `badge ${x.complete ? '' : 'tp'}`, text: x.complete ? '종료' : `진행 ${x.active}` }),
+    h('span', {}, h('span', { class: 'nm', text: `${x.date.slice(5)} (${WEEKDAY.format(new Date(x.firstAt))})` }), h('span', { class: 'when', text: ` · ${x.n}종목 · 익절 ${x.tp} 손절 ${x.sl}` })),
+    h('span', { class: `r ${upDown(x.avg)}`, text: signed(x.avg) }))));
+}
+
+/* ---------- 라이브 검증 현황 (미리 정한 기준을 표본이 찰 때까지 지켜본다) ---------- */
+function expProg(label, n, target) {
+  const pctDone = Math.min(100, n / target * 100);
+  return h('div', { class: 'prog' }, h('span', { class: 'plbl', text: label }),
+    h('div', { class: 'track', role: 'img', 'aria-label': `${label} ${n}건 중 목표 ${target}건` }, h('span', { class: 'bar', style: `width:${pctDone}%` })),
+    h('span', { class: 'pval', text: `${n}/${target}` }));
+}
+function expCard({ title, what, state, bars, reading, criteria, verdict }) {
+  return h('article', { class: 'exp' },
+    h('div', { class: 'exp-top' }, h('h3', { text: title }), h('span', { class: `exp-state ${state.cls}`, text: state.text })),
+    h('p', { class: 'exp-what', text: what }),
+    h('div', { class: 'prog-list' }, bars),
+    h('ul', { class: 'exp-read' }, reading.map((t) => h('li', { text: t }))),
+    verdict ? h('p', { class: 'exp-verdict', text: verdict }) : null,
+    h('p', { class: 'exp-crit' }, h('strong', { text: '미리 정한 기준 ' }), criteria));
+}
+
+function renderExperiments(d) {
+  const host = $('#exp-grid');
+  const orig = originalRecs(d);
+  const realClosed = (rs) => rs.filter((r) => r.exit && r.exit.reason !== 'excluded');
+  const TARGET = 30;
+  const cards = [];
+
+  // ① 변동폭 표식
+  {
+    const lo = realClosed(orig.filter((r) => volOf(r) != null && volOf(r) < VOL_MARK_PCT));
+    const hi = realClosed(orig.filter((r) => volOf(r) != null && volOf(r) >= VOL_MARK_PCT));
+    const st = (a) => ({ n: a.length, mean: avg(a.map((r) => r.exit.return_pct)), stop: a.length ? a.filter((r) => r.exit.reason === 'stop_loss').length / a.length * 100 : null });
+    const L = st(lo), H = st(hi);
+    const ready = L.n >= TARGET && H.n >= TARGET;
+    const line = (name, v) => (v.n ? `${name} ${v.n}건 · 평균 ${sgn(v.mean)} · 손절 ${v.stop.toFixed(0)}%` : `${name} 아직 종료된 추천이 없어요`);
+    let verdict = null;
+    if (ready) {
+      const okStop = L.stop < H.stop, okMean = L.mean - H.mean >= -0.5;
+      verdict = okStop && okMean ? '기준 충족: 낮은 변동폭만 추천하는 규칙을 정식 사전 등록 테스트로 넘길 만해요 (표식은 계속 표시만).'
+        : '기준 미충족: 표식은 표시만 계속하고 추천 규칙은 바꾸지 않아요.';
+    }
+    cards.push(expCard({
+      title: '변동폭 표식 (🔹낮음 · 🔸높음)',
+      what: '대조군 추천을 최근 14일 평균 일중 등락폭 7.1% 기준으로 나눠서, 낮은 쪽이 정말 손절이 덜한지 라이브로 지켜봐요. 백테스트에서는 손절도 익절도 같이 줄었어요.',
+      state: ready ? { text: '판단 가능', cls: 'ready' } : { text: '수집 중 · 결론 보류', cls: '' },
+      bars: [expProg('🔹 낮음 종료', L.n, TARGET), expProg('🔸 높음 종료', H.n, TARGET)],
+      reading: [line('🔹 낮음', L), line('🔸 높음', H)],
+      criteria: `두 표식 모두 종료 ${TARGET}건 이상일 때, ① 낮은 쪽 손절률이 더 낮고 ② 낮은 쪽 평균 손익이 높은 쪽보다 0.5%p 넘게 나쁘지 않으면 '낮은 변동폭만 추천'을 정식 테스트로 넘겨요. 그 전에는 결론을 내리지 않아요.`,
+      verdict,
+    }));
+  }
+
+  // ② 지정가 모의 (대조군)
+  {
+    const origByKey = new Map(orig.map((r) => [`${r.market}|${new Date(r.entered_at).getTime()}`, r]));
+    const orders = (d.paper_limit || []).map((o) => ({ o, r: origByKey.get(`${o.market}|${new Date(o.rec_at).getTime()}`) })).filter((x) => x.r);
+    const placed = orders.filter(({ o }) => o.status !== 'no_level');
+    const pairs = placed.filter(({ o, r }) => (o.status === 'closed' || o.status === 'cancelled') && r.exit && r.exit.reason !== 'excluded')
+      .map(({ o, r }) => ({ at: r.entered_at, paper: o.status === 'closed' ? o.return_pct : 0, market: r.exit.return_pct, filled: o.status === 'closed' }))
+      .sort((a, b) => a.at.localeCompare(b.at));
+    const n = pairs.length, filled = pairs.filter((p) => p.filled).length;
+    const diffOf = (a) => (a.length ? avg(a.map((p) => p.paper)) - avg(a.map((p) => p.market)) : null);
+    const diff = diffOf(pairs), h1 = diffOf(pairs.slice(0, Math.floor(n / 2))), h2 = diffOf(pairs.slice(Math.floor(n / 2)));
+    const ready = n >= TARGET;
+    const noLevel = orders.length - placed.length;
+    const reading = n
+      ? [`확정 ${n}건 (체결 ${filled} · 미체결 취소 ${n - filled}) · 체결률 ${(filled / n * 100).toFixed(0)}%`,
+        `지정가 평균 ${sgn(avg(pairs.map((p) => p.paper)))} (미체결=0) · 시장가 평균 ${sgn(avg(pairs.map((p) => p.market)))} · 차이 ${sgn(diff)}`]
+      : [`모의 주문 ${placed.length}건 기록됨 · 아직 확정된 건이 없어요`];
+    if (noLevel) reading.push(`지지 자리를 못 찾아 주문을 못 낸 추천 ${noLevel}건은 제외했어요`);
+    let verdict = null;
+    if (ready) verdict = diff >= 0.3 && h1 > 0 && h2 > 0 ? '기준 충족: 지정가 방식이 의미 있게 나았어요. 정식 사전 등록 테스트로 넘길 만해요.' : '기준 미충족: 지정가 방식의 우위는 확인되지 않았어요.';
+    cards.push(expCard({
+      title: '지지선 지정가 모의 (대조군)',
+      what: '대조군 추천마다 아래쪽 1시간봉 지지선에 24시간짜리 지정가를 건 결과와, 바로 산 결과를 같은 추천끼리 비교해요. 안 걸리면 취소(수익 0)로 셉니다.',
+      state: ready ? { text: '판단 가능', cls: 'ready' } : { text: '수집 중 · 결론 보류', cls: '' },
+      bars: [expProg('확정된 주문', n, TARGET)],
+      reading,
+      criteria: `확정 ${TARGET}건 이상에서 지정가 평균이 시장가 평균보다 0.3%p 이상 높고, 확정 건의 앞 절반·뒤 절반 모두 플러스일 때만 의미 있다고 봐요. 체결된 건만의 평균은 선택 편향이라 판단에 안 써요.`,
+      verdict,
+    }));
+  }
+
+  // ③ 대조군 라이브 회차
+  {
+    const rounds = buildRounds(d);
+    const done = rounds.filter((x) => x.complete);
+    const avgs = done.map((x) => x.avg), ci = meanCI(avgs);
+    const ready = done.length >= TARGET;
+    let verdict = null;
+    if (ready && ci) verdict = ci[0] > 0 ? '완료 회차 평균의 95% 구간이 0 위예요. 다만 시장 상승분이 섞여 있어 우위 판정은 같은 시각 기준선 대비로 따로 확인해야 해요.'
+      : '완료 회차 평균의 95% 구간이 0을 포함해요. 절대 수익으로도 양(+)이라고 보기 어려워요.';
+    cards.push(expCard({
+      title: '대조군 라이브 성과 (회차 단위)',
+      what: '대조군은 하루에 한꺼번에 나와서, 독립된 표본은 종목이 아니라 회차예요. 끝난 회차의 평균 수익률이 꾸준히 플러스인지 지켜봐요.',
+      state: ready ? { text: '판단 가능', cls: 'ready' } : { text: '수집 중 · 결론 보류', cls: '' },
+      bars: [expProg('완료 회차', done.length, TARGET)],
+      reading: done.length
+        ? [`완료 ${done.length}회차 · 평균 ${sgn(avg(avgs))}${ci ? ` (95% 구간 ${ci[0].toFixed(1)} ~ ${ci[1].toFixed(1)}%)` : ''}`,
+          `플러스 회차 ${done.filter((x) => x.avg > 0).length} / ${done.length}`]
+        : ['완료된 회차가 아직 없어요'],
+      criteria: `완료 회차 ${TARGET}개 이상에서 평균의 95% 구간 하한이 0보다 크면 절대 수익이 양(+)이라고 봐요. 우위 여부는 시장 흐름을 걷어낸 같은 시각 기준선 대비 초과수익으로 따로 점검해요.`,
+      verdict,
+    }));
+  }
+  host.replaceChildren(...cards);
+}
+
 function renderAll() {
   wireStratFilter();
   charts.forEach((c) => c && c.destroy());
@@ -1524,8 +1822,11 @@ function renderAll() {
   renderNotice(d);
   renderHomeKpis(d);
   renderHomeActive(d);
+  renderHomeRounds(d);
   renderHomeClosed(d);
   renderHomeLegacy(d);
+  renderRounds(d);
+  renderExperiments(d);
   renderCalendar(d);
   renderScans(d);
   renderBtc(d.btc);
@@ -2723,7 +3024,7 @@ const HASH_ALIAS = { done: 'recs/done', macro: 'btc/analysis', chart: 'btc/chart
 let currentTab = 'home', recsSub = 'active', btcSub = 'analysis';
 
 function syncFilterBar() {
-  $('#strat-filter').hidden = !(currentTab === 'perf' || (currentTab === 'recs' && recsSub !== 'cand'));
+  $('#strat-filter').hidden = !(currentTab === 'perf' || (currentTab === 'recs' && recsSub !== 'cand' && recsSub !== 'rounds'));
 }
 function writeHash() {
   const hash = currentTab === 'home' ? '' : currentTab === 'recs' && recsSub !== 'active' ? `#recs/${recsSub}`
@@ -2731,8 +3032,8 @@ function writeHash() {
   try { history.replaceState(null, '', location.pathname + location.search + hash); } catch (e) { /* 무시 */ }
 }
 function showRecsSub(name) {
-  recsSub = ['active', 'done', 'cand'].includes(name) ? name : 'active';
-  for (const key of ['active', 'done', 'cand']) $(`#recs-${key}`).hidden = key !== recsSub;
+  recsSub = ['active', 'done', 'rounds', 'cand'].includes(name) ? name : 'active';
+  for (const key of ['active', 'done', 'rounds', 'cand']) $(`#recs-${key}`).hidden = key !== recsSub;
   $('#recs-seg').querySelectorAll('[data-sub]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.sub === recsSub)));
   syncFilterBar();
 }

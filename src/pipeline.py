@@ -148,6 +148,12 @@ async def _run_baseline_scan(session: aiohttp.ClientSession, markets: list[str],
             # 모의 지정가: 1시간봉 스윙 저점에 기록 (개선판과 동일)
             support_lows = []
             hour_candles = cache.get((market, "1h"))
+            if hour_candles is None:
+                # 개선판 스캔은 일봉 게이트에서 걸린 종목의 1시간봉을 안 받으므로, 대조군 진입 종목은 여기서 따로 받는다
+                try:
+                    hour_candles = await upbit_client.fetch_candles(session, market, "1h", count=config.PAPER_SUPPORT_WINDOW_HOURS + 30)
+                except Exception as exc:
+                    print(f"기준선: {market} 1시간봉 조회 실패(모의 지정가만 건너뜀): {exc!r}")
             if hour_candles is not None and not hour_candles.empty:
                 support_lows = find_support_lows(hour_candles["close"].tail(config.PAPER_SUPPORT_WINDOW_HOURS))
             paper_limit.place(market, rec_at, price, support_lows)
