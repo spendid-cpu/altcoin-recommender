@@ -54,10 +54,13 @@ def vol_icon(vol_pct: float | None) -> str:
     return "🔹" if vol_pct < config.VOL_MARK_PCT else "🔸"
 
 
-def breakdown(result: FrameResult, vol_pct: float | None = None) -> dict:
-    """대시보드 '추천 근거'에 쓰는 기록 (개선판과 같은 형식). vol_pct가 있으면 변동폭 표식용으로 함께 남긴다."""
+def breakdown(result: FrameResult, vol_pct: float | None = None, extra: dict | None = None) -> dict:
+    """대시보드 '추천 근거'에 쓰는 기록 (개선판과 같은 형식). vol_pct가 있으면 변동폭 표식용으로, extra(예: 진입 시점 호가 쏠림)는
+    나중에 사전 등록 검증에 쓰려고 그대로 함께 남긴다 (추천 판단에는 안 쓴다)."""
     detail = CandidateResult(market="", total_score=result.score, frames=[result]).breakdown()
     detail["rule"] = RULE_TEXT
     if vol_pct is not None:
         detail["vol14_pct"] = round(vol_pct, 2)
+    if extra:
+        detail.update(extra)
     return detail

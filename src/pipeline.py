@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 
 import aiohttp
 
-from src import config, cycle, exits, macro_job, market_cap, original_alerts, original_scanner, paper_limit, price_tracker, report, scan_log, state_store, telegram_client
+from src import config, cycle, exits, macro_job, market_cap, orderbook, original_alerts, original_scanner, paper_limit, price_tracker, report, scan_log, state_store, telegram_client
 from src.scoring import find_support_lows
 from src.exchanges import upbit_client
 from src.notifier import diff_alerts
@@ -141,14 +141,21 @@ async def _run_baseline_scan(session: aiohttp.ClientSession, markets: list[str],
         except Exception as exc:
             print(f"기준선: 재추천 표시 계산 실패(표시만 생략): {exc!r}")
             prior = {}
+        try:  # 진입 시점의 호가 쏠림을 기록에 남긴다 (나중에 효과를 사전 등록 검증하려는 자료, 추천 판단에는 안 씀)
+            books = await orderbook.fetch_summaries(session, {m: p for m, p in prices.items() if p})
+        except Exception as exc:
+            print(f"기준선: 진입 시점 호가 조회 실패(기록만 생략): {exc!r}")
+            books = {}
         entered = []
         for market, result in found:
             price = prices.get(market)
             if price is None:
                 continue
             vol_pct = original_scanner.volatility_pct(cache.get((market, "day")))
+            ob = books.get(market)
+            extra = {"ob": {k: ob[k] for k in ("imb", "bid_krw", "ask_krw", "range_pct", "level")}} if ob else None
             rec_at = price_tracker.record_entry(
-                market, price, "-", round(result.score, 1), original_scanner.breakdown(result, vol_pct), strategy="original")
+                market, price, "-", round(result.score, 1), original_scanner.breakdown(result, vol_pct, extra), strategy="original")
             entered.append((market, price, round(result.score, 1), vol_pct, prior.get(market)))
             # 모의 지정가: 1시간봉 스윙 저점에 기록 (개선판과 동일)
             support_lows = []

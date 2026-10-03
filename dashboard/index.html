@@ -337,6 +337,19 @@
   .liq-px { text-align: center; color: var(--ink2); }
   .liq-now { display: flex; align-items: center; gap: 8px; margin: 3px 0; color: var(--accent); font-size: 12px; font-weight: 700; }
   .liq-now::before, .liq-now::after { content: ""; flex: 1; height: 1px; background: var(--accent); opacity: .6; }
+  .wall-row { display: grid; grid-template-columns: 92px 1fr 132px; gap: 8px; align-items: center; padding: 1px 2px; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .wall-row:hover { background: color-mix(in srgb, var(--ink) 4%, transparent); }
+  .wall-row .px { text-align: right; color: var(--ink2); }
+  .wall-row .wb { display: flex; align-items: center; gap: 6px; height: 17px; min-width: 0; }
+  .wall-row .bar { display: block; height: 11px; border-radius: 3px; min-width: 2px; opacity: .45; }
+  .wall-row.ask .bar { background: var(--bad); }
+  .wall-row.bid .bar { background: var(--good); }
+  .wall-row.wall .bar { opacity: 1; }
+  .wall-row .v { color: var(--muted); font-size: 11px; white-space: nowrap; }
+  .wall-row .tag { font-size: 11px; color: var(--ink2); white-space: nowrap; }
+  .wall-row.wall .tag { font-weight: 650; color: var(--ink); }
+  .pill.ob-bid { background: color-mix(in srgb, var(--good) 14%, transparent); border-color: transparent; color: var(--ink); }
+  .pill.ob-ask { background: color-mix(in srgb, var(--bad) 14%, transparent); border-color: transparent; color: var(--ink); }
   .cmp-cards { display: none; }
   .cmp-card { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; background: var(--surface2); }
   .cmp-card h3 { margin: 0 0 6px; font-size: 14px; font-weight: 700; }
@@ -402,6 +415,8 @@
     .fold-body { padding: 14px 14px 16px; }
     details.fold > summary { padding: 13px 14px; }
     .rec-grid { grid-template-columns: minmax(0, 1fr); }
+    .wall-row { grid-template-columns: 74px 1fr 82px; gap: 6px; }
+    .wall-row .tag { white-space: normal; line-height: 1.2; }
     .cmp-wide { display: none; }
     .cmp-cards { display: grid; gap: 10px; }
     th, td { padding: 8px 9px; }
@@ -666,6 +681,7 @@
         <button class="btn" type="button" data-sub="analysis" aria-pressed="true">분석</button>
         <button class="btn" type="button" data-sub="chart" aria-pressed="false">차트</button>
         <button class="btn" type="button" data-sub="liq" aria-pressed="false">청산</button>
+        <button class="btn" type="button" data-sub="wall" aria-pressed="false">매물대</button>
       </div>
     </div>
 
@@ -838,6 +854,60 @@
         </div>
       </details>
     </div>
+
+    <div id="view-wall" hidden>
+      <section id="wall-tiles" class="tiles" aria-label="매물대 요약"></section>
+
+      <section class="card" aria-labelledby="h-wall-up">
+        <div class="card-head">
+          <div>
+            <h2 id="h-wall-up">업비트 BTC 호가 (지금 걸려 있는 주문)</h2>
+            <p id="wall-up-sub" class="sub"></p>
+          </div>
+        </div>
+        <div id="wall-upbit"></div>
+        <p id="wall-note" class="card-note"></p>
+      </section>
+
+      <section class="card" aria-labelledby="h-wall-bn">
+        <div class="card-head">
+          <div>
+            <h2 id="h-wall-bn">바이낸스 BTCUSDT 근접 호가</h2>
+            <p id="wall-bn-sub" class="sub"></p>
+          </div>
+        </div>
+        <div id="wall-binance"></div>
+      </section>
+
+      <section class="card" aria-labelledby="h-wall-prof">
+        <div class="card-head">
+          <div>
+            <h2 id="h-wall-prof">거래 매물대 (체결 기반)</h2>
+            <p class="sub">어느 가격에서 거래가 많이 체결됐는지예요. 많이 거래된 가격은 되돌아올 때 지지·저항으로 자주 보는 자리지만, 앞날을 보장하지는 않아요</p>
+          </div>
+          <div id="prof-range" class="seg" role="group" aria-label="기간">
+            <button class="btn" type="button" data-days="7" aria-pressed="false">7일</button>
+            <button class="btn" type="button" data-days="30" aria-pressed="true">30일</button>
+            <button class="btn" type="button" data-days="90" aria-pressed="false">90일</button>
+          </div>
+        </div>
+        <div id="wall-profile"></div>
+        <p id="prof-note" class="card-note"></p>
+      </section>
+
+      <details class="fold">
+        <summary>읽는 법과 한계</summary>
+        <div class="fold-body">
+          <ul class="howto">
+            <li>호가창의 '벽'은 지금 걸려 있는 매수·매도 주문이 한 가격에 몰린 곳이에요. 매수벽은 아래에서 받치는 후보, 매도벽은 위에서 누르는 후보로 보지만, 주문은 언제든 취소돼요.</li>
+            <li>호가는 순간 사진이라 몇 초 만에 사라지는 허수 주문이 많아요. 그래서 업비트 BTC 벽에는 최근 6시간 스냅샷 중 몇 %에서 계속 벽이었는지(유지율)를 같이 보여 줘요. 유지율이 낮은 벽은 믿기 어려워요.</li>
+            <li>업비트는 묶음 단위로 받은 30단계만 보여서 현재가 위아래 약 ±2.5%까지, 바이낸스는 5000단계라 약 ±1%까지만 보여요. 더 먼 곳의 주문은 이 방법으로는 볼 수 없어요(전체 호가창은 실시간 연결이 있어야 해요).</li>
+            <li>알트코인 추천 카드의 '호가 매수 N%'는 그 종목의 위아래 호가 중 매수 쪽이 차지하는 비중이에요. 추천 규칙에는 쓰지 않는 참고 표시이고, 추천 순간의 값은 기록에 남겨서 나중에 정말 도움이 되는지 사전 기준을 정해 검증할 거예요.</li>
+            <li>예전에 '매물대 비중'을 추천 필터로 써 봤을 때는 우위가 확인되지 않았어요. 이 화면은 눈으로 참고하는 용도예요.</li>
+          </ul>
+        </div>
+      </details>
+    </div>
   </main>
 
   <!-- ===== 사이클 ===== -->
@@ -913,7 +983,8 @@
 // v1.14 (2026-10-03) 대조군 '회차별' 보기(하루 배치 단위 요약·막대·종목별) + 홈 최근 회차, 성과 탭 '라이브 검증 현황'(표본 진행 막대와 사전 정한 판정 기준). 표시만 추가, 규칙·계산은 그대로
 // v1.15 (2026-10-03) 대조군 '🔁 N일 전에도 추천' 표시(같은 종목을 7일 안에 이미 추천했으면): 추천 카드·완료 목록·회차 카드. 표시만, 3일 제한 규칙은 그대로
 // v1.16 (2026-10-03) 비트코인 탭에 '청산' 화면 추가: OKX에서 실제 체결된 BTC 선물 청산(시간별 롱/숏 금액, 청산이 난 가격대, 큰 청산 5건). 추정 청산 지도는 사전 평가 기각으로 제외. 참고용
-const APP_VERSION = 'v1.16';
+// v1.17 (2026-10-03) 비트코인 탭에 '매물대' 화면 추가(업비트 BTC 호가 벽·유지율, 바이낸스 근접 호가, 체결 기반 거래 매물대 7/30/90일), 추천 카드에 호가 매수 비중 표시, 진입 시점 호가 쏠림을 기록에 보관(나중에 검증용). 참고용, 추천 규칙에는 안 씀
+const APP_VERSION = 'v1.17';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DATA_URL = 'dashboard.json';
@@ -1318,7 +1389,7 @@ function recCard(r, d) {
   const left = days * 86400e3 - elapsed;
   const slPrice = r.entry_price * (1 - sl / 100), tpPrice = r.entry_price * (1 + tp / 100);
   const meta = r.strategy === 'original'
-    ? [volPill(r), r.score == null ? null : h('span', { class: 'pill', text: `점수 ${r.score}` }), priorBadge(r, d)]
+    ? [volPill(r), r.score == null ? null : h('span', { class: 'pill', text: `점수 ${r.score}` }), priorBadge(r, d), obPill(r, d)]
     : [h('span', { class: 'strat', text: '개선판' }), gradePill(r.grade)];
   const gauge = gaugeBar(ret, tp, sl);
   gauge.querySelector('.gauge-labels').replaceChildren(h('span', { text: `손절 ${fmtKRW(slPrice)}` }), h('span', { text: `익절 ${fmtKRW(tpPrice)}` }));
@@ -1993,6 +2064,137 @@ function renderLiq(d) {
     L.top.map((x) => [kst(x.t), `${liqSide(x.side)} 청산`, nf0.format(x.px), x.btc.toFixed(2), usdM(x.usd)]), 2));
 }
 
+/* ---------- BTC 매물대: 업비트 호가 벽 · 바이낸스 근접 호가 · 거래 매물대(체결 기반) ---------- */
+const fmtKrw = (v) => (v >= 1e9 ? `${Math.round(v / 1e8).toLocaleString()}억` : v >= 1e8 ? `${(v / 1e8).toFixed(1)}억` : `${Math.round(v / 1e4).toLocaleString()}만`);
+const median = (a) => { const s = [...a].sort((x, y) => x - y); return s.length ? (s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2) : 0; };
+let profDays = 30;
+
+// 호가 한 줄: 가격 | 막대+금액 | 벽 표시. wall이면 진하게 하고 '벽 N배 · 지속 %'를 붙인다
+function wallRow(side, px, value, max, fmtV, wallX, persist, hist) {
+  const isWall = wallX != null;
+  const tag = isWall ? `벽 ×${wallX.toFixed(1)}${persist == null ? '' : ` · ${Math.round(persist * 100)}% 유지`}` : '';
+  return h('div', { class: `wall-row ${side}${isWall ? ' wall' : ''}`, title: isWall && persist != null ? `최근 ${hist}시간 스냅샷 중 ${Math.round(persist * 100)}%에서 벽이었어요` : null },
+    h('span', { class: 'px', text: nf0.format(px) }),
+    h('div', { class: 'wb' }, h('span', { class: 'bar', style: `width:${Math.max(0.5, value / max * 86)}%` }), h('span', { class: 'v', text: fmtV(value) })),
+    h('span', { class: 'tag', text: tag }));
+}
+
+function renderUpbitBook(b) {
+  const host = $('#wall-upbit');
+  const all = [...b.bids, ...b.asks].map((r) => r.krw);
+  const max = Math.max(1, ...all);
+  const medBid = median(b.bids.map((r) => r.krw)), medAsk = median(b.asks.map((r) => r.krw));
+  const xOf = (r, med) => (r.wall && med > 0 ? r.krw / med : null);
+  const asks = [...b.asks].sort((x, y) => y.px - x.px);
+  host.replaceChildren(h('div', { class: 'wall-rows' },
+    asks.map((r) => wallRow('ask', r.px, r.krw, max, fmtKrw, xOf(r, medAsk), r.persist, b.hist_hours)),
+    h('div', { class: 'liq-now' }, h('span', { text: `현재가 ${nf0.format(b.price)}원` })),
+    b.bids.map((r) => wallRow('bid', r.px, r.krw, max, fmtKrw, xOf(r, medBid), r.persist, b.hist_hours))));
+}
+
+function renderBinanceBook(bn) {
+  const host = $('#wall-binance');
+  const max = Math.max(0.001, ...bn.bins.map((r) => Math.max(r.bid_btc, r.ask_btc)));
+  const medOf = (key) => median(bn.bins.map((r) => r[key]).filter((v) => v > 0));
+  const mb = medOf('bid_btc'), ma = medOf('ask_btc');
+  const fmtV = (v) => `${v.toFixed(1)} BTC`;
+  const asks = bn.bins.filter((r) => r.ask_btc > 0 && r.lo + bn.step / 2 >= bn.mid).sort((x, y) => y.lo - x.lo);
+  const bids = bn.bins.filter((r) => r.bid_btc > 0 && r.lo + bn.step / 2 < bn.mid).sort((x, y) => y.lo - x.lo);
+  const rowOf = (side, r, v, med) => wallRow(side, r.lo, v, max, fmtV, med > 0 && v >= med * 2.5 ? v / med : null, null, 0);
+  host.replaceChildren(h('div', { class: 'wall-rows' },
+    asks.map((r) => rowOf('ask', r, r.ask_btc, ma)),
+    h('div', { class: 'liq-now' }, h('span', { text: `현재가 ${nf0.format(bn.mid)} USDT` })),
+    bids.map((r) => rowOf('bid', r, r.bid_btc, mb))));
+}
+
+function mountProfile(host, p, price) {
+  const rowH = 13, M = { l: 62, r: 12, t: 6, b: 6 };
+  const box = h('div', { class: 'chart-host' });
+  host.replaceChildren(box);
+  function render() {
+    const W = box.clientWidth;
+    if (W < 120) return;
+    box.querySelector('svg')?.remove();
+    const n = p.bins.length, H = n * rowH + M.t + M.b, iw = W - M.l - M.r;
+    const top = p.bins[n - 1].hi, maxV = Math.max(...p.bins.map((b) => b.vol));
+    const yOf = (px) => M.t + (top - px) / p.step * rowH;
+    const svg = s('svg', { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: 'img', 'aria-label': `최근 ${p.days}일 거래 매물대. 중심 ${nf0.format(p.poc)}` });
+    // 가치 구간(거래량 70%) 배경
+    svg.append(s('rect', { x: M.l, y: yOf(p.vah), width: iw, height: Math.max(1, yOf(p.val) - yOf(p.vah)), style: 'fill:var(--accent);opacity:.07' }));
+    [...p.bins].reverse().forEach((b, k) => {
+      const inVA = b.lo >= p.val - 1e-6 && b.hi <= p.vah + 1e-6, isPoc = p.poc > b.lo && p.poc < b.hi;
+      const w = Math.max(1, b.vol / maxV * iw);
+      svg.append(s('rect', { x: M.l, y: M.t + k * rowH + 1, width: w, height: rowH - 2, rx: 2,
+        style: `fill:${isPoc ? 'var(--s2)' : 'var(--s1)'};opacity:${isPoc ? 0.95 : inVA ? 0.7 : 0.35}` }, s('title', {}, `${nf0.format(b.lo)} ~ ${nf0.format(b.hi)} · ${nf0.format(b.vol)} BTC`)));
+      if (k % 4 === 0) svg.append(s('text', { x: M.l - 6, y: M.t + k * rowH + rowH - 3, 'text-anchor': 'end', style: 'fill:var(--muted);font-size:10.5px;font-variant-numeric:tabular-nums' }, nf0.format(b.hi)));
+    });
+    const yp = yOf(price);
+    if (yp >= M.t && yp <= H - M.b) {
+      svg.append(s('line', { x1: M.l, x2: M.l + iw, y1: yp, y2: yp, style: 'stroke:var(--accent);stroke-width:1.5' }));
+      svg.append(s('text', { x: M.l + iw - 4, y: yp - 4, 'text-anchor': 'end', style: 'fill:var(--accent);font-size:11px;font-weight:700;paint-order:stroke;stroke:var(--surface);stroke-width:3px' }, `현재 ${nf0.format(price)}`));
+    }
+    box.append(svg);
+  }
+  const ro = new ResizeObserver(() => requestAnimationFrame(render));
+  ro.observe(box);
+  render();
+  return { render, destroy: () => ro.disconnect() };
+}
+
+function renderWall(d) {
+  const O = d.orderbook, P = d.macro && d.macro.profile, btcUsd = d.macro && d.macro.price;
+  const tilesEl = $('#wall-tiles'), note = $('#wall-note');
+  const tiles = [];
+  const b = O && O.btc, bn = O && O.binance;
+  if (b) {
+    tiles.push(tile('업비트 BTC 호가 매수 비중', [`${Math.round(b.imb * 100)}%`], `±${(b.range_pct / 2).toFixed(1)}% 범위 · 매수 ${fmtKrw(b.bid_krw)} / 매도 ${fmtKrw(b.ask_krw)}`, null, 'hero'));
+    const wl = (w, side) => `${nf0.format(w.px)}원 · 주변의 ${w.x.toFixed(1)}배${(side.find((r) => r.px === w.px) || {}).persist != null ? ` · ${Math.round(side.find((r) => r.px === w.px).persist * 100)}% 유지` : ''}`;
+    tiles.push(tile('가장 큰 매수벽', [fmtKrw(b.bid_wall.krw)], wl(b.bid_wall, b.bids)));
+    tiles.push(tile('가장 큰 매도벽', [fmtKrw(b.ask_wall.krw)], wl(b.ask_wall, b.asks)));
+  } else tiles.push(tile('업비트 BTC 호가', ['—'], '호가 수집이 아직 시작되지 않았어요'));
+  const p30 = P && P['30'];
+  if (p30 && btcUsd) {
+    const dist = (btcUsd / p30.poc - 1) * 100;
+    tiles.push(tile('거래 매물대 중심 (30일)', [nf0.format(p30.poc)], `현재가가 ${dist >= 0 ? '위' : '아래'} ${Math.abs(dist).toFixed(1)}% · 가치 구간 ${nf0.format(p30.val)}~${nf0.format(p30.vah)}`));
+  }
+  tilesEl.replaceChildren(...tiles);
+
+  if (b) renderUpbitBook(b); else $('#wall-upbit').replaceChildren(empty('업비트 호가가 다음 스캔부터 쌓여요.'));
+  if (bn) renderBinanceBook(bn); else $('#wall-binance').replaceChildren(empty('바이낸스 호가를 불러오지 못했어요.'));
+  $('#wall-up-sub').textContent = b ? `묶음 단위 ${nf0.format(b.level)}원 · 현재가 위아래 약 ±${(b.range_pct / 2).toFixed(1)}%의 30단계${b.snapshots ? ` · 유지율은 최근 ${b.hist_hours}시간 스냅샷 ${b.snapshots}개 기준${b.snapshots < 24 ? '(아직 적게 쌓여서 참고만 하세요)' : ''}` : ''}. 진한 막대가 주변 단계의 2배 이상인 벽이에요` : '';
+  $('#wall-bn-sub').textContent = bn ? `현재가 위아래 약 ${(bn.span_pct / 2).toFixed(1)}% 범위를 ${bn.step}달러씩 묶음 · ±0.5% 안 매수 비중 ${Math.round(bn.imb_near * 100)}% · 주변의 2.5배 이상이 벽` : '';
+  note.textContent = O ? `호가 스냅샷 ${kst(O.at)} KST 기준(5분마다 갱신)` : '';
+
+  // 거래 매물대
+  const bar = $('#prof-range');
+  bar.querySelectorAll('[data-days]').forEach((x) => x.setAttribute('aria-pressed', String(Number(x.dataset.days) === profDays)));
+  const prof = P && P[String(profDays)];
+  const host = $('#wall-profile');
+  if (prof && btcUsd) {
+    charts.push(mountProfile(host, prof, btcUsd));
+    $('#prof-note').textContent = `최근 ${prof.days}일(4시간봉 ${prof.bars}개)의 거래량을 가격대별로 나눈 거예요. 주황 막대가 거래가 가장 많았던 중심(${nf0.format(prof.poc)}), 연한 파란 배경이 거래량 70%가 모인 구간(${nf0.format(prof.val)}~${nf0.format(prof.vah)})이에요. 이미 체결된 기록이지 지금 걸린 주문이 아니에요.`;
+  } else {
+    host.replaceChildren(empty('거래 매물대는 다음 갱신 뒤에 표시돼요.'));
+    $('#prof-note').textContent = '';
+  }
+}
+$('#prof-range').addEventListener('click', (ev) => {
+  const b = ev.target.closest('[data-days]');
+  if (!b || !DATA) return;
+  profDays = Number(b.dataset.days);
+  renderWall(DATA);
+});
+
+// 추천 카드의 호가 쏠림 표시: 진행 중인 종목의 가장 최근 호가 스냅샷 (참고용)
+function obPill(r, d) {
+  const ob = d.orderbook && d.orderbook.markets && d.orderbook.markets[r.market];
+  if (!ob || isDone(r)) return null;
+  const pctBid = Math.round(ob.imb * 100);
+  return h('span', { class: `pill ${ob.imb >= 0.6 ? 'ob-bid' : ob.imb <= 0.4 ? 'ob-ask' : ''}`,
+    title: `호가 매수 ${fmtKrw(ob.bid_krw)} · 매도 ${fmtKrw(ob.ask_krw)} (현재가 위아래 약 ±${(ob.range_pct / 2).toFixed(1)}% 안 30단계). 가장 큰 매수벽 ${nf0.format(ob.bid_wall.px)}원(주변의 ${ob.bid_wall.x}배), 매도벽 ${nf0.format(ob.ask_wall.px)}원(${ob.ask_wall.x}배). 호가는 순간 사진이라 허수 주문이 섞여 있을 수 있어요`,
+    text: `호가 매수 ${pctBid}%` });
+}
+
 function renderAll() {
   wireStratFilter();
   charts.forEach((c) => c && c.destroy());
@@ -2023,6 +2225,7 @@ function renderAll() {
   renderStoch(d.macro);
   renderMultiChartRead(d);
   renderLiq(d);
+  renderWall(d);
   renderCycle(d);
 }
 
@@ -3202,7 +3405,7 @@ $('#mc-mode').addEventListener('click', (ev) => {
 /* ---------- 탭 ---------- */
 // 최상위 탭 5개 + 추천(진행 중/완료/후보)·비트코인(분석/차트)의 하위 구분. 예전 주소(#done #macro #chart)도 그대로 열린다
 const TABS = ['home', 'recs', 'perf', 'btc', 'cycle'];
-const HASH_ALIAS = { done: 'recs/done', macro: 'btc/analysis', chart: 'btc/chart', liq: 'btc/liq', active: 'recs/active' };
+const HASH_ALIAS = { done: 'recs/done', macro: 'btc/analysis', chart: 'btc/chart', liq: 'btc/liq', wall: 'btc/wall', active: 'recs/active' };
 let currentTab = 'home', recsSub = 'active', btcSub = 'analysis';
 
 function syncFilterBar() {
@@ -3220,10 +3423,11 @@ function showRecsSub(name) {
   syncFilterBar();
 }
 function showBtcSub(name) {
-  btcSub = name === 'chart' || name === 'liq' ? name : 'analysis';
+  btcSub = ['chart', 'liq', 'wall'].includes(name) ? name : 'analysis';
   $('#view-macro').hidden = btcSub !== 'analysis';
   $('#view-chart').hidden = btcSub !== 'chart';
   $('#view-liq').hidden = btcSub !== 'liq';
+  $('#view-wall').hidden = btcSub !== 'wall';
   $('#btc-seg').querySelectorAll('[data-sub]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.sub === btcSub)));
 }
 function selectTab(name, updateHash = true) {

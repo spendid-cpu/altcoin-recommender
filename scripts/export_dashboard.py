@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import aiohttp
 import pandas as pd
 
-from src import config, cycle, jsonutil, liquidations, macro_calendar, macro_job, paper_limit, price_tracker, scan_log
+from src import config, cycle, jsonutil, liquidations, macro_calendar, macro_job, orderbook, paper_limit, price_tracker, scan_log
 from src.btc_trend import days_above_ma, is_trend_favorable
 from src.exchanges import binance_client
 
@@ -198,6 +198,7 @@ async def main(out_path: Path) -> None:
         "btc": btc,
         "macro": macro_job.load_cached(),  # 비트코인 분석 탭 (스캔이 시간당 한 번 갱신해 둔 저장본)
         "liquidations": liquidations.export((macro_job.load_cached() or {}).get("price")),  # 비트코인 탭 청산 화면(OKX 실제 청산 기록, 참고용)
+        "orderbook": orderbook.export(),  # 호가창 스냅샷(BTC 벽·바이낸스 근접 호가·추적 종목 쏠림, 참고용)
         "calendar": macro_calendar.export(now),  # 거시경제 일정(참고용, 추천에는 안 씀)
         "candidates": candidates,
         "recommendations": recs,

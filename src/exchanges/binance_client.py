@@ -46,6 +46,17 @@ async def fetch_klines(
     return df[["time", "close"]]
 
 
+async def fetch_depth(session: aiohttp.ClientSession, symbol: str = "BTCUSDT", limit: int = 5000) -> dict:
+    """현물 호가창 스냅샷. {'bids': [(가격, 수량)...], 'asks': [...]} (각각 가까운 호가부터). BTCUSDT 5000단계는 현재가 위아래 약 1% 범위다."""
+    async with session.get(f"{BASE_URL}/depth", params={"symbol": symbol, "limit": limit}) as resp:
+        resp.raise_for_status()
+        data = await resp.json()
+    return {
+        "bids": [(float(p), float(q)) for p, q in data["bids"]],
+        "asks": [(float(p), float(q)) for p, q in data["asks"]],
+    }
+
+
 async def fetch_price(session: aiohttp.ClientSession, symbol: str = "BTCUSDT") -> float:
     """실시간 현재가 (마감 캔들이 아니라 지금 체결 가격)."""
     async with session.get(f"{BASE_URL}/ticker/price", params={"symbol": symbol}) as resp:

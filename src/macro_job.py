@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo
 import aiohttp
 import pandas as pd
 
-from src import btc_macro, btc_watch, config, jsonutil, liquidations, macro_calendar, state_store, telegram_client
+from src import btc_macro, btc_watch, config, jsonutil, liquidations, macro_calendar, orderbook, state_store, telegram_client, volume_profile
 from src.exchanges import binance_client
 
 KST = ZoneInfo("Asia/Seoul")
@@ -63,6 +63,10 @@ async def build_macro(session: aiohttp.ClientSession) -> dict:
     )
     macro = btc_macro.analyse(day, h4_long, h1, price, week=week)  # 분석과 차트 모두 최근 6개월 4시간봉
     macro["generated_at"] = datetime.now(timezone.utc).isoformat()
+    try:  # 거래 매물대(체결 기반)는 참고 표시라 계산 문제로 매크로 분석 전체가 실패하면 안 된다
+        macro["profile"] = volume_profile.build(h4_long, price)
+    except Exception as exc:
+        print(f"[매물대] 계산 실패(건너뜀): {type(exc).__name__}: {exc}")
     try:
         macro["watch"] = btc_watch.analyse(day, h4_long)
     except Exception as exc:  # 관찰 알림 계산 문제로 매크로 분석 전체가 실패하면 안 된다
@@ -277,6 +281,10 @@ async def run(session: aiohttp.ClientSession) -> None:
         await liquidations.refresh(session)
     except Exception as exc:
         print(f"[청산] 수집 실패(이번 사이클은 건너뜀): {type(exc).__name__}: {exc}")
+    try:  # 호가창(현재 걸려 있는 주문) 스냅샷도 매크로 분석과 별개
+        await orderbook.refresh(session)
+    except Exception as exc:
+        print(f"[호가] 수집 실패(이번 사이클은 건너뜀): {type(exc).__name__}: {exc}")
     try:
         now = datetime.now(timezone.utc)
         due = briefing_due(now)
