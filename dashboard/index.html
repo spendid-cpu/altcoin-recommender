@@ -322,6 +322,21 @@
   .exp-verdict { margin: 0; padding: 9px 11px; border-radius: 10px; background: color-mix(in srgb, var(--accent) 10%, transparent); font-size: 12.5px; font-weight: 600; line-height: 1.5; }
   .exp-crit { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.55; }
   .exp-crit strong { color: var(--ink2); }
+  .liq-head, .liq-row { display: grid; grid-template-columns: 1fr 74px 1fr; gap: 8px; align-items: center; }
+  .liq-head { font-size: 11.5px; color: var(--muted); padding: 0 2px 6px; border-bottom: 1px solid var(--grid); }
+  .liq-head span:nth-child(1) { text-align: right; }
+  .liq-head span:nth-child(2) { text-align: center; }
+  .liq-row { padding: 2px 2px; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .liq-row:hover { background: color-mix(in srgb, var(--ink) 4%, transparent); }
+  .liq-side { display: flex; align-items: center; gap: 6px; height: 18px; }
+  .liq-side.l { justify-content: flex-end; }
+  .liq-side .bar { display: block; height: 12px; border-radius: 3px; min-width: 2px; }
+  .liq-side.l .bar { background: var(--bad); }
+  .liq-side.r .bar { background: var(--good); }
+  .liq-side .v { color: var(--muted); font-size: 11px; white-space: nowrap; }
+  .liq-px { text-align: center; color: var(--ink2); }
+  .liq-now { display: flex; align-items: center; gap: 8px; margin: 3px 0; color: var(--accent); font-size: 12px; font-weight: 700; }
+  .liq-now::before, .liq-now::after { content: ""; flex: 1; height: 1px; background: var(--accent); opacity: .6; }
   .cmp-cards { display: none; }
   .cmp-card { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; background: var(--surface2); }
   .cmp-card h3 { margin: 0 0 6px; font-size: 14px; font-weight: 700; }
@@ -650,6 +665,7 @@
       <div id="btc-seg" class="seg" role="group" aria-label="비트코인 화면">
         <button class="btn" type="button" data-sub="analysis" aria-pressed="true">분석</button>
         <button class="btn" type="button" data-sub="chart" aria-pressed="false">차트</button>
+        <button class="btn" type="button" data-sub="liq" aria-pressed="false">청산</button>
       </div>
     </div>
 
@@ -780,6 +796,48 @@
         <div id="mc-read"></div>
       </section>
     </div>
+
+    <div id="view-liq" hidden>
+      <section id="liq-tiles" class="tiles" aria-label="청산 요약"></section>
+
+      <section class="card" aria-labelledby="h-liq-hours">
+        <div class="card-head">
+          <div>
+            <h2 id="h-liq-hours">시간별 청산액</h2>
+            <p class="sub">위쪽(초록)은 숏 청산, 아래쪽(빨강)은 롱 청산이에요. 가격이 급하게 오르면 숏이, 급하게 내리면 롱이 강제 청산돼요 (OKX 체결 기준, 단위 백만 달러). 막대를 가리키면 시각과 금액이 보여요</p>
+          </div>
+        </div>
+        <div id="liq-hours"></div>
+      </section>
+
+      <section class="card" aria-labelledby="h-liq-levels">
+        <div class="card-head">
+          <div>
+            <h2 id="h-liq-levels">청산이 났던 가격대</h2>
+            <p class="sub">최근 7일 동안 실제로 청산이 체결된 가격을 구간별로 모았어요. 왼쪽 빨강은 롱, 오른쪽 초록은 숏이에요. 앞으로 청산이 몰릴 곳을 예측한 지도가 아니라 이미 일어난 기록이에요</p>
+          </div>
+        </div>
+        <div id="liq-levels"></div>
+        <p id="liq-note" class="card-note"></p>
+      </section>
+
+      <section class="card" aria-labelledby="h-liq-top">
+        <div class="card-head"><h2 id="h-liq-top">가장 큰 청산 5건 (최근 24시간)</h2></div>
+        <div id="liq-top" class="table-wrap"></div>
+      </section>
+
+      <details class="fold">
+        <summary>읽는 법과 한계</summary>
+        <div class="fold-body">
+          <ul class="howto">
+            <li>OKX 비트코인 무기한 선물(BTC-USDT)에서 강제 청산이 체결된 기록을 5분마다 받아 쌓아요. 바이낸스·바이비트 같은 다른 거래소 분은 없어서 전체 시장의 일부예요. 규모는 절대값보다 흐름(언제 몰렸는지)으로 보세요.</li>
+            <li>바이낸스 선물과 바이비트는 이 대시보드를 돌리는 서버(미국 IP)에서 접근이 막혀 있어서 OKX를 써요.</li>
+            <li>미결제약정으로 청산가를 추정해 그리는 '예상 청산 지도'는 일부러 넣지 않았어요. 60일 데이터로 사전에 정한 기준으로 평가했더니 같은 봉 변동폭과 미결제약정 규모를 통제했을 때 설명력이 없었어요(편상관 +0.015, 95% 구간 -0.048 ~ +0.079).</li>
+            <li>참고용 화면이고 알트코인 추천 규칙에는 쓰지 않아요. 기록은 계속 쌓여서, 나중에 청산이 가격 흐름을 예고하는지 따로 검증할 수 있어요.</li>
+          </ul>
+        </div>
+      </details>
+    </div>
   </main>
 
   <!-- ===== 사이클 ===== -->
@@ -854,7 +912,8 @@
 //   성과 탭의 긴 표는 접이식으로, 전광판 티커는 BTC 관찰 알림 배너로 대체, 색·글꼴·간격 새로 정리
 // v1.14 (2026-10-03) 대조군 '회차별' 보기(하루 배치 단위 요약·막대·종목별) + 홈 최근 회차, 성과 탭 '라이브 검증 현황'(표본 진행 막대와 사전 정한 판정 기준). 표시만 추가, 규칙·계산은 그대로
 // v1.15 (2026-10-03) 대조군 '🔁 N일 전에도 추천' 표시(같은 종목을 7일 안에 이미 추천했으면): 추천 카드·완료 목록·회차 카드. 표시만, 3일 제한 규칙은 그대로
-const APP_VERSION = 'v1.15';
+// v1.16 (2026-10-03) 비트코인 탭에 '청산' 화면 추가: OKX에서 실제 체결된 BTC 선물 청산(시간별 롱/숏 금액, 청산이 난 가격대, 큰 청산 5건). 추정 청산 지도는 사전 평가 기각으로 제외. 참고용
+const APP_VERSION = 'v1.16';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DATA_URL = 'dashboard.json';
@@ -1839,6 +1898,101 @@ function renderExperiments(d) {
   host.replaceChildren(...cards);
 }
 
+/* ---------- BTC 청산 (OKX 실제 체결 기록) ---------- */
+const usdM = (v) => `$${(v / 1e6).toFixed(v >= 1e7 ? 0 : 1)}M`;
+const liqSide = (s) => (s === 'long' ? '롱' : '숏');
+
+function mountLiqHours(host, series) {
+  const H = 230;
+  const box = h('div', { class: 'chart-host' });
+  host.replaceChildren(box);
+  function render() {
+    const W = box.clientWidth;
+    if (W < 80) return;
+    box.querySelector('svg')?.remove();
+    const M = { l: 50, r: 8, t: 8, b: 24 }, iw = W - M.l - M.r, ih = H - M.t - M.b, n = series.length;
+    const maxV = Math.max(1, ...series.map((x) => Math.max(x.l, x.s)));
+    const ticks = niceTicks(0, maxV, 3), yMax = ticks[ticks.length - 1] || maxV;
+    const mid = M.t + ih / 2, sc = (v) => (v / yMax) * (ih / 2);
+    const svg = s('svg', { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: 'img',
+      'aria-label': `최근 ${n}시간 시간별 청산액. 위쪽은 숏, 아래쪽은 롱 청산이에요` });
+    for (const t of ticks) {
+      for (const sign of t === 0 ? [1] : [1, -1]) {
+        const y = mid - sign * sc(t);
+        svg.append(s('line', { x1: M.l, x2: M.l + iw, y1: y, y2: y, style: `stroke:${t === 0 ? 'var(--axis)' : 'var(--grid)'};stroke-width:1` }));
+        svg.append(s('text', { x: M.l - 6, y: y + 4, 'text-anchor': 'end', style: 'fill:var(--muted);font-size:10.5px;font-variant-numeric:tabular-nums' }, t === 0 ? '0' : usdM(t)));
+      }
+    }
+    const bw = iw / n;
+    series.forEach((x, i) => {
+      const x0 = M.l + i * bw + Math.min(1, bw * 0.15), w = Math.max(1, bw - Math.min(2, bw * 0.3));
+      const tip = `${kst(new Date(x.t).toISOString())} · 숏 ${usdM(x.s)} · 롱 ${usdM(x.l)} · ${x.n}건`;
+      if (x.s > 0) svg.append(s('rect', { x: x0, y: mid - sc(x.s), width: w, height: Math.max(1, sc(x.s)), rx: 1, style: 'fill:var(--good)' }, s('title', {}, tip)));
+      if (x.l > 0) svg.append(s('rect', { x: x0, y: mid, width: w, height: Math.max(1, sc(x.l)), rx: 1, style: 'fill:var(--bad)' }, s('title', {}, tip)));
+    });
+    // x축: 한국시간 자정마다 날짜
+    let lastLabel = -999;
+    series.forEach((x, i) => {
+      if (((x.t + 9 * 3600e3) % 86400e3) !== 0) return;
+      const px = M.l + i * bw;
+      if (px - lastLabel < 52) return;
+      lastLabel = px;
+      svg.append(s('line', { x1: px, x2: px, y1: M.t + ih, y2: M.t + ih + 4, style: 'stroke:var(--axis);stroke-width:1' }));
+      svg.append(s('text', { x: px, y: H - 6, 'text-anchor': 'middle', style: 'fill:var(--muted);font-size:10.5px' }, kst(new Date(x.t).toISOString()).slice(0, 5)));
+    });
+    box.append(svg);
+  }
+  const ro = new ResizeObserver(() => requestAnimationFrame(render));
+  ro.observe(box);
+  render();
+  return { render, destroy: () => ro.disconnect() };
+}
+
+function renderLiq(d) {
+  const L = d.liquidations;
+  const tilesEl = $('#liq-tiles'), hoursEl = $('#liq-hours'), levelsEl = $('#liq-levels'), topEl = $('#liq-top'), note = $('#liq-note');
+  if (!L) {
+    tilesEl.replaceChildren();
+    hoursEl.replaceChildren(empty('청산 기록 수집이 아직 시작되지 않았어요. 다음 스캔부터 쌓여요.'));
+    levelsEl.replaceChildren(); topEl.replaceChildren(); note.textContent = '';
+    return;
+  }
+  const big = L.top[0];
+  const days = (Date.parse(L.until) - Date.parse(L.since)) / 86400e3;
+  tilesEl.replaceChildren(
+    tile('24시간 롱 청산', [usdM(L.last24h.long_usd)], `롱 포지션이 강제 청산된 금액 · ${L.last24h.n}건 중`),
+    tile('24시간 숏 청산', [usdM(L.last24h.short_usd)], '숏 포지션이 강제 청산된 금액'),
+    tile('가장 큰 단일 청산', [big ? usdM(big.usd) : '—'], big ? `${liqSide(big.side)} · ${nf0.format(big.px)} · ${kst(big.t)}` : '기록 없음'),
+    tile('수집 기간', [`${days < 1 ? days.toFixed(1) : days.toFixed(0)}일`], `${kst(L.since)} ~ ${kst(L.until)} KST · OKX 한 거래소 분`));
+
+  const map = new Map(L.hours.map((x) => [Date.parse(x.t), x]));
+  const ts = [...map.keys()], start = Math.min(...ts), end = Math.max(...ts);
+  const series = [];
+  for (let t = start; t <= end; t += 3600e3) { const x = map.get(t); series.push({ t, l: x ? x.long_usd : 0, s: x ? x.short_usd : 0, n: x ? x.n : 0 }); }
+  const chart = mountLiqHours(hoursEl, series);
+  charts.push(chart);
+
+  const price = d.macro && d.macro.price;
+  const maxBtc = Math.max(0.001, ...L.bins.map((b) => Math.max(b.long_btc, b.short_btc)));
+  const rows = [], desc = [...L.bins].sort((a, b) => b.lo - a.lo);
+  let placed = !price;
+  const divider = () => h('div', { class: 'liq-now' }, h('span', { text: `현재가 ${nf0.format(price)}` }));
+  for (const b of desc) {
+    if (!placed && b.lo < price) { rows.push(divider()); placed = true; }
+    rows.push(h('div', { class: 'liq-row', title: `${nf0.format(b.lo)} ~ ${nf0.format(b.hi)} · 롱 ${b.long_btc} BTC · 숏 ${b.short_btc} BTC` },
+      h('div', { class: 'liq-side l' }, b.long_btc ? [h('span', { class: 'v', text: b.long_btc.toFixed(1) }), h('span', { class: 'bar', style: `width:${b.long_btc / maxBtc * 84}%` })] : null),
+      h('div', { class: 'liq-px', text: nf0.format(b.lo) }),
+      h('div', { class: 'liq-side r' }, b.short_btc ? [h('span', { class: 'bar', style: `width:${b.short_btc / maxBtc * 84}%` }), h('span', { class: 'v', text: b.short_btc.toFixed(1) })] : null)));
+  }
+  if (!placed) rows.push(divider());
+  levelsEl.replaceChildren(h('div', { class: 'liq-head' }, h('span', { text: '롱 청산 (BTC)' }), h('span', { text: '가격대' }), h('span', { text: '숏 청산 (BTC)' })),
+    h('div', { class: 'liq-rows' }, rows));
+  note.textContent = `가격대는 ${nf0.format(L.bin_width)}달러 단위예요. 최근 ${L.raw_days}일 동안 체결된 ${L.bins.reduce((a, b) => a + (b.long_btc > 0) + (b.short_btc > 0), 0)}개 가격대의 기록이에요. 가격은 청산 주문의 파산가 기준이고 현재가 ±8% 밖은 뺐어요.`;
+
+  topEl.replaceChildren(buildTable(['시각 (KST)', '방향', '가격', '수량 (BTC)', '금액'],
+    L.top.map((x) => [kst(x.t), `${liqSide(x.side)} 청산`, nf0.format(x.px), x.btc.toFixed(2), usdM(x.usd)]), 2));
+}
+
 function renderAll() {
   wireStratFilter();
   charts.forEach((c) => c && c.destroy());
@@ -1868,6 +2022,7 @@ function renderAll() {
   renderMultiChart(d);
   renderStoch(d.macro);
   renderMultiChartRead(d);
+  renderLiq(d);
   renderCycle(d);
 }
 
@@ -3047,7 +3202,7 @@ $('#mc-mode').addEventListener('click', (ev) => {
 /* ---------- 탭 ---------- */
 // 최상위 탭 5개 + 추천(진행 중/완료/후보)·비트코인(분석/차트)의 하위 구분. 예전 주소(#done #macro #chart)도 그대로 열린다
 const TABS = ['home', 'recs', 'perf', 'btc', 'cycle'];
-const HASH_ALIAS = { done: 'recs/done', macro: 'btc/analysis', chart: 'btc/chart', active: 'recs/active' };
+const HASH_ALIAS = { done: 'recs/done', macro: 'btc/analysis', chart: 'btc/chart', liq: 'btc/liq', active: 'recs/active' };
 let currentTab = 'home', recsSub = 'active', btcSub = 'analysis';
 
 function syncFilterBar() {
@@ -3065,9 +3220,10 @@ function showRecsSub(name) {
   syncFilterBar();
 }
 function showBtcSub(name) {
-  btcSub = name === 'chart' ? 'chart' : 'analysis';
+  btcSub = name === 'chart' || name === 'liq' ? name : 'analysis';
   $('#view-macro').hidden = btcSub !== 'analysis';
   $('#view-chart').hidden = btcSub !== 'chart';
+  $('#view-liq').hidden = btcSub !== 'liq';
   $('#btc-seg').querySelectorAll('[data-sub]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.sub === btcSub)));
 }
 function selectTab(name, updateHash = true) {

@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo
 import aiohttp
 import pandas as pd
 
-from src import btc_macro, btc_watch, config, jsonutil, macro_calendar, state_store, telegram_client
+from src import btc_macro, btc_watch, config, jsonutil, liquidations, macro_calendar, state_store, telegram_client
 from src.exchanges import binance_client
 
 KST = ZoneInfo("Asia/Seoul")
@@ -273,6 +273,10 @@ def briefing_due(now: datetime) -> bool:
 
 async def run(session: aiohttp.ClientSession) -> None:
     """스캔 사이클 앞머리에서 호출: 분석을 갱신하고, 브리핑 시각이 지났으면 텔레그램으로 보낸다."""
+    try:  # 실제 청산 기록 수집은 매크로 분석과 별개라 따로 감싼다 (실패해도 나머지는 그대로)
+        await liquidations.refresh(session)
+    except Exception as exc:
+        print(f"[청산] 수집 실패(이번 사이클은 건너뜀): {type(exc).__name__}: {exc}")
     try:
         now = datetime.now(timezone.utc)
         due = briefing_due(now)
