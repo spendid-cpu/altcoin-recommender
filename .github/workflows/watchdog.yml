@@ -2,7 +2,7 @@ name: watchdog
 
 permissions:
   contents: write   # data/state.db(감시 상태) 커밋용
-  actions: read     # scan/track 최근 실행 이력 조회용
+  actions: write    # scan/track 최근 실행 이력 조회 + 20분 넘게 queued/waiting인 멈춘 실행 취소용
 
 on:
   schedule:
@@ -37,6 +37,7 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           WATCHDOG_STALE_MINUTES: ${{ vars.WATCHDOG_STALE_MINUTES }}
           WATCHDOG_REMIND_MINUTES: ${{ vars.WATCHDOG_REMIND_MINUTES }}
+          WATCHDOG_STUCK_MINUTES: ${{ vars.WATCHDOG_STUCK_MINUTES }}
 
       - name: 상태 파일(data/state.db) 변경사항 커밋
         run: |

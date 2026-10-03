@@ -17,6 +17,8 @@ from src import jsonutil, state_store, telegram_client
 
 STALE_MINUTES = int(os.environ.get("WATCHDOG_STALE_MINUTES") or "30")  # 이보다 오래 성공이 없으면 이상으로 본다
 REMIND_MINUTES = int(os.environ.get("WATCHDOG_REMIND_MINUTES") or "120")  # 막힌 동안 다시 알리는 간격
+STUCK_MINUTES = int(os.environ.get("WATCHDOG_STUCK_MINUTES") or "20")  # 이보다 오래 queued/waiting이면 멈춘 실행으로 보고 취소
+STUCK_STATUSES = ("queued", "waiting")
 WATCH_WORKFLOWS = ("scan", "track")
 STATE_KEY = "watchdog_state"
 API_BASE = "https://api.github.com"
@@ -49,6 +51,40 @@ async def _last_success_at(session: aiohttp.ClientSession) -> datetime | None:
     return best
 
 
+def _api_headers() -> dict:
+    headers = {"Accept": "application/vnd.github+json"}
+    token = os.environ.get("GITHUB_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return headers
+
+
+async def cancel_stuck_runs(session: aiohttp.ClientSession) -> list[dict]:
+    """scan/track 실행 중 STUCK_MINUTES 넘게 시작도 못 한 채 queued(러너 배정 대기)/waiting(승인 대기)인 것을 취소한다.
+    그런 실행 하나가 동시성 그룹(scan)을 붙잡으면 뒤의 모든 실행이 시작도 못 하고 취소된다(2026-09-28, 10-03 실제 사례).
+    진행 중(in_progress)인 실행은 건드리지 않는다. 취소한 실행의 정보 목록을 돌려준다."""
+    now = datetime.now(timezone.utc)
+    headers = _api_headers()
+    cancelled: list[dict] = []
+    for name in WATCH_WORKFLOWS:
+        for status in STUCK_STATUSES:
+            url = f"{API_BASE}/repos/{_repo()}/actions/workflows/{name}.yml/runs"
+            async with session.get(url, params={"status": status, "per_page": 20}, headers=headers) as resp:
+                if resp.status != 200:
+                    continue
+                data = await resp.json()
+            for run in data.get("workflow_runs") or []:
+                age = (now - datetime.fromisoformat(run["created_at"].replace("Z", "+00:00"))).total_seconds() / 60
+                if age < STUCK_MINUTES:
+                    continue
+                async with session.post(f"{API_BASE}/repos/{_repo()}/actions/runs/{run['id']}/cancel", headers=headers) as resp:
+                    ok = resp.status in (200, 202)
+                print(f"[감시장치] {name} 실행 {run['id']}이(가) {status} 상태로 {age:.0f}분째 멈춰 있어 취소 {'요청' if ok else '실패'} (HTTP {resp.status})")
+                if ok:
+                    cancelled.append({"id": run["id"], "workflow": name, "status": status, "age_minutes": age})
+    return cancelled
+
+
 def _load_state() -> dict:
     raw = state_store.get_meta(STATE_KEY)
     return json.loads(raw) if raw else {}
@@ -61,6 +97,22 @@ def _save_state(state: dict) -> None:
 async def check(session: aiohttp.ClientSession) -> None:
     """한 번 확인하고 필요하면 텔레그램으로 알린다. watchdog.yml이 30분마다 부른다."""
     now = datetime.now(timezone.utc)
+    try:
+        cancelled = await cancel_stuck_runs(session)
+    except Exception as exc:  # 취소 시도가 실패해도 아래의 정지 감지·알림은 계속 돌아야 한다
+        print(f"[감시장치] 멈춘 실행 취소 중 오류(무시): {exc!r}")
+        cancelled = []
+    if cancelled:
+        lines = "\n".join(f"· {c['workflow']} 실행 {c['id']} ({'러너 배정' if c['status'] == 'queued' else '승인'} 대기 {c['age_minutes'] / 60:.1f}시간)" for c in cancelled)
+        text = f"🛠 멈춰 있던 실행 {len(cancelled)}건을 자동으로 취소했어요\n{lines}\n대기 중이던 다음 스캔·추적이 이어서 돌아요."
+        if telegram_client.is_configured():
+            try:
+                await telegram_client.send_message(session, text)
+            except Exception as exc:
+                print(f"[감시장치] 취소 알림 전송 실패: {exc!r}")
+        else:
+            print(text)
+
     last_success = await _last_success_at(session)
     if last_success is None:
         print("[감시장치] 최근 성공 실행을 찾지 못함(API 문제일 수 있음) — 이번엔 건너뜀")
