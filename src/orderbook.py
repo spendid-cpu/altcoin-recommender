@@ -23,6 +23,9 @@ HIST_HOURS = 6        # BTC 벽 지속성을 계산하려고 스냅샷을 이만
 WALL_X = 2.0          # 같은 쪽 단계 중앙값의 이 배수 이상이면 '벽'
 TARGET_UNIT_PCT = 0.2  # 묶음 한 칸 폭을 현재가의 약 0.2%로 (30단계 -> 위아래 합쳐 약 ±3%)
 CHUNK = 20            # 한 번에 조회하는 종목 수
+HIST_STEP_MIN = 30     # 호가 매수 비중 이력 간격
+HIST_POINTS = 24       # 시장당 보관 개수 (30분 x 24 = 12시간)
+HIST_KEEP_HOURS = 12
 
 
 def _connect():
@@ -182,8 +185,19 @@ async def refresh(session: aiohttp.ClientSession) -> None:
         binance = binance_summary(await binance_client.fetch_depth(session, "BTCUSDT", 5000))
     except Exception as exc:
         print(f"[호가] 바이낸스 호가 조회 실패(건너뜀): {type(exc).__name__}: {exc}")
+    # 호가 매수 비중의 변화를 보려고 종목마다 30분 간격으로 최근 12시간치만 가볍게 남긴다 ([시각ms, 비중])
+    try:
+        prev_hist = (export() or {}).get("hist") or {}
+    except Exception:
+        prev_hist = {}
+    hist = {}
+    for m, sm in books.items():
+        series = [pt for pt in prev_hist.get(m, []) if now_ms - pt[0] < HIST_KEEP_HOURS * 3600_000]
+        if not series or now_ms - series[-1][0] >= HIST_STEP_MIN * 60_000 - 90_000:
+            series.append([now_ms, sm["imb"]])
+        hist[m] = series[-HIST_POINTS:]
     payload = {"at": datetime.now(timezone.utc).isoformat(), "btc": btc_out, "binance": binance,
-               "markets": {m: _slim(s) for m, s in books.items() if m != BTC_MARKET}}
+               "markets": {m: _slim(s) for m, s in books.items() if m != BTC_MARKET}, "hist": hist}
     state_store.set_meta(META_KEY, jsonutil.dumps(payload, ensure_ascii=False, separators=(",", ":")))
     print(f"[호가] 업비트 {len(books)}종목 · 바이낸스 {'OK' if binance else '실패'}")
 

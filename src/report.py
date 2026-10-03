@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 
 import aiohttp
 
-from src import config, price_tracker, state_store, telegram_client
+from src import config, orderbook, price_tracker, state_store, telegram_client
 from src.formatting import fmt_pct, fmt_price, frames_text, strategy_tag
 from src.scoring import CandidateResult
 
@@ -41,6 +41,20 @@ def score_line(rec: dict, cand: CandidateResult | None, btc_filter_on: bool) -> 
     return f"📐 점수 {start} → 확인 불가 (BTC 필터 꺼짐)"
 
 
+def ob_line(rec: dict, ob_markets: dict) -> str:
+    """호가 매수 비중: 추천 순간 -> 지금. 참고용 표시이고 추천 규칙에는 안 쓴다 (기록이 없으면 지금 값만)."""
+    now_ob = ob_markets.get(rec["market"])
+    if not now_ob:
+        return ""
+    now_pct = now_ob["imb"] * 100
+    entry = ((rec.get("detail") or {}).get("ob") or {}).get("imb")
+    if entry is None:
+        return f"\n📚 호가 매수 {now_pct:.0f}%"
+    delta = now_pct - entry * 100
+    arrow = "▲" if delta > 0.5 else "▼" if delta < -0.5 else "■"
+    return f"\n📚 호가 매수 {entry * 100:.0f}% → {now_pct:.0f}% ({arrow}{abs(delta):.0f}%p)"
+
+
 def active_recommendations(now: datetime) -> list[dict]:
     """지금 추적 중인 추천 (추적 기간 안이고 아직 종료되지 않은 것)."""
     cutoff = now - timedelta(days=price_tracker.TRACK_DAYS)
@@ -68,6 +82,10 @@ def build_report(
         rows.append((rec, current, peak, (current / entry - 1) * 100 if entry else 0.0))
     rows.sort(key=lambda r: r[3], reverse=True)
 
+    try:
+        ob_markets = (orderbook.export() or {}).get("markets") or {}
+    except Exception:
+        ob_markets = {}
     for rec, current, peak, ret in rows[:MAX_LISTED]:
         entry = rec["entry_price"]
         peak_ret = (peak / entry - 1) * 100 if entry else 0.0
@@ -80,7 +98,7 @@ def build_report(
             f"🕐 {entered_kst} 추천 ({elapsed_text(now - rec['entered_at'])} 경과)\n"
             f"💰 {fmt_price(entry)} → {fmt_price(current)}\n"
             f"🏔 최고 {peak_ret:+.2f}% · 고점 대비 {from_peak:+.2f}%\n"
-            f"{state_line}"
+            f"{state_line}{ob_line(rec, ob_markets)}"
         )
 
     extra = f"\n\n외 {len(rows) - MAX_LISTED}종목은 대시보드에서 확인하세요." if len(rows) > MAX_LISTED else ""

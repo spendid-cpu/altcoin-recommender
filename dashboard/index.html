@@ -984,7 +984,8 @@
 // v1.15 (2026-10-03) 대조군 '🔁 N일 전에도 추천' 표시(같은 종목을 7일 안에 이미 추천했으면): 추천 카드·완료 목록·회차 카드. 표시만, 3일 제한 규칙은 그대로
 // v1.16 (2026-10-03) 비트코인 탭에 '청산' 화면 추가: OKX에서 실제 체결된 BTC 선물 청산(시간별 롱/숏 금액, 청산이 난 가격대, 큰 청산 5건). 추정 청산 지도는 사전 평가 기각으로 제외. 참고용
 // v1.17 (2026-10-03) 비트코인 탭에 '매물대' 화면 추가(업비트 BTC 호가 벽·유지율, 바이낸스 근접 호가, 체결 기반 거래 매물대 7/30/90일), 추천 카드에 호가 매수 비중 표시, 진입 시점 호가 쏠림을 기록에 보관(나중에 검증용). 참고용, 추천 규칙에는 안 씀
-const APP_VERSION = 'v1.17';
+// v1.18 (2026-10-04) 호가 매수 비중의 변화 표시: 추천 순간 -> 지금(▲▼ %p), 1시간 전 값은 마우스를 올리면 표시. 텔레그램 추천 현황 리포트에도 같은 한 줄 추가
+const APP_VERSION = 'v1.18';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DATA_URL = 'dashboard.json';
@@ -2187,12 +2188,22 @@ $('#prof-range').addEventListener('click', (ev) => {
 
 // 추천 카드의 호가 쏠림 표시: 진행 중인 종목의 가장 최근 호가 스냅샷 (참고용)
 function obPill(r, d) {
-  const ob = d.orderbook && d.orderbook.markets && d.orderbook.markets[r.market];
+  const O = d.orderbook, ob = O && O.markets && O.markets[r.market];
   if (!ob || isDone(r)) return null;
-  const pctBid = Math.round(ob.imb * 100);
+  const now = Math.round(ob.imb * 100);
+  const entry = r.detail && r.detail.ob ? Math.round(r.detail.ob.imb * 100) : null;
+  // 1시간 전 값: 30분 간격 이력에서 60분 전과 가장 가까운 점 (20분 안에 있을 때만)
+  const hist = (O.hist && O.hist[r.market]) || [];
+  const target = Date.now() - 3600e3;
+  const ago = hist.reduce((best, pt) => (Math.abs(pt[0] - target) < Math.abs((best || [0])[0] - target) ? pt : best), null);
+  const hourAgo = ago && Math.abs(ago[0] - target) <= 20 * 60e3 ? Math.round(ago[1] * 100) : null;
+  const delta = entry == null ? null : now - entry;
+  const arrow = delta == null ? '' : delta > 0 ? ` ▲${delta}` : delta < 0 ? ` ▼${-delta}` : ' ■';
   return h('span', { class: `pill ${ob.imb >= 0.6 ? 'ob-bid' : ob.imb <= 0.4 ? 'ob-ask' : ''}`,
-    title: `호가 매수 ${fmtKrw(ob.bid_krw)} · 매도 ${fmtKrw(ob.ask_krw)} (현재가 위아래 약 ±${(ob.range_pct / 2).toFixed(1)}% 안 30단계). 가장 큰 매수벽 ${nf0.format(ob.bid_wall.px)}원(주변의 ${ob.bid_wall.x}배), 매도벽 ${nf0.format(ob.ask_wall.px)}원(${ob.ask_wall.x}배). 호가는 순간 사진이라 허수 주문이 섞여 있을 수 있어요.${r.detail && r.detail.ob ? ` 추천 순간에는 매수 ${Math.round(r.detail.ob.imb * 100)}%였어요.` : ''}`,
-    text: `호가 매수 ${pctBid}%` });
+    title: `호가 매수 ${fmtKrw(ob.bid_krw)} · 매도 ${fmtKrw(ob.ask_krw)} (현재가 위아래 약 ±${(ob.range_pct / 2).toFixed(1)}% 안 30단계). 가장 큰 매수벽 ${nf0.format(ob.bid_wall.px)}원(주변의 ${ob.bid_wall.x}배), 매도벽 ${nf0.format(ob.ask_wall.px)}원(${ob.ask_wall.x}배). `
+      + `${entry != null ? `추천 순간 ${entry}% → 지금 ${now}%(${delta >= 0 ? '+' : ''}${delta}%p). ` : ''}${hourAgo != null ? `1시간 전 ${hourAgo}%. ` : ''}`
+      + '호가는 순간 사진이라 허수 주문이 섞여 있을 수 있어요',
+    text: entry != null ? `호가 매수 ${entry}% → ${now}%${arrow}` : `호가 매수 ${now}%` });
 }
 
 function renderAll() {
