@@ -136,6 +136,11 @@ async def _run_baseline_scan(session: aiohttp.ClientSession, markets: list[str],
             print("기준선: 새 추천 없음")
             return
         prices = await upbit_client.fetch_ticker_prices(session, [m for m, _ in found])
+        try:  # 직전에 추천한 종목 표시용 (새 진입을 기록하기 전에 읽는다). 실패해도 추천 기록·알림은 그대로 진행
+            prior = original_alerts.prior_entries(price_tracker.load_recommendations(), [m for m, _ in found], datetime.now(timezone.utc))
+        except Exception as exc:
+            print(f"기준선: 재추천 표시 계산 실패(표시만 생략): {exc!r}")
+            prior = {}
         entered = []
         for market, result in found:
             price = prices.get(market)
@@ -144,7 +149,7 @@ async def _run_baseline_scan(session: aiohttp.ClientSession, markets: list[str],
             vol_pct = original_scanner.volatility_pct(cache.get((market, "day")))
             rec_at = price_tracker.record_entry(
                 market, price, "-", round(result.score, 1), original_scanner.breakdown(result, vol_pct), strategy="original")
-            entered.append((market, price, round(result.score, 1), vol_pct))
+            entered.append((market, price, round(result.score, 1), vol_pct, prior.get(market)))
             # 모의 지정가: 1시간봉 스윙 저점에 기록 (개선판과 동일)
             support_lows = []
             hour_candles = cache.get((market, "1h"))
@@ -162,7 +167,7 @@ async def _run_baseline_scan(session: aiohttp.ClientSession, markets: list[str],
         if alert_on and entered:
             try:  # 기록은 이미 끝났으니 전송 실패가 있어도 추천 기록에는 영향이 없다
                 await original_alerts.send_all(
-                    session, original_alerts.entry_header(len(entered), datetime.now(timezone.utc)), original_alerts.entry_lines(entered))
+                    session, original_alerts.entry_header(len(entered), datetime.now(timezone.utc), sum(1 for e in entered if e[4])), original_alerts.entry_lines(entered))
             except Exception as exc:
                 print(f"기준선: 알림 전송 실패(기록은 완료): {exc!r}")
     except Exception as exc:

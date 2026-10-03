@@ -230,6 +230,7 @@
   .pill { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 12px; border: 1px solid var(--border); color: var(--ink2); white-space: nowrap; }
   .pill.A { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--ink); border-color: transparent; font-weight: 650; }
   .pill.B { background: color-mix(in srgb, var(--accent) 8%, transparent); color: var(--ink); border-color: transparent; }
+  .pill.rep { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--ink); border-color: transparent; }
   .pill.vol-lo { background: color-mix(in srgb, var(--s1) 12%, transparent); color: var(--ink); border-color: transparent; }
   .pill.vol-hi { background: color-mix(in srgb, var(--s2) 14%, transparent); color: var(--ink); border-color: transparent; }
   .strat { font-size: 11.5px; color: var(--muted); margin-right: 5px; font-weight: 550; }
@@ -852,7 +853,8 @@
 //   첫 화면(오늘)을 대조군 진행 중 추천 카드(손절~익절 위치 게이지) 중심으로 재구성, 추천 목록을 카드/목록으로 바꿔 모바일 깨짐 수정,
 //   성과 탭의 긴 표는 접이식으로, 전광판 티커는 BTC 관찰 알림 배너로 대체, 색·글꼴·간격 새로 정리
 // v1.14 (2026-10-03) 대조군 '회차별' 보기(하루 배치 단위 요약·막대·종목별) + 홈 최근 회차, 성과 탭 '라이브 검증 현황'(표본 진행 막대와 사전 정한 판정 기준). 표시만 추가, 규칙·계산은 그대로
-const APP_VERSION = 'v1.14';
+// v1.15 (2026-10-03) 대조군 '🔁 N일 전에도 추천' 표시(같은 종목을 7일 안에 이미 추천했으면): 추천 카드·완료 목록·회차 카드. 표시만, 3일 제한 규칙은 그대로
+const APP_VERSION = 'v1.15';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DATA_URL = 'dashboard.json';
@@ -947,6 +949,29 @@ function stratPill(r) {
 }
 const shortName = (m) => m.replace(/^KRW-/, '');
 const marketLabel = (m, cls = 'rec-name') => h('span', { class: cls }, h('small', { text: 'KRW' }), shortName(m));
+// 재추천 표시: 같은 종목을 7일 안에 이미 대조군이 추천했으면 '🔁 N일 전에도 추천 · 결과'. 표시만이고 추천 규칙(3일 제한)은 그대로다
+const REPEAT_MARK_DAYS = 7;
+function priorMap(d) {
+  if (priorMap.cache && priorMap.cache.d === d) return priorMap.cache.map;
+  const map = new Map(), lastBy = new Map();
+  const real = (d.recommendations || []).filter((r) => stratOf(r) === 'original' && !(r.exit && r.exit.reason === 'excluded'))
+    .sort((a, b) => a.entered_at.localeCompare(b.entered_at));
+  for (const r of real) {
+    const prev = lastBy.get(r.market);
+    if (prev) map.set(r, prev);
+    lastBy.set(r.market, r);
+  }
+  priorMap.cache = { d, map };
+  return map;
+}
+function priorBadge(r, d) {
+  const prev = r.strategy === 'original' ? priorMap(d).get(r) : null;
+  if (!prev) return null;
+  const days = (new Date(r.entered_at) - new Date(prev.entered_at)) / 86400e3;
+  if (days > REPEAT_MARK_DAYS) return null;
+  const o = outcomeOf(prev), info = RESULT_INFO[o.key] || RESULT_INFO.expired;
+  return h('span', { class: 'pill rep', title: `이 종목은 ${kst(prev.entered_at)}에도 대조군이 추천했어요`, text: `🔁 ${Math.round(days)}일 전에도 추천 · ${info.label}${o.ret == null ? '' : ` ${signed(o.ret)}`}` });
+}
 function exitRulesOf(d) {
   const x = d.exit_rules || {};
   return { tp: x.take_profit_pct ?? 5, sl: x.stop_loss_pct ?? 5, days: x.track_days || d.track_days || 3 };
@@ -1234,7 +1259,7 @@ function recCard(r, d) {
   const left = days * 86400e3 - elapsed;
   const slPrice = r.entry_price * (1 - sl / 100), tpPrice = r.entry_price * (1 + tp / 100);
   const meta = r.strategy === 'original'
-    ? [volPill(r), r.score == null ? null : h('span', { class: 'pill', text: `점수 ${r.score}` })]
+    ? [volPill(r), r.score == null ? null : h('span', { class: 'pill', text: `점수 ${r.score}` }), priorBadge(r, d)]
     : [h('span', { class: 'strat', text: '개선판' }), gradePill(r.grade)];
   const gauge = gaugeBar(ret, tp, sl);
   gauge.querySelector('.gauge-labels').replaceChildren(h('span', { text: `손절 ${fmtKRW(slPrice)}` }), h('span', { text: `익절 ${fmtKRW(tpPrice)}` }));
@@ -1499,7 +1524,7 @@ function renderHistory(d) {
 
 const DONE_PAGE = 30;
 let doneShown = DONE_PAGE;
-function doneItem(r) {
+function doneItem(r, d) {
   const o = outcomeOf(r), info = RESULT_INFO[o.key] || RESULT_INFO.expired;
   const endMs = new Date(r.exit ? r.exit.ended_at : r.last_at).getTime();
   const endPrice = r.exit ? r.exit.exit_price : r.last_price;
@@ -1508,7 +1533,7 @@ function doneItem(r) {
     h('div', { class: `ret ${upDown(o.ret)}`, text: o.ret == null ? '—' : signed(o.ret) }),
     h('div', { class: 'line', text: `${fmtKRW(r.entry_price)} → ${fmtKRW(endPrice)}` }),
     h('div', { class: 'line r', text: `${holdText(endMs - new Date(r.entered_at).getTime())} 보유` }),
-    h('div', { class: 'line' }, stratPill(r), h('span', { class: 'muted', text: ` · 추천 ${kst(r.entered_at)}` })),
+    h('div', { class: 'line' }, stratPill(r), priorBadge(r, d), h('span', { class: 'muted', text: ` · 추천 ${kst(r.entered_at)}` })),
     h('div', { class: 'line r', text: `${kst(new Date(endMs).toISOString())} 종료` }));
 }
 
@@ -1521,7 +1546,7 @@ function renderDone(d) {
     host.replaceChildren(empty('아직 끝난 추천이 없어요. 익절·손절·기간 만료가 되면 여기로 옮겨져요.'));
     note.textContent = ''; more.hidden = true; return;
   }
-  host.replaceChildren(...done.slice(0, doneShown).map(doneItem));
+  host.replaceChildren(...done.slice(0, doneShown).map((r) => doneItem(r, d)));
   more.hidden = done.length <= doneShown;
   more.textContent = `더 보기 (${Math.min(DONE_PAGE, done.length - doneShown)}건 / 남은 ${done.length - doneShown}건)`;
   more.onclick = () => { doneShown += DONE_PAGE; renderDone(DATA); };
@@ -1632,7 +1657,8 @@ function roundsChart(rounds) {
 }
 
 const ROUND_COLOR = { tp: 'var(--good)', sl: 'var(--bad)', exp: 'var(--muted)', act: 'var(--s1)' };
-function roundCard(x) {
+function roundCard(x, d) {
+  const repeatN = x.recs.filter((r) => priorBadge(r, d)).length;
   const parts = [['tp', x.tp, '익절'], ['sl', x.sl, '손절'], ['exp', x.exp, '만료·기타'], ['act', x.active, '진행 중']].filter(([, n]) => n > 0);
   const lo = x.recs.filter((r) => volOf(r) != null && volOf(r) < VOL_MARK_PCT), hi = x.recs.filter((r) => volOf(r) != null && volOf(r) >= VOL_MARK_PCT);
   const avgOf = (rs) => avg(rs.map((r) => outcomeOf(r).ret ?? 0));
@@ -1654,6 +1680,7 @@ function roundCard(x) {
         h('div', { class: 'rec-name', text: `${x.date.slice(5)} (${WEEKDAY.format(new Date(x.firstAt))})` }),
         h('div', { class: 'rec-meta' },
           h('span', { class: 'pill', text: `${x.n}종목` }),
+          repeatN ? h('span', { class: 'pill rep', text: `🔁 재추천 ${repeatN}` }) : null,
           h('span', { class: `pill ${x.complete ? '' : 'A'}`, text: x.complete ? '모두 종료' : `진행 중 ${x.active}건` }))),
       h('div', { class: `rec-ret ${upDown(x.avg)}` }, signed(x.avg), h('small', { text: x.complete ? '회차 평균' : '회차 평균 (잠정)' }))),
     h('div', { class: 'stack', role: 'img', 'aria-label': parts.map(([, n, name]) => `${name} ${n}건`).join(', ') },
@@ -1694,7 +1721,7 @@ function renderRounds(d) {
   chartEl.replaceChildren(roundsChart(rounds));
   note.textContent = '막대는 그 회차의 평균 수익률(%)이에요. 연한 막대는 아직 진행 중이라 바뀔 수 있는 잠정값이에요. 한 회차는 같은 날 같은 시장에서 나온 종목들이라 같이 오르고 같이 떨어져서, '
     + '독립된 표본은 종목 수가 아니라 회차 수예요. 종목 수가 1개인 회차와 20개인 회차도 같은 비중으로 평균하고, 회차 평균은 시장 상승분이 섞인 절대 수익이라 우위의 증거는 아니에요.';
-  listEl.replaceChildren(...[...rounds].reverse().map(roundCard));
+  listEl.replaceChildren(...[...rounds].reverse().map((x) => roundCard(x, d)));
 }
 
 function renderHomeRounds(d) {
