@@ -1,0 +1,32 @@
+name: probe
+
+# 일회성 점검용: GitHub 러너(미국 IP)에서 청산 지도에 쓸 공개 API가 열리는지 확인한다. 확인 뒤 삭제한다.
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: 공개 API 접근 확인
+        run: |
+          check() {
+            code=$(curl -s -o /tmp/body -m 15 -w '%{http_code}' "$1")
+            echo "[$code] $1"
+            head -c 160 /tmp/body | tr '\n' ' '
+            echo
+          }
+          check "https://fapi.binance.com/fapi/v1/openInterest?symbol=BTCUSDT"
+          check "https://fapi.binance.com/futures/data/openInterestHist?symbol=BTCUSDT&period=5m&limit=2"
+          check "https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=5m&limit=2"
+          check "https://www.okx.com/api/v5/public/liquidation-orders?instType=SWAP&uly=BTC-USDT&state=filled&limit=2"
+          check "https://www.okx.com/api/v5/public/open-interest?instType=SWAP&instId=BTC-USDT-SWAP"
+          check "https://www.okx.com/api/v5/rubik/stat/contracts/open-interest-volume?ccy=BTC&period=5m"
+          check "https://www.okx.com/api/v5/market/history-candles?instId=BTC-USDT-SWAP&bar=5m&limit=2"
+          check "https://api.bybit.com/v5/market/open-interest?category=linear&symbol=BTCUSDT&intervalTime=5min&limit=2"
+          check "https://api.bybit.com/v5/market/kline?category=linear&symbol=BTCUSDT&interval=5&limit=2"
+          check "https://data-api.binance.vision/api/v3/klines?symbol=BTCUSDT&interval=5m&limit=2"
