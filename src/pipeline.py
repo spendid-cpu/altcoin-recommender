@@ -156,7 +156,7 @@ async def _run_baseline_scan(session: aiohttp.ClientSession, markets: list[str],
             extra = {"ob": {k: ob[k] for k in ("imb", "bid_krw", "ask_krw", "range_pct", "level")}} if ob else None
             rec_at = price_tracker.record_entry(
                 market, price, "-", round(result.score, 1), original_scanner.breakdown(result, vol_pct, extra), strategy="original")
-            entered.append((market, price, round(result.score, 1), vol_pct, prior.get(market)))
+            entered.append((market, price, round(result.score, 1), vol_pct, prior.get(market), ob["imb"] if ob else None))
             # 모의 지정가: 1시간봉 스윙 저점에 기록 (개선판과 동일)
             support_lows = []
             hour_candles = cache.get((market, "1h"))
@@ -174,7 +174,7 @@ async def _run_baseline_scan(session: aiohttp.ClientSession, markets: list[str],
         if alert_on and entered:
             try:  # 기록은 이미 끝났으니 전송 실패가 있어도 추천 기록에는 영향이 없다
                 await original_alerts.send_all(
-                    session, original_alerts.entry_header(len(entered), datetime.now(timezone.utc), sum(1 for e in entered if e[4])), original_alerts.entry_lines(entered))
+                    session, original_alerts.entry_header(len(entered), datetime.now(timezone.utc), sum(1 for e in entered if e[4]), any(e[5] is not None for e in entered)), original_alerts.entry_lines(entered))
             except Exception as exc:
                 print(f"기준선: 알림 전송 실패(기록은 완료): {exc!r}")
     except Exception as exc:

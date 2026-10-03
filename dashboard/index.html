@@ -2191,7 +2191,7 @@ function obPill(r, d) {
   if (!ob || isDone(r)) return null;
   const pctBid = Math.round(ob.imb * 100);
   return h('span', { class: `pill ${ob.imb >= 0.6 ? 'ob-bid' : ob.imb <= 0.4 ? 'ob-ask' : ''}`,
-    title: `호가 매수 ${fmtKrw(ob.bid_krw)} · 매도 ${fmtKrw(ob.ask_krw)} (현재가 위아래 약 ±${(ob.range_pct / 2).toFixed(1)}% 안 30단계). 가장 큰 매수벽 ${nf0.format(ob.bid_wall.px)}원(주변의 ${ob.bid_wall.x}배), 매도벽 ${nf0.format(ob.ask_wall.px)}원(${ob.ask_wall.x}배). 호가는 순간 사진이라 허수 주문이 섞여 있을 수 있어요`,
+    title: `호가 매수 ${fmtKrw(ob.bid_krw)} · 매도 ${fmtKrw(ob.ask_krw)} (현재가 위아래 약 ±${(ob.range_pct / 2).toFixed(1)}% 안 30단계). 가장 큰 매수벽 ${nf0.format(ob.bid_wall.px)}원(주변의 ${ob.bid_wall.x}배), 매도벽 ${nf0.format(ob.ask_wall.px)}원(${ob.ask_wall.x}배). 호가는 순간 사진이라 허수 주문이 섞여 있을 수 있어요.${r.detail && r.detail.ob ? ` 추천 순간에는 매수 ${Math.round(r.detail.ob.imb * 100)}%였어요.` : ''}`,
     text: `호가 매수 ${pctBid}%` });
 }
 
