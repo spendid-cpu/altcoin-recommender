@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 
 import aiohttp
 
-from src import config, original_scanner, price_tracker, telegram_client
+from src import config, original_scanner, price_tracker, telegram_client, upbit_extra
 from src.formatting import fmt_price
 from src.report import elapsed_text
 
@@ -56,15 +56,19 @@ def entry_lines(entries: list[tuple]) -> list[str]:
     새 추천을 먼저, 재추천을 뒤에 둔다. 변동폭·재추천·호가 표식은 참고용이고 추천 대상은 그대로다."""
     lines = []
     for market, price, score, vol_pct, prior, *rest in sorted(entries, key=lambda e: e[4] is not None):
-        ob_imb = rest[0] if rest else None
+        ob_imb = rest[0] if len(rest) > 0 else None
+        flow_buy = rest[1] if len(rest) > 1 else None
+        caution = rest[2] if len(rest) > 2 else []
         vol = f" · 변동폭 {vol_pct:.1f}%" if vol_pct is not None else ""
         ob = f" · 호가 매수 {ob_imb * 100:.0f}%" if ob_imb is not None else ""
+        flow = f" · 체결 매수 {flow_buy * 100:.0f}%" if flow_buy is not None else ""
+        warn = f" · ⚠️ {upbit_extra.flag_text(caution)}" if caution else ""
         rep = f" · 🔁 {prior['days']:.0f}일 전에도 추천({prior['label']})" if prior else ""
-        lines.append(f"{original_scanner.vol_icon(vol_pct) or '▫️'} {market}  {fmt_price(price)} · {_targets(price)} · 점수 {score:.1f}{vol}{ob}{rep}")
+        lines.append(f"{original_scanner.vol_icon(vol_pct) or '▫️'} {market}  {fmt_price(price)} · {_targets(price)} · 점수 {score:.1f}{vol}{ob}{flow}{warn}{rep}")
     return lines
 
 
-def entry_header(count: int, now: datetime, repeat: int = 0, has_book: bool = False) -> str:
+def entry_header(count: int, now: datetime, repeat: int = 0, has_book: bool = False, has_flow: bool = False, has_caution: bool = False) -> str:
     rules = []
     if config.EXIT_TAKE_PROFIT_PCT is not None:
         rules.append(f"익절 +{config.EXIT_TAKE_PROFIT_PCT:g}%")
@@ -74,7 +78,8 @@ def entry_header(count: int, now: datetime, repeat: int = 0, has_book: bool = Fa
     return (
         f"🆕 대조군 추천 {count}종목{f' (새 추천 {count - repeat} · 재추천 {repeat})' if repeat else ''} · {now.astimezone(KST):%m-%d %H:%M} KST\n일봉 마감 기준 · " + " / ".join(rules)
         + f"\n🔹 변동폭 낮음 · 🔸 높음 (14일 평균 일중 등락폭, 기준 {config.VOL_MARK_PCT:g}%) — 표시만이고 추천 대상은 그대로예요"
-        + ("\n📚 호가 매수 N% = 추천 순간 호가창(현재가 위아래 30단계)에서 사려는 주문의 비중 · 순간 사진이라 참고만" if has_book else "")
+        + ("\n" + " · ".join(t for t, on in (("📚 호가 매수 = 호가창에서 사려는 주문 비중", has_book), ("💹 체결 매수 = 최근 1시간 체결 중 사는 쪽 비중", has_flow)) if on) + " (참고만)" if has_book or has_flow else "")
+        + ("\n⚠️ = 업비트 공식 시장 경고(급등락·거래량·입금량·해외가격차이·소수계좌집중)가 켜진 종목" if has_caution else "")
         + (f"\n🔁 최근 {REPEAT_MARK_DAYS}일 안에 이미 추천했던 종목이에요 (3일 제한이 풀려 일봉 조건을 다시 통과)" if repeat else "")
     )
 

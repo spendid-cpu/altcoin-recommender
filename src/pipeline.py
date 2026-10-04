@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 
 import aiohttp
 
-from src import config, cycle, exits, macro_job, market_cap, orderbook, original_alerts, original_scanner, paper_limit, price_tracker, report, scan_log, state_store, telegram_client
+from src import config, cycle, exits, macro_job, market_cap, orderbook, original_alerts, original_scanner, paper_limit, price_tracker, report, scan_log, state_store, telegram_client, upbit_extra
 from src.scoring import find_support_lows
 from src.exchanges import upbit_client
 from src.notifier import diff_alerts
@@ -146,6 +146,11 @@ async def _run_baseline_scan(session: aiohttp.ClientSession, markets: list[str],
         except Exception as exc:
             print(f"기준선: 진입 시점 호가 조회 실패(기록만 생략): {exc!r}")
             books = {}
+        try:  # 추천 순간의 체결강도와 시장 경고 신호도 기록해 둔다 (참고용, 추천 판단에는 안 씀)
+            snap = await upbit_extra.entry_snapshot(session, [m for m, p in prices.items() if p])
+        except Exception as exc:
+            print(f"기준선: 진입 시점 체결·경고 조회 실패(기록만 생략): {exc!r}")
+            snap = {}
         entered = []
         for market, result in found:
             price = prices.get(market)
@@ -153,10 +158,15 @@ async def _run_baseline_scan(session: aiohttp.ClientSession, markets: list[str],
                 continue
             vol_pct = original_scanner.volatility_pct(cache.get((market, "day")))
             ob = books.get(market)
-            extra = {"ob": {k: ob[k] for k in ("imb", "bid_krw", "ask_krw", "range_pct", "level")}} if ob else None
+            extra = {"ob": {k: ob[k] for k in ("imb", "bid_krw", "ask_krw", "range_pct", "level")}} if ob else {}
+            sn = snap.get(market) or {}
+            if "flow" in sn:
+                extra["flow"] = sn["flow"]
+            if "caution" in sn:
+                extra["caution"] = sn["caution"]
             rec_at = price_tracker.record_entry(
                 market, price, "-", round(result.score, 1), original_scanner.breakdown(result, vol_pct, extra), strategy="original")
-            entered.append((market, price, round(result.score, 1), vol_pct, prior.get(market), ob["imb"] if ob else None))
+            entered.append((market, price, round(result.score, 1), vol_pct, prior.get(market), ob["imb"] if ob else None, (sn.get("flow") or {}).get("buy"), sn.get("caution") or []))
             # 모의 지정가: 1시간봉 스윙 저점에 기록 (개선판과 동일)
             support_lows = []
             hour_candles = cache.get((market, "1h"))
@@ -174,7 +184,7 @@ async def _run_baseline_scan(session: aiohttp.ClientSession, markets: list[str],
         if alert_on and entered:
             try:  # 기록은 이미 끝났으니 전송 실패가 있어도 추천 기록에는 영향이 없다
                 await original_alerts.send_all(
-                    session, original_alerts.entry_header(len(entered), datetime.now(timezone.utc), sum(1 for e in entered if e[4]), any(e[5] is not None for e in entered)), original_alerts.entry_lines(entered))
+                    session, original_alerts.entry_header(len(entered), datetime.now(timezone.utc), sum(1 for e in entered if e[4]), any(e[5] is not None for e in entered), any(e[6] is not None for e in entered), any(e[7] for e in entered)), original_alerts.entry_lines(entered))
             except Exception as exc:
                 print(f"기준선: 알림 전송 실패(기록은 완료): {exc!r}")
     except Exception as exc:

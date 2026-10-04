@@ -348,6 +348,7 @@
   .wall-row .v { color: var(--muted); font-size: 11px; white-space: nowrap; }
   .wall-row .tag { font-size: 11px; color: var(--ink2); white-space: nowrap; }
   .wall-row.wall .tag { font-weight: 650; color: var(--ink); }
+  .pill.warn { background: color-mix(in srgb, var(--warn) 24%, transparent); border-color: transparent; color: var(--ink); font-weight: 600; }
   .pill.ob-bid { background: color-mix(in srgb, var(--good) 14%, transparent); border-color: transparent; color: var(--ink); }
   .pill.ob-ask { background: color-mix(in srgb, var(--bad) 14%, transparent); border-color: transparent; color: var(--ink); }
   .cmp-cards { display: none; }
@@ -985,7 +986,8 @@
 // v1.16 (2026-10-03) 비트코인 탭에 '청산' 화면 추가: OKX에서 실제 체결된 BTC 선물 청산(시간별 롱/숏 금액, 청산이 난 가격대, 큰 청산 5건). 추정 청산 지도는 사전 평가 기각으로 제외. 참고용
 // v1.17 (2026-10-03) 비트코인 탭에 '매물대' 화면 추가(업비트 BTC 호가 벽·유지율, 바이낸스 근접 호가, 체결 기반 거래 매물대 7/30/90일), 추천 카드에 호가 매수 비중 표시, 진입 시점 호가 쏠림을 기록에 보관(나중에 검증용). 참고용, 추천 규칙에는 안 씀
 // v1.18 (2026-10-04) 호가 매수 비중의 변화 표시: 추천 순간 -> 지금(▲▼ %p), 1시간 전 값은 마우스를 올리면 표시. 텔레그램 추천 현황 리포트에도 같은 한 줄 추가
-const APP_VERSION = 'v1.18';
+// v1.19 (2026-10-05) 업비트 공개 API 참고 정보 3가지 추가: 추천 카드의 '체결 매수 N%'(실제 체결 중 사는 쪽 비중, 추천 순간 -> 지금), 업비트 공식 시장 경고 배지(거래량 급증·해외 가격 차이 등), 비트코인 분석 화면의 BTC 김치 프리미엄 타일. 모두 참고용
+const APP_VERSION = 'v1.19';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DATA_URL = 'dashboard.json';
@@ -1390,7 +1392,7 @@ function recCard(r, d) {
   const left = days * 86400e3 - elapsed;
   const slPrice = r.entry_price * (1 - sl / 100), tpPrice = r.entry_price * (1 + tp / 100);
   const meta = r.strategy === 'original'
-    ? [volPill(r), r.score == null ? null : h('span', { class: 'pill', text: `점수 ${r.score}` }), priorBadge(r, d), obPill(r, d)]
+    ? [volPill(r), r.score == null ? null : h('span', { class: 'pill', text: `점수 ${r.score}` }), priorBadge(r, d), obPill(r, d), flowPill(r, d), flagPill(r, d)]
     : [h('span', { class: 'strat', text: '개선판' }), gradePill(r.grade)];
   const gauge = gaugeBar(ret, tp, sl);
   gauge.querySelector('.gauge-labels').replaceChildren(h('span', { text: `손절 ${fmtKRW(slPrice)}` }), h('span', { text: `익절 ${fmtKRW(tpPrice)}` }));
@@ -1970,6 +1972,40 @@ function renderExperiments(d) {
   host.replaceChildren(...cards);
 }
 
+// 업비트 공개 API 참고 정보: 체결강도(실제 체결 중 사는 쪽 비중)와 공식 시장 경고. 추천 규칙에는 쓰지 않는 표시
+const UX_FLAG = { WARNING: '투자유의', PRICE_FLUCTUATIONS: '가격 급등락', TRADING_VOLUME_SOARING: '거래량 급증', DEPOSIT_AMOUNT_SOARING: '입금량 급증',
+  GLOBAL_PRICE_DIFFERENCES: '해외 가격 차이', CONCENTRATION_OF_SMALL_ACCOUNTS: '소수 계좌 집중' };
+function flowPill(r, d) {
+  const now = d.upbit_extra && d.upbit_extra.flow && d.upbit_extra.flow[r.market];
+  if (!now || isDone(r)) return null;
+  const nowPct = Math.round(now.buy * 100);
+  const entry = r.detail && r.detail.flow ? Math.round(r.detail.flow.buy * 100) : null;
+  const delta = entry == null ? null : nowPct - entry;
+  const arrow = delta == null ? '' : delta > 0 ? ` ▲${delta}` : delta < 0 ? ` ▼${-delta}` : ' ■';
+  return h('span', { class: `pill ${now.buy >= 0.6 ? 'ob-bid' : now.buy <= 0.4 ? 'ob-ask' : ''}`,
+    title: `최근 ${now.span_min}분 동안 체결된 ${now.n}건 중 사는 쪽(매수 체결) 금액 비중이에요. 호가와 달리 실제로 체결된 거래라 허수 주문이 없어요.${entry != null ? ` 추천 순간 ${entry}% → 지금 ${nowPct}%(${delta >= 0 ? '+' : ''}${delta}%p).` : ''}`,
+    text: entry != null ? `체결 매수 ${entry}% → ${nowPct}%${arrow}` : `체결 매수 ${nowPct}%` });
+}
+function flagPill(r, d) {
+  const flags = d.upbit_extra && d.upbit_extra.flags && d.upbit_extra.flags[r.market];
+  if (!flags || !flags.length || isDone(r)) return null;
+  const entryFlags = r.detail && Array.isArray(r.detail.caution) ? r.detail.caution : null;
+  return h('span', { class: 'pill warn',
+    title: `업비트가 공식 표시한 시장 경고예요. ${entryFlags == null ? '' : entryFlags.length ? `추천 때 켜져 있던 경고: ${entryFlags.map((f) => UX_FLAG[f] || f).join(', ')}.` : '추천 때는 경고가 없었어요.'}`,
+    text: `⚠ ${flags.map((f) => UX_FLAG[f] || f).join(' · ')}` });
+}
+// BTC 김치 프리미엄 타일 (비트코인 분석 화면 맨 위)
+function kimchiTiles() {
+  const K = DATA && DATA.upbit_extra && DATA.upbit_extra.kimchi;
+  if (!K) return [];
+  const hist = DATA.upbit_extra.kimchi_hist || [];
+  const first = hist.length > 1 ? hist[0] : null;
+  const hrs = first ? (Date.now() - first[0]) / 3600e3 : 0;
+  const trend = first && hrs >= 3 ? ` · ${Math.round(hrs)}시간 전 ${first[1] >= 0 ? '+' : ''}${first[1].toFixed(2)}%` : '';
+  return [tile('김치 프리미엄 (BTC)', [`${K.premium_pct >= 0 ? '+' : ''}${K.premium_pct.toFixed(2)}%`],
+    `업비트 ${nf0.format(K.btc_krw)}원 ÷ (바이낸스 ${nf0.format(K.btc_usdt)} USDT × ${nf0.format(K.usdt_krw)}원)${trend}`)];
+}
+
 /* ---------- BTC 청산 (OKX 실제 체결 기록) ---------- */
 const usdM = (v) => `$${(v / 1e6).toFixed(v >= 1e7 ? 0 : 1)}M`;
 const liqSide = (s) => (s === 'long' ? '롱' : '숏');
@@ -2270,6 +2306,7 @@ function renderMacroTiles(m) {
   host.replaceChildren(
     tile('BTC 현재가 (USDT)', [nf0.format(m.price)],
       ch == null ? '실시간 체결가' : `24시간 ${ch >= 0 ? '▲ +' : '▼ '}${ch.toFixed(2)}% · 실시간 체결가`),
+    ...kimchiTiles(),
     waveTile('큰 파동 (6개월)', wv.large),
     waveTile('작은 파동 (최근)', wv.small),
     tile('분석 갱신', stale ? [statusIcon('warn'), ago(m.generated_at)] : [ago(m.generated_at)],
