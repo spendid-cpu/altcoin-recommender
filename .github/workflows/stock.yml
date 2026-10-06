@@ -1,0 +1,49 @@
+name: stock
+
+# 한국 주식(코스피·코스닥) 주봉 RSI 과매도 후보를 기록한다 (실험 단계, 대시보드 '주식' 탭용).
+# 새 마감 주봉이 있을 때만 전 종목을 훑고(금요일 장 마감 후), 그 밖의 날은 지수와 진행 중 종목의 현재가만 갱신한다.
+# 텔레그램은 저장소 변수 STOCK_NOTIFY=true일 때만 보낸다(기본은 기록만).
+permissions:
+  contents: write  # data/state.db 변경사항을 다시 커밋+푸시하려면 필요
+
+on:
+  schedule:
+    - cron: "42 8 * * 1-5"   # 평일 17:42 KST (금요일이면 그 주 마감 직후)
+    - cron: "42 10 * * 1-5"  # 평일 19:42 KST 보조 (cron이 몇 시간씩 건너뛰는 일이 있어서 하루 두 번, 이미 처리했으면 바로 끝남)
+    - cron: "42 3 * * 6"     # 토요일 12:42 KST (금요일 실행을 놓쳤을 때 만회)
+  workflow_dispatch: {}
+
+# scan/track과 같은 그룹을 써서 state.db 커밋이 겹치지 않게 한다. 정각·15분·5분 배수에 몰리는 scan/track 요청과 겹치지 않게 :42에 돈다.
+concurrency:
+  group: scan
+  cancel-in-progress: false
+
+jobs:
+  stock:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r requirements.txt
+
+      - run: python scripts/run_stock.py
+        env:
+          STOCK_NOTIFY: ${{ vars.STOCK_NOTIFY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+      - name: 상태 파일(data/state.db) 변경사항 커밋
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/state.db
+          git diff --staged --quiet || git commit -m "state: 주식 기록 갱신 [skip ci]"
+          git pull --rebase origin master
+          git push

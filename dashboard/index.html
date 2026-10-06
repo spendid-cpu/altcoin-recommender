@@ -405,7 +405,7 @@
       background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: saturate(1.4) blur(14px); -webkit-backdrop-filter: saturate(1.4) blur(14px);
       padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); gap: 0; justify-content: space-around;
     }
-    .tab { flex: 1; flex-direction: column; gap: 3px; font-size: 11px; font-weight: 600; padding: 6px 2px; border-radius: 10px; min-width: 0; }
+    .tab { flex: 1; flex-direction: column; gap: 3px; font-size: 10.5px; font-weight: 600; padding: 6px 1px; border-radius: 10px; min-width: 0; }
     .tab svg { width: 23px; height: 23px; }
     .tab[aria-selected="true"], .tab[aria-selected="true"] svg { background: none; box-shadow: none; color: var(--accent); }
     .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
@@ -469,6 +469,8 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3.5v3M7 17.5v3M5 6.5h4v11H5zM17 2.5v3M17 14.5v4M15 5.5h4v9h-4z"/></svg><span>비트코인</span></button>
     <button id="tab-cycle" class="tab" role="tab" type="button" data-tab="cycle" aria-controls="view-cycle" aria-selected="false">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v4.2h-4.2"/></svg><span>사이클</span></button>
+    <button id="tab-stock" class="tab" role="tab" type="button" data-tab="stock" aria-controls="view-stock" aria-selected="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8M15 7h6v6"/></svg><span>주식</span></button>
   </nav>
 
   <div id="error" class="error" role="status" hidden>데이터를 불러오지 못했어요. 잠시 후 다시 시도할게요.</div>
@@ -928,6 +930,40 @@
     </section>
   </main>
 
+
+  <!-- ===== 주식 (실험) ===== -->
+  <main id="view-stock" role="tabpanel" aria-labelledby="tab-stock" hidden>
+    <div class="notice" style="border-color:var(--border);background:var(--surface)">
+      <span aria-hidden="true">🧪</span>
+      <div><strong>실험 단계예요.</strong> 한국 주식(코스피·코스닥)에서 마감된 주봉 RSI(14)가 30 이하로 들어온 종목을 기록만 해요. 알림은 보내지 않고, 매수 권유가 아니에요. 규칙은 과거 데이터로 한 번 검증했고(아래 '규칙과 한계'), 앞으로 쌓이는 실제 기록으로 다시 확인하려는 거예요.</div>
+    </div>
+    <section id="stock-tiles" class="tiles" aria-label="주식 요약"></section>
+
+    <div id="stock-cands"></div>
+
+    <section class="card" aria-labelledby="h-stock-stats" style="margin-top:6px">
+      <div class="card-head"><div><h2 id="h-stock-stats">성과 통계</h2><p class="sub">추천 다음 주 첫 거래일 시가에 사서 4주(4번째 주봉 종가)까지 보유했을 때의 결과예요. 시장 대비는 같은 주에 유동성을 통과한 전 종목을 같은 방식으로 샀을 때의 평균과의 차이예요. 4주가 지난 종목이 30개쯤 쌓이기 전에는 우연일 수 있어요</p></div></div>
+      <div id="stock-stats" class="table-wrap"></div>
+    </section>
+
+    <div class="sec-head" style="margin-top:18px"><h2>지난 추천 기록</h2></div>
+    <div id="stock-hist" class="rec-grid"></div>
+    <div class="more-row"><button id="stock-more" class="btn" type="button" hidden>더 보기</button></div>
+
+    <details class="fold">
+      <summary>규칙과 한계</summary>
+      <div class="fold-body">
+        <ul class="howto">
+          <li>신호: 마감된 주봉 RSI(14, Wilder)가 30 이하이고, 같은 종목을 최근 4주 안에 추천하지 않았고, 4주 평균 일 거래대금 5억 원 이상·종가 1,000원 이상·최근 4주 매주 거래가 있을 때예요. 스팩은 뺐어요. 새 신호는 사실상 금요일 장 마감 후에 주 1번만 생겨요.</li>
+          <li>과거 검증(2017~2026, 현재 상장 종목 2,519개, 신호 9,652건, 기준을 먼저 정해 한 번만 계산): 다음 주 시가에 사서 4주 보유하면 같은 주 전 종목 평균보다 평균 +0.91%p 높았어요(95% 구간 +0.41 ~ +1.45, 앞·뒤 절반 모두 양수). 코스피 +0.43%p, 코스닥 +1.22%p였고, 건당 수익률 표준편차는 약 19%, 하위 10% 평균은 약 -23%였어요.</li>
+          <li>한계: 현재 상장된 종목만 쓴 결과라 중간에 상장폐지된 종목이 빠져 있고(과매도 반등 전략은 이 편향에 특히 약해요), 실제 성과는 더 낮을 수 있어요. 거래비용·세금(왕복 약 0.4%)을 빼면 초과수익은 +0.5%p 수준이에요.</li>
+          <li>RSI 20 이하, RSI 골든크로스, 스토캐스틱 RSI(K3 D5) 골든크로스 조건은 같은 방식으로 검증했지만 모두 효과를 확인하지 못했어요. 분할매수(5일 균등, 3주 3:3:4 등)는 평균 수익은 일시 매수보다 낮고 하위 위험은 줄이는 쪽이었어요.</li>
+          <li>데이터는 야후 파이낸스(비공식)와 KIND 상장법인 목록이에요. 평일 저녁에 지수와 진행 중 종목의 현재가를 갱신하고, 새 마감 주봉이 생기면 전 종목을 다시 훑어요. 시세가 약간 늦거나 빠질 수 있어요.</li>
+        </ul>
+      </div>
+    </details>
+  </main>
+
   <footer>
     <span id="updated" class="upd"></span>
     자동 스캔 결과를 정리한 참고 자료이며 투자 권유가 아닙니다. 표시 시각은 모두 한국시간(KST)이에요.
@@ -987,7 +1023,8 @@
 // v1.17 (2026-10-03) 비트코인 탭에 '매물대' 화면 추가(업비트 BTC 호가 벽·유지율, 바이낸스 근접 호가, 체결 기반 거래 매물대 7/30/90일), 추천 카드에 호가 매수 비중 표시, 진입 시점 호가 쏠림을 기록에 보관(나중에 검증용). 참고용, 추천 규칙에는 안 씀
 // v1.18 (2026-10-04) 호가 매수 비중의 변화 표시: 추천 순간 -> 지금(▲▼ %p), 1시간 전 값은 마우스를 올리면 표시. 텔레그램 추천 현황 리포트에도 같은 한 줄 추가
 // v1.19 (2026-10-05) 업비트 공개 API 참고 정보 3가지 추가: 추천 카드의 '체결 매수 N%'(실제 체결 중 사는 쪽 비중, 추천 순간 -> 지금), 업비트 공식 시장 경고 배지(거래량 급증·해외 가격 차이 등), 비트코인 분석 화면의 BTC 김치 프리미엄 타일. 모두 참고용
-const APP_VERSION = 'v1.19';
+// v1.20 (2026-10-07) '주식' 탭 추가(실험): 코스피·코스닥 지수 상태, 마감 주봉 RSI(14) 30 이하 신규 후보(시장별), 추천 기록·4주 성과 통계. 알림 없이 기록만
+const APP_VERSION = 'v1.20';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DATA_URL = 'dashboard.json';
@@ -2242,6 +2279,100 @@ function obPill(r, d) {
     text: entry != null ? `호가 매수 ${entry}% → ${now}%${arrow}` : `호가 매수 ${now}%` });
 }
 
+/* ---------- 주식 (코스피·코스닥 주봉 RSI 과매도 후보, 실험 기록) ---------- */
+const MK_LABEL = { '유가': '코스피', '코스닥': '코스닥' };
+const wonFmt = (v) => (v == null ? '—' : `${nf0.format(v)}원`);
+const pctSigned = (v) => (v == null ? '—' : `${v >= 0 ? '+' : ''}${(v * 100).toFixed(2)}%`);
+let stockShown = 30;
+
+// 4주가 끝난 추천은 확정 수익, 진행 중이면 지금 가격 기준(진입 시가가 있으면 그것, 없으면 신호 종가)
+function stockRet(r) {
+  if (r.ret4w != null) return { v: r.ret4w, kind: '4주 확정' };
+  const base = r.entry_open || r.signal_close;
+  if (r.last_price && base) return { v: r.last_price / base - 1, kind: r.entry_open ? '진입 시가 대비' : '신호 종가 대비' };
+  return { v: null, kind: '' };
+}
+
+function stockCard(r) {
+  const ret = stockRet(r);
+  return h('article', { class: 'rec' },
+    h('div', { class: 'rec-top' },
+      h('div', {},
+        h('span', { class: 'rec-name' }, r.name, h('small', { style: 'margin-left:6px', text: r.code })),
+        h('div', { class: 'rec-meta' },
+          h('span', { class: 'pill', text: MK_LABEL[r.market] || r.market }),
+          h('span', { class: 'pill', text: `RSI ${r.rsi.toFixed(1)}` }),
+          r.chg4w != null ? h('span', { class: 'pill', text: `직전 4주 ${r.chg4w >= 0 ? '+' : ''}${r.chg4w.toFixed(0)}%` }) : null,
+          h('span', { class: 'pill', text: `거래대금 ${nf0.format(Math.round(r.tv_krw / 1e8))}억` }))),
+      h('div', { class: `rec-ret ${upDown(ret.v)}` }, pctSigned(ret.v), h('small', { text: ret.kind }))),
+    h('div', { class: 'rec-foot' },
+      h('span', { text: `신호 종가 ${wonFmt(r.signal_close)}` }),
+      h('span', { text: r.entry_open ? `진입 시가 ${wonFmt(r.entry_open)}` : '진입 시가: 다음 주 첫 거래일' }),
+      h('span', { text: r.ret1w != null ? `1주 ${pctSigned(r.ret1w)}` : '1주 성과 대기' })));
+}
+
+function renderStock(d) {
+  const S = d.stock;
+  const tilesEl = $('#stock-tiles'), candEl = $('#stock-cands'), histEl = $('#stock-hist'), statEl = $('#stock-stats'), moreBtn = $('#stock-more');
+  if (!S) {
+    tilesEl.replaceChildren(); histEl.replaceChildren(); statEl.replaceChildren(); moreBtn.hidden = true;
+    candEl.replaceChildren(empty('주식 기록 수집이 아직 시작되지 않았어요. 평일 저녁(17시 40분경)에 처음 실행돼요.'));
+    return;
+  }
+  const recs = S.recs || [];
+  const cur = recs.filter((r) => r.signal_week === S.week);
+  const cnt = (mk) => cur.filter((r) => r.market === mk).length;
+  const ix = (label) => {
+    const x = S.indexes && S.indexes[label];
+    if (!x) return tile(label, ['—'], '지수를 불러오지 못했어요');
+    const f = (v, suffix = '%') => (v == null ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(1)}${suffix}`);
+    return tile(label === '코스피' ? '코스피 지수' : '코스닥 지수', [nf2.format(x.level)],
+      `전일 ${f(x.chg_pct)} · 4주 ${f(x.chg4w_pct)} · 주봉 RSI ${x.rsi_w == null ? '—' : Math.round(x.rsi_w)}`);
+  };
+  const st = S.stats && S.stats.all;
+  tilesEl.replaceChildren(
+    ix('코스피'), ix('코스닥'),
+    tile('이번 주 신규 후보', [String(cur.length), h('span', { class: 'unit', text: '종목' })], `코스피 ${cnt('유가')} · 코스닥 ${cnt('코스닥')} · ${S.week} 주 마감 기준`, null, 'hero'),
+    tile('누적 성과 (4주 경과)', [st && st.n ? pctSigned(st.mean) : '—'],
+      st && st.n ? `${st.n}종목 · 플러스 ${Math.round(st.win * 100)}%${st.excess != null ? ` · 시장 대비 ${st.excess >= 0 ? '+' : ''}${(st.excess * 100).toFixed(1)}%p` : ''}` : '아직 4주가 지난 추천이 없어요'));
+
+  // 이번 주 후보 (시장별)
+  const groups = [['유가', '코스피'], ['코스닥', '코스닥']].map(([mk, label]) => {
+    const rows = cur.filter((r) => r.market === mk).sort((a, b) => b.tv_krw - a.tv_krw);
+    return h('section', { style: 'margin-bottom:22px' },
+      h('div', { class: 'sec-head' }, h('h2', { text: `${label} 신규 후보` }), h('span', { class: 'count', text: `${rows.length}종목 · 거래대금 큰 순` })),
+      rows.length ? h('div', { class: 'rec-grid' }, rows.map(stockCard)) : empty(`이번 주 ${label} 신규 후보는 없어요.`));
+  });
+  candEl.replaceChildren(...groups);
+
+  // 지난 추천 기록
+  const older = recs.filter((r) => r.signal_week !== S.week);
+  if (!older.length) {
+    histEl.replaceChildren(empty('지난 추천 기록이 아직 없어요. 다음 주부터 쌓여요.')); moreBtn.hidden = true;
+  } else {
+    const shown = older.slice(0, stockShown);
+    const out = [];
+    let lastWeek = null;
+    for (const r of shown) {
+      if (r.signal_week !== lastWeek) {
+        lastWeek = r.signal_week;
+        out.push(h('h3', { class: 'section-title', style: 'grid-column:1/-1;margin:14px 2px 0', text: `${r.signal_week} 주 신호 (${older.filter((x) => x.signal_week === r.signal_week).length}종목)` }));
+      }
+      out.push(stockCard(r));
+    }
+    histEl.replaceChildren(...out);
+    moreBtn.hidden = older.length <= stockShown;
+    moreBtn.textContent = `더 보기 (남은 ${older.length - stockShown}건)`;
+    moreBtn.onclick = () => { stockShown += 30; renderStock(DATA); };
+  }
+
+  // 성과 통계
+  const sRows = [['전체', S.stats && S.stats.all], ['코스피', S.stats && S.stats['유가']], ['코스닥', S.stats && S.stats['코스닥']]].map(([name, x]) => (x && x.n
+    ? [name, `${x.n}`, pctSigned(x.mean), pctSigned(x.median), `${Math.round(x.win * 100)}%`, x.excess == null ? '—' : `${x.excess >= 0 ? '+' : ''}${(x.excess * 100).toFixed(2)}%p`]
+    : [name, '0', '—', '—', '—', '—']));
+  statEl.replaceChildren(buildTable(['구분', '4주 경과 종목', '평균 수익', '중앙값', '플러스 비율', '시장 대비 초과'], sRows, 1));
+}
+
 function renderAll() {
   wireStratFilter();
   charts.forEach((c) => c && c.destroy());
@@ -2274,6 +2405,7 @@ function renderAll() {
   renderLiq(d);
   renderWall(d);
   renderCycle(d);
+  renderStock(d);
 }
 
 /* ---------- 비트코인 분석 탭 ---------- */
@@ -3452,7 +3584,7 @@ $('#mc-mode').addEventListener('click', (ev) => {
 
 /* ---------- 탭 ---------- */
 // 최상위 탭 5개 + 추천(진행 중/완료/후보)·비트코인(분석/차트)의 하위 구분. 예전 주소(#done #macro #chart)도 그대로 열린다
-const TABS = ['home', 'recs', 'perf', 'btc', 'cycle'];
+const TABS = ['home', 'recs', 'perf', 'btc', 'cycle', 'stock'];
 const HASH_ALIAS = { done: 'recs/done', macro: 'btc/analysis', chart: 'btc/chart', liq: 'btc/liq', wall: 'btc/wall', active: 'recs/active' };
 let currentTab = 'home', recsSub = 'active', btcSub = 'analysis';
 

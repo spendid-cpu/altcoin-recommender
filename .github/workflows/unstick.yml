@@ -6,7 +6,7 @@ name: unstick
 # 시작 못 한 실행을 취소한다. 진행 중(in_progress)인 실행은 건드리지 않는다.
 on:
   workflow_run:
-    workflows: [scan, track]
+    workflows: [scan, track, stock]
     types: [requested]
   workflow_dispatch: {}
 
@@ -34,7 +34,7 @@ jobs:
           cutoff=$(date -u -d "-${STUCK_MINUTES} minutes" +%Y-%m-%dT%H:%M:%SZ)
           echo "기준 시각(이보다 먼저 만들어진 queued/waiting 실행을 취소): $cutoff"
           cancelled=""
-          for wf in scan.yml track.yml; do
+          for wf in scan.yml track.yml stock.yml; do
             for st in queued waiting; do
               ids=$(gh run list --workflow "$wf" --status "$st" --limit 50 --json databaseId,createdAt \
                 --jq ".[] | select(.createdAt < \"$cutoff\") | .databaseId") || ids=""

@@ -20,6 +20,7 @@ REMIND_MINUTES = int(os.environ.get("WATCHDOG_REMIND_MINUTES") or "120")  # 막�
 STUCK_MINUTES = int(os.environ.get("WATCHDOG_STUCK_MINUTES") or "20")  # 이보다 오래 queued/waiting이면 멈춘 실행으로 보고 취소
 STUCK_STATUSES = ("queued", "waiting")
 WATCH_WORKFLOWS = ("scan", "track")
+CANCEL_WORKFLOWS = WATCH_WORKFLOWS + ("stock",)  # 같은 동시성 그룹(scan)을 쓰는 워크플로 전부
 STATE_KEY = "watchdog_state"
 API_BASE = "https://api.github.com"
 
@@ -66,7 +67,7 @@ async def cancel_stuck_runs(session: aiohttp.ClientSession) -> list[dict]:
     now = datetime.now(timezone.utc)
     headers = _api_headers()
     cancelled: list[dict] = []
-    for name in WATCH_WORKFLOWS:
+    for name in CANCEL_WORKFLOWS:
         for status in STUCK_STATUSES:
             url = f"{API_BASE}/repos/{_repo()}/actions/workflows/{name}.yml/runs"
             async with session.get(url, params={"status": status, "per_page": 20}, headers=headers) as resp:
