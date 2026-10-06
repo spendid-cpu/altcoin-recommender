@@ -51,8 +51,10 @@ def _connect():
     conn.execute(
         "CREATE TABLE IF NOT EXISTS stock_recs ("
         "code TEXT NOT NULL, signal_week TEXT NOT NULL, name TEXT, market TEXT, rsi REAL, k REAL, d REAL, signal_close REAL, tv_krw REAL, "
-        "created_at TEXT, entry_open REAL, ret1w REAL, ret4w REAL, base4w REAL, shown INTEGER, chg4w REAL, last_price REAL, last_at TEXT, PRIMARY KEY (code, signal_week))"
+        "created_at TEXT, entry_open REAL, ret1w REAL, ret4w REAL, base4w REAL, shown INTEGER, chg4w REAL, last_price REAL, last_at TEXT, hist TEXT, PRIMARY KEY (code, signal_week))"
     )
+    if "hist" not in [r[1] for r in conn.execute("PRAGMA table_info(stock_recs)")]:  # 이미 만들어진 DB에는 열을 추가한다
+        conn.execute("ALTER TABLE stock_recs ADD COLUMN hist TEXT")
     return conn
 
 
@@ -192,6 +194,17 @@ def _prepare(d: pd.DataFrame, week_cut: pd.Timestamp) -> pd.DataFrame:
     return d
 
 
+HIST_WEEKS = 26
+
+
+def hist_json(d: pd.DataFrame, sig_week: str) -> str:
+    """최근 HIST_WEEKS주의 [주 시작일, 종가, 주간 거래대금(원), RSI]. 대시보드 팝업(거래대금·가격 흐름)용."""
+    tail = d.tail(HIST_WEEKS)
+    rows = [[t.strftime("%Y-%m-%d"), round(float(c), 2), round(float(c * v)), None if np.isnan(r) else round(float(r), 1)]
+            for t, c, v, r in zip(tail.t, tail.c, tail.v.fillna(0), tail.rsi)]
+    return json.dumps({"sig": sig_week, "w": rows}, separators=(",", ":"))
+
+
 def find_signals(panel: dict[str, pd.DataFrame], universe: dict[str, dict], week: pd.Timestamp, recent: set[str]) -> list[dict]:
     out = []
     for code, d in panel.items():
@@ -249,6 +262,27 @@ def update_tracking(conn, raw: dict[str, pd.DataFrame], panel: dict[str, pd.Data
             matured.append({"code": code, "name": name, "ret4w": r4, "base4w": base})
     conn.commit()
     return matured
+
+
+async def backfill_history(session: aiohttp.ClientSession, conn, week: pd.Timestamp) -> int:
+    """이력(hist)이 없는 추천 종목만 주봉을 다시 받아 채운다(이 기능이 생기기 전에 기록된 추천, 실패했던 것)."""
+    rows = conn.execute("SELECT code, signal_week, market FROM stock_recs WHERE hist IS NULL").fetchall()
+    if not rows:
+        return 0
+    sem = asyncio.Semaphore(CONCURRENCY)
+
+    async def one(code: str, wk: str, market: str):
+        res = await _chart(session, sem, f"{code}.{'KS' if market == '유가' else 'KQ'}", "2y", "1wk")
+        d = _weekly_frame(res) if res else None
+        return code, wk, (_prepare(d, week) if d is not None else None)
+
+    n = 0
+    for code, wk, d in await asyncio.gather(*(one(*r) for r in rows)):
+        if d is not None and len(d) >= RSI_PERIOD + 5:
+            conn.execute("UPDATE stock_recs SET hist=? WHERE code=? AND signal_week=?", (hist_json(d, wk), code, wk))
+            n += 1
+    conn.commit()
+    return n
 
 
 async def refresh_open_prices(session: aiohttp.ClientSession, conn) -> int:
@@ -332,9 +366,12 @@ def export() -> dict | None:
         return None
     conn = _connect()
     try:
-        cols = ["code", "signal_week", "name", "market", "rsi", "k", "d", "signal_close", "tv_krw", "entry_open", "ret1w", "ret4w", "base4w", "shown", "chg4w", "last_price", "last_at"]
+        cols = ["code", "signal_week", "name", "market", "rsi", "k", "d", "signal_close", "tv_krw", "entry_open", "ret1w", "ret4w", "base4w", "shown", "chg4w", "last_price", "last_at", "hist"]
         rows = conn.execute(f"SELECT {', '.join(cols)} FROM stock_recs ORDER BY signal_week DESC, tv_krw DESC LIMIT 600").fetchall()
         recs = [dict(zip(cols, r)) for r in rows]
+        keep_from = (pd.Timestamp(json.loads(raw)["week"]) - pd.Timedelta(days=84)).date().isoformat()
+        for r in recs:
+            r["hist"] = json.loads(r["hist"]) if r["hist"] and r["signal_week"] >= keep_from else None
         stats = _stats(conn)
     finally:
         conn.close()
@@ -381,6 +418,10 @@ async def run(session: aiohttp.ClientSession, now: datetime | None = None, force
                         (sg["code"], week.date().isoformat(), sg["name"], sg["market"], sg["rsi"], sg["k"], sg["d"], sg["close"], sg["tv"], now.isoformat(), 1 if sg["code"] in shown else 0, sg["chg4w"]))
                 conn.commit()
                 matured = update_tracking(conn, raw, panel)
+                for code, wk in conn.execute("SELECT code, signal_week FROM stock_recs WHERE hist IS NULL OR ret4w IS NULL").fetchall():
+                    if code in panel and len(panel[code]) >= RSI_PERIOD + 5:
+                        conn.execute("UPDATE stock_recs SET hist=? WHERE code=? AND signal_week=?", (hist_json(panel[code], wk), code, wk))
+                conn.commit()
             result.update(signals=len(signals), matured=len(matured))
             print(f"[주식] {week.date()} 마감 주봉 신규 후보 {len(signals)}종목 (코스피 {sum(1 for x in signals if x['market'] == '유가')} · 코스닥 {sum(1 for x in signals if x['market'] == '코스닥')}), 4주 경과 {len(matured)}종목")
             if conn is None:
@@ -396,6 +437,7 @@ async def run(session: aiohttp.ClientSession, now: datetime | None = None, force
                         await original_alerts.send_all(session, header, lines)  # 실패하면 예외 -> 처리 표시를 안 남겨 다음 실행에서 다시 보낸다
                 state_store.set_meta(LAST_WEEK_KEY, week.date().isoformat())
         if conn is not None:
+            result["hist_filled"] = await backfill_history(session, conn, week)
             result["open_prices"] = await refresh_open_prices(session, conn)
             prev = json.loads(state_store.get_meta(OVERVIEW_KEY) or "{}")
             if not new_week and "universe" in prev:

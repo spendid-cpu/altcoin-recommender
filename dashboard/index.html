@@ -351,6 +351,28 @@
   .pill.warn { background: color-mix(in srgb, var(--warn) 24%, transparent); border-color: transparent; color: var(--ink); font-weight: 600; }
   .pill.ob-bid { background: color-mix(in srgb, var(--good) 14%, transparent); border-color: transparent; color: var(--ink); }
   .pill.ob-ask { background: color-mix(in srgb, var(--bad) 14%, transparent); border-color: transparent; color: var(--ink); }
+
+  /* 주식 카드의 거래대금 칩 + 주간 이력 팝업 */
+  .pill.tvpill { font: inherit; font-size: 12px; line-height: inherit; background: transparent; cursor: pointer; border-style: dashed; border-color: var(--border-strong); }
+  .pill.tvpill:hover, .pill.tvpill[aria-expanded="true"] { border-color: var(--accent); color: var(--ink); }
+  .pill.tvpill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .tip { position: fixed; z-index: 60; width: min(360px, calc(100vw - 20px)); max-height: calc(100vh - 20px); overflow: auto; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 12px; box-shadow: 0 10px 30px rgba(16, 20, 26, .2); padding: 12px 12px 10px; font-size: 12.5px; }
+  .tip h4 { margin: 0; padding-right: 30px; font-size: 14px; letter-spacing: -.01em; }
+  .tip-x { position: absolute; top: 6px; right: 6px; width: 30px; height: 30px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-size: 16px; line-height: 1; cursor: pointer; }
+  .tip-x:hover { background: var(--surface2); color: var(--ink); }
+  .tip.sheet { left: 10px !important; right: 10px; top: auto !important; bottom: 10px; width: auto; max-height: min(82vh, 640px); }
+  .tip h4 small { color: var(--muted); font-weight: 500; margin-left: 6px; }
+  .tip-sum { margin: 6px 0 0; color: var(--ink2); font-size: 12.5px; line-height: 1.5; }
+  .tip-cap { margin: 10px 0 2px; color: var(--muted); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+  .tip svg { display: block; width: 100%; height: auto; touch-action: pan-y; }
+  .tip-read { min-height: 20px; margin-top: 8px; padding: 3px 8px; border-radius: 8px; background: var(--surface2); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  .tip-tbl { width: 100%; margin-top: 8px; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .tip-tbl th { padding: 3px 4px; text-align: right; color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--border); }
+  .tip-tbl td { padding: 3px 4px; text-align: right; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+  .tip-tbl th:first-child, .tip-tbl td:first-child { text-align: left; }
+  .tip-tbl tr.sig td { background: color-mix(in srgb, var(--accent) 9%, transparent); font-weight: 600; }
+  .tip-tbl .badge { display: inline-block; margin-left: 4px; padding: 0 5px; border-radius: 6px; font-size: 10.5px; background: var(--accent); color: var(--on-accent); }
+  .tip-note { margin: 8px 0 0; color: var(--muted); font-size: 11.5px; line-height: 1.45; }
   .cmp-cards { display: none; }
   .cmp-card { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; background: var(--surface2); }
   .cmp-card h3 { margin: 0 0 6px; font-size: 14px; font-weight: 700; }
@@ -1024,7 +1046,8 @@
 // v1.18 (2026-10-04) 호가 매수 비중의 변화 표시: 추천 순간 -> 지금(▲▼ %p), 1시간 전 값은 마우스를 올리면 표시. 텔레그램 추천 현황 리포트에도 같은 한 줄 추가
 // v1.19 (2026-10-05) 업비트 공개 API 참고 정보 3가지 추가: 추천 카드의 '체결 매수 N%'(실제 체결 중 사는 쪽 비중, 추천 순간 -> 지금), 업비트 공식 시장 경고 배지(거래량 급증·해외 가격 차이 등), 비트코인 분석 화면의 BTC 김치 프리미엄 타일. 모두 참고용
 // v1.20 (2026-10-07) '주식' 탭 추가(실험): 코스피·코스닥 지수 상태, 마감 주봉 RSI(14) 30 이하 신규 후보(시장별), 추천 기록·4주 성과 통계. 알림 없이 기록만
-const APP_VERSION = 'v1.20';
+// v1.21 (2026-10-07) 주식 카드의 거래대금 칩에 마우스를 올리거나 탭하면 최근 26주 종가·일평균 거래대금 흐름 팝업
+const APP_VERSION = 'v1.21';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DATA_URL = 'dashboard.json';
@@ -2293,6 +2316,156 @@ function stockRet(r) {
   return { v: null, kind: '' };
 }
 
+/* 거래대금 칩에 마우스를 올리거나(모바일은 탭) 하면 뜨는 주간 이력 팝업: 최근 26주 종가 흐름·일평균 거래대금 */
+const stockTip = { el: null, owner: null, pinned: false, timer: null };
+const mmdd = (t) => t.slice(5).replace('-', '/');
+
+function stockTipHide() {
+  clearTimeout(stockTip.timer);
+  if (stockTip.el) stockTip.el.remove();
+  if (stockTip.owner) stockTip.owner.setAttribute('aria-expanded', 'false');
+  stockTip.el = stockTip.owner = null;
+  stockTip.pinned = false;
+}
+function stockTipSoonHide() {
+  clearTimeout(stockTip.timer);
+  stockTip.timer = setTimeout(() => { if (!stockTip.pinned) stockTipHide(); }, 160);
+}
+
+// 주간 이력 [주 시작일, 종가, 주간 거래대금, RSI] -> 그리기용 행 (거래대금은 하루 평균으로 환산)
+function stockTipRows(H) {
+  return H.w.map((p, i) => ({ t: p[0], c: p[1], tv: p[2] / 5, rsi: p[3], chg: i ? p[1] / H.w[i - 1][1] - 1 : null }));
+}
+
+function stockTipCharts(rows, sigIdx, setRead) {
+  const W = 336, PX = 6, PH = 64, BH = 52, n = rows.length, step = (W - PX * 2) / n;
+  const cx = (i) => PX + step * (i + 0.5);
+  const cs = rows.map((r) => r.c), lo = Math.min(...cs), hi = Math.max(...cs);
+  const py = (v) => 6 + (1 - (v - lo) / ((hi - lo) || 1)) * (PH - 12);
+  const tMax = Math.max(...rows.map((r) => r.tv), 1);
+  const bw = Math.max(3, step - 2.5);
+  const guide = (hgt) => s('line', { x1: cx(sigIdx), x2: cx(sigIdx), y1: 0, y2: hgt, stroke: 'var(--axis)', 'stroke-dasharray': '3 3', 'stroke-width': 1 });
+  const cursor = (hgt) => s('line', { y1: 0, y2: hgt, stroke: 'var(--ink2)', 'stroke-width': 1, visibility: 'hidden' });
+
+  const pCur = cursor(PH);
+  const pDot = s('circle', { r: 4, fill: 'var(--surface)', stroke: 'var(--ink)', 'stroke-width': 2, visibility: 'hidden' });
+  const priceSvg = s('svg', { viewBox: `0 0 ${W} ${PH}`, role: 'img', 'aria-label': '주간 종가 흐름' },
+    guide(PH), pCur,
+    s('polyline', { points: rows.map((r, i) => `${cx(i).toFixed(1)},${py(r.c).toFixed(1)}`).join(' '), fill: 'none', stroke: 'var(--ink2)', 'stroke-width': 1.6, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }),
+    s('circle', { cx: cx(sigIdx).toFixed(1), cy: py(rows[sigIdx].c).toFixed(1), r: 4, fill: 'var(--accent)', stroke: 'var(--surface)', 'stroke-width': 2 }),
+    pDot);
+
+  const bCur = cursor(BH);
+  const bars = rows.map((r, i) => s('rect', {
+    x: (cx(i) - bw / 2).toFixed(1), width: bw.toFixed(1), rx: 1.5,
+    y: (BH - 1 - Math.max(1, (r.tv / tMax) * (BH - 6))).toFixed(1), height: Math.max(1, (r.tv / tMax) * (BH - 6)).toFixed(1),
+    fill: 'var(--s1)', opacity: i === sigIdx ? 1 : 0.5 }));
+  const barSvg = s('svg', { viewBox: `0 0 ${W} ${BH}`, role: 'img', 'aria-label': '주간 일평균 거래대금' },
+    guide(BH), bCur, ...bars, s('line', { x1: PX, x2: W - PX, y1: BH - 0.5, y2: BH - 0.5, stroke: 'var(--axis)', 'stroke-width': 1 }));
+
+  let at = null;
+  const pick = (i) => {
+    if (i === at) return;
+    at = i;
+    const on = i != null;
+    for (const c of [pCur, bCur]) { c.setAttribute('visibility', on ? 'visible' : 'hidden'); if (on) { c.setAttribute('x1', cx(i)); c.setAttribute('x2', cx(i)); } }
+    pDot.setAttribute('visibility', on ? 'visible' : 'hidden');
+    if (on) { pDot.setAttribute('cx', cx(i)); pDot.setAttribute('cy', py(rows[i].c)); }
+    bars.forEach((b, k) => b.setAttribute('opacity', k === i || (!on && k === sigIdx) ? 1 : 0.5));
+    setRead(on ? i : sigIdx);
+  };
+  const idxAt = (svg, ev) => {
+    const b = svg.getBoundingClientRect();
+    return Math.max(0, Math.min(n - 1, Math.floor(((ev.clientX - b.left) / b.width * W - PX) / step)));
+  };
+  for (const svg of [priceSvg, barSvg]) {
+    svg.addEventListener('pointermove', (ev) => pick(idxAt(svg, ev)));
+    svg.addEventListener('pointerdown', (ev) => pick(idxAt(svg, ev)));
+    svg.addEventListener('pointerleave', () => pick(null));
+  }
+  return [
+    h('div', { class: 'tip-cap', text: `종가 (${nf0.format(lo)} ~ ${nf0.format(hi)}원)` }), priceSvg,
+    h('div', { class: 'tip-cap', text: `하루 평균 거래대금 (최대 ${fmtKrw(tMax)})` }), barSvg,
+  ];
+}
+
+function stockTipBuild(r) {
+  const rows = stockTipRows(r.hist);
+  let sigIdx = rows.findIndex((x) => x.t === r.hist.sig);
+  if (sigIdx < 0) sigIdx = rows.length - 1;
+  const read = h('div', { class: 'tip-read', 'aria-live': 'polite' });
+  const setRead = (i) => {
+    const x = rows[i];
+    read.textContent = `${mmdd(x.t)} 주 · 종가 ${nf0.format(x.c)}원${x.chg == null ? '' : ` (${pctSigned(x.chg)})`} · 일평균 ${fmtKrw(x.tv)}${i === sigIdx ? ' · 신호 주' : ''}`;
+  };
+  const sig = rows[sigIdx], prev = rows.slice(Math.max(0, sigIdx - 4), sigIdx);
+  const prevAvg = prev.length ? prev.reduce((a, x) => a + x.tv, 0) / prev.length : null;
+  const sum = [];
+  if (prevAvg) sum.push(`신호 주 일평균 거래대금 ${fmtKrw(sig.tv)} (직전 ${prev.length}주 평균 ${fmtKrw(prevAvg)}의 ${(sig.tv / prevAvg).toFixed(1)}배)`);
+  const after = rows.length - 1 - sigIdx;
+  if (after > 0) sum.push(`신호 후 ${after}주 경과, 종가 ${pctSigned(rows[rows.length - 1].c / sig.c - 1)}`);
+
+  const body = rows.map((x, i) => [x, i]).slice(-8).reverse().map(([x, i]) => h('tr', { class: i === sigIdx ? 'sig' : '' },
+    h('td', {}, `${mmdd(x.t)}`, i === sigIdx ? h('span', { class: 'badge', text: '신호' }) : null),
+    h('td', { text: nf0.format(x.c) }),
+    h('td', { class: upDown(x.chg), text: x.chg == null ? '—' : pctSigned(x.chg) }),
+    h('td', { text: fmtKrw(x.tv) }),
+    h('td', { text: x.rsi == null ? '—' : x.rsi.toFixed(0) })));
+  const tbl = h('table', { class: 'tip-tbl' },
+    h('thead', {}, h('tr', {}, ['주(월요일)', '종가', '주간 등락', '일평균 거래대금', 'RSI'].map((t) => h('th', { text: t })))),
+    h('tbody', {}, body));
+
+  const el = h('div', { class: 'tip', role: 'dialog', 'aria-label': `${r.name} 거래대금과 가격 흐름` },
+    h('button', { class: 'tip-x', type: 'button', 'aria-label': '닫기', text: '✕' }),
+    h('h4', {}, r.name, h('small', { text: `${r.code} · 최근 ${rows.length}주` })),
+    sum.length ? h('p', { class: 'tip-sum', text: sum.join(' · ') }) : null,
+    ...stockTipCharts(rows, sigIdx, setRead),
+    read, tbl,
+    h('p', { class: 'tip-note', text: `카드의 거래대금(${fmtKrw(r.tv_krw)})은 신호 주까지 4주 평균이에요. 거래대금은 주 종가×주간 거래량으로 어림한 값이라 실제와 조금 달라요. 마감된 주봉만 보여줘요.` }));
+  setRead(sigIdx);
+  el.querySelector('.tip-x').addEventListener('click', () => stockTipHide());
+  el.addEventListener('pointerenter', (ev) => { if (ev.pointerType === 'mouse') clearTimeout(stockTip.timer); });
+  el.addEventListener('pointerleave', (ev) => { if (ev.pointerType === 'mouse') stockTipSoonHide(); });
+  return el;
+}
+
+function stockTipShow(btn, r, pin) {
+  if (stockTip.owner === btn) { stockTip.pinned = stockTip.pinned || pin; clearTimeout(stockTip.timer); return; }
+  stockTipHide();
+  const el = stockTipBuild(r);
+  document.body.append(el);
+  const vw = document.documentElement.clientWidth, vh = window.innerHeight;
+  if (vw <= 600) el.classList.add('sheet');
+  else {
+    const b = btn.getBoundingClientRect(), w = el.offsetWidth, hgt = el.offsetHeight;
+    let top = b.bottom + 6;
+    if (top + hgt > vh - 8) top = b.top - 6 - hgt >= 8 ? b.top - 6 - hgt : Math.max(8, vh - 8 - hgt);
+    el.style.left = `${Math.max(10, Math.min(b.left, vw - w - 10))}px`;
+    el.style.top = `${top}px`;
+  }
+  btn.setAttribute('aria-expanded', 'true');
+  Object.assign(stockTip, { el, owner: btn, pinned: pin });
+}
+
+function tvPill(r) {
+  const text = `거래대금 ${nf0.format(Math.round(r.tv_krw / 1e8))}억`;
+  if (!r.hist || !r.hist.w || r.hist.w.length < 3) return h('span', { class: 'pill', text });
+  const b = h('button', { class: 'pill tvpill', type: 'button', 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-label': `${text}, 눌러서 거래대금과 가격 흐름 보기`, text });
+  b.addEventListener('pointerenter', (ev) => { if (ev.pointerType === 'mouse') stockTipShow(b, r, false); });
+  b.addEventListener('pointerleave', (ev) => { if (ev.pointerType === 'mouse') stockTipSoonHide(); });
+  b.addEventListener('click', () => { if (stockTip.owner === b && stockTip.pinned) stockTipHide(); else stockTipShow(b, r, true); });
+  return b;
+}
+document.addEventListener('pointerdown', (ev) => {
+  if (stockTip.el && !stockTip.el.contains(ev.target) && !stockTip.owner.contains(ev.target)) stockTipHide();
+}, true);
+document.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Escape' && stockTip.el) { const o = stockTip.owner; stockTipHide(); if (o && o.isConnected) o.focus(); }
+});
+document.addEventListener('scroll', (ev) => { if (stockTip.el && !stockTip.el.classList.contains('sheet') && !stockTip.el.contains(ev.target)) stockTipHide(); }, true);
+let tipVw = window.innerWidth;
+window.addEventListener('resize', () => { if (window.innerWidth !== tipVw) { tipVw = window.innerWidth; stockTipHide(); } });
+
 function stockCard(r) {
   const ret = stockRet(r);
   return h('article', { class: 'rec' },
@@ -2303,7 +2476,7 @@ function stockCard(r) {
           h('span', { class: 'pill', text: MK_LABEL[r.market] || r.market }),
           h('span', { class: 'pill', text: `RSI ${r.rsi.toFixed(1)}` }),
           r.chg4w != null ? h('span', { class: 'pill', text: `직전 4주 ${r.chg4w >= 0 ? '+' : ''}${r.chg4w.toFixed(0)}%` }) : null,
-          h('span', { class: 'pill', text: `거래대금 ${nf0.format(Math.round(r.tv_krw / 1e8))}억` }))),
+          tvPill(r))),
       h('div', { class: `rec-ret ${upDown(ret.v)}` }, pctSigned(ret.v), h('small', { text: ret.kind }))),
     h('div', { class: 'rec-foot' },
       h('span', { text: `신호 종가 ${wonFmt(r.signal_close)}` }),
@@ -2312,6 +2485,7 @@ function stockCard(r) {
 }
 
 function renderStock(d) {
+  stockTipHide();
   const S = d.stock;
   const tilesEl = $('#stock-tiles'), candEl = $('#stock-cands'), histEl = $('#stock-hist'), statEl = $('#stock-stats'), moreBtn = $('#stock-more');
   if (!S) {
@@ -2340,7 +2514,7 @@ function renderStock(d) {
   const groups = [['유가', '코스피'], ['코스닥', '코스닥']].map(([mk, label]) => {
     const rows = cur.filter((r) => r.market === mk).sort((a, b) => b.tv_krw - a.tv_krw);
     return h('section', { style: 'margin-bottom:22px' },
-      h('div', { class: 'sec-head' }, h('h2', { text: `${label} 신규 후보` }), h('span', { class: 'count', text: `${rows.length}종목 · 거래대금 큰 순` })),
+      h('div', { class: 'sec-head' }, h('h2', { text: `${label} 신규 후보` }), h('span', { class: 'count', text: `${rows.length}종목 · 거래대금 큰 순 · 거래대금을 누르면 흐름` })),
       rows.length ? h('div', { class: 'rec-grid' }, rows.map(stockCard)) : empty(`이번 주 ${label} 신규 후보는 없어요.`));
   });
   candEl.replaceChildren(...groups);
