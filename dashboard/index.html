@@ -372,6 +372,17 @@
   .tip-tbl th:first-child, .tip-tbl td:first-child { text-align: left; }
   .tip-tbl tr.sig td { background: color-mix(in srgb, var(--accent) 9%, transparent); font-weight: 600; }
   .tip-tbl .badge { display: inline-block; margin-left: 4px; padding: 0 5px; border-radius: 6px; font-size: 10.5px; background: var(--accent); color: var(--on-accent); }
+  .pill.tvpill.lvl-risk { background: color-mix(in srgb, var(--bad) 16%, transparent); border-color: transparent; color: var(--ink); font-weight: 600; }
+  .pill.tvpill.lvl-watch { background: color-mix(in srgb, var(--warn) 22%, transparent); border-color: transparent; color: var(--ink); }
+  .nitem { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; padding: 5px 0; border-bottom: 1px solid var(--grid); font-size: 12.5px; line-height: 1.45; }
+  .nday { min-width: 38px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .nbadge { padding: 0 6px; border-radius: 6px; font-size: 11px; background: var(--surface2); color: var(--ink2); white-space: nowrap; }
+  .nbadge.risk { background: color-mix(in srgb, var(--bad) 18%, transparent); color: var(--ink); font-weight: 650; }
+  .nbadge.watch { background: color-mix(in srgb, var(--warn) 26%, transparent); color: var(--ink); }
+  .nlink { color: var(--ink); text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 2px; }
+  .nlink:hover { color: var(--accent); }
+  .nsub { color: var(--muted); font-size: 11.5px; }
+  .nempty { padding: 4px 0; color: var(--muted); font-size: 12.5px; }
   .tip-tbl .badge.live { background: transparent; color: var(--ink2); border: 1px solid var(--border-strong); }
   .tip-tbl td:first-child { white-space: normal; }
   .tip-sum div + div { margin-top: 1px; }
@@ -1050,8 +1061,9 @@
 // v1.19 (2026-10-05) 업비트 공개 API 참고 정보 3가지 추가: 추천 카드의 '체결 매수 N%'(실제 체결 중 사는 쪽 비중, 추천 순간 -> 지금), 업비트 공식 시장 경고 배지(거래량 급증·해외 가격 차이 등), 비트코인 분석 화면의 BTC 김치 프리미엄 타일. 모두 참고용
 // v1.20 (2026-10-07) '주식' 탭 추가(실험): 코스피·코스닥 지수 상태, 마감 주봉 RSI(14) 30 이하 신규 후보(시장별), 추천 기록·4주 성과 통계. 알림 없이 기록만
 // v1.21 (2026-10-07) 주식 카드의 거래대금 칩에 마우스를 올리거나 탭하면 최근 26주 종가·일평균 거래대금 흐름 팝업
+// v1.23 (2026-10-07) 팝업을 주봉 캔들+거래대금(상승·하락 색)+RSI(30선)로 바꾸고, 주식 공시·뉴스 / 코인 업비트 공지·뉴스 칩 추가(표시 전용)
 // v1.22 (2026-10-07) 시가총액 칩(주식: 네이버 증권, 코인: CoinGecko) + 코인 추천 카드에도 지난주 거래대금·시총 칩과 같은 주봉 팝업(종가·주간 거래대금·RSI)
-const APP_VERSION = 'v1.22';
+const APP_VERSION = 'v1.23';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DATA_URL = 'dashboard.json';
@@ -2345,62 +2357,99 @@ function infoTipSoonHide() {
   infoTip.timer = setTimeout(() => { if (!infoTip.pinned) infoTipHide(); }, 160);
 }
 
-// 주간 이력 [주 시작일, 종가, 주간 거래대금, RSI] -> 그리기용 행 (div: 거래대금을 나눌 값. 주식은 5(하루 평균), 코인은 1(주간 합계))
+// 주간 이력 [주 시작일, 종가, 주간 거래대금, RSI, 시가, 고가, 저가] -> 그리기용 행
+// (div: 거래대금을 나눌 값. 주식은 5(하루 평균), 코인은 1(주간 합계)). 시가·고가·저가가 없는 옛 기록은 종가로 대신한다
 function infoTipRows(w, div, liveLast) {
-  return w.map((p, i) => ({ t: p[0], c: p[1], tv: p[2] / div, rsi: p[3], chg: i ? p[1] / w[i - 1][1] - 1 : null, live: !!liveLast && i === w.length - 1 }));
+  return w.map((p, i) => {
+    const o = p[4] ?? p[1];
+    return { t: p[0], c: p[1], o, hi: p[5] ?? Math.max(o, p[1]), lo: p[6] ?? Math.min(o, p[1]), tv: p[2] / div, rsi: p[3],
+      chg: i ? p[1] / w[i - 1][1] - 1 : null, live: !!liveLast && i === w.length - 1 };
+  });
+}
+// 최근 N주 고점 대비 지금(마지막 종가) 위치
+function infoTipHighLine(rows) {
+  let k = 0;
+  rows.forEach((x, i) => { if (x.hi > rows[k].hi) k = i; });
+  return `최근 ${rows.length}주 고점(${mmdd(rows[k].t)} 주 ${px(rows[k].hi)}원) 대비 ${pctSigned(rows[rows.length - 1].c / rows[k].hi - 1)}`;
 }
 
 function infoTipCharts(spec, setRead) {
   const { rows, sigIdx } = spec;
-  const W = 336, PX = 6, PH = 64, BH = 52, n = rows.length, step = (W - PX * 2) / n;
+  const W = 336, PX = 6, CH = 104, VH = 40, RH = 46, n = rows.length, step = (W - PX * 2) / n;
   const cx = (i) => PX + step * (i + 0.5);
-  const cs = rows.map((r) => r.c), lo = Math.min(...cs), hi = Math.max(...cs);
-  const py = (v) => 6 + (1 - (v - lo) / ((hi - lo) || 1)) * (PH - 12);
+  const lo = Math.min(...rows.map((r) => r.lo)), hi = Math.max(...rows.map((r) => r.hi));
+  const py = (v) => 6 + (1 - (v - lo) / ((hi - lo) || 1)) * (CH - 12);
+  const ry = (v) => 4 + (1 - v / 100) * (RH - 8);
   const tMax = Math.max(...rows.map((r) => r.tv), 1);
-  const bw = Math.max(3, step - 2.5);
-  const guide = (hgt) => s('line', { x1: cx(sigIdx), x2: cx(sigIdx), y1: 0, y2: hgt, stroke: 'var(--axis)', 'stroke-dasharray': '3 3', 'stroke-width': 1 });
-  const cursor = (hgt) => s('line', { y1: 0, y2: hgt, stroke: 'var(--ink2)', 'stroke-width': 1, visibility: 'hidden' });
+  const bw = Math.max(3, step - 3);
+  const col = (r) => (r.c >= r.o ? 'var(--good)' : 'var(--bad)');  // 대시보드 전체와 같은 색: 초록=상승, 빨강=하락
+  const band = (hgt) => s('rect', { x: (cx(sigIdx) - step / 2).toFixed(1), y: 0, width: step.toFixed(1), height: hgt, fill: 'var(--accent)', opacity: 0.14 });
+  const cursor = (hgt) => s('line', { y1: 0, y2: hgt, stroke: 'var(--ink2)', 'stroke-width': 1, 'stroke-dasharray': '2 2', visibility: 'hidden' });
+  const restOp = (i) => (i === sigIdx ? 0.95 : rows[i].live ? 0.3 : 0.55);
 
-  const pCur = cursor(PH);
-  const pDot = s('circle', { r: 4, fill: 'var(--surface)', stroke: 'var(--ink)', 'stroke-width': 2, visibility: 'hidden' });
-  const priceSvg = s('svg', { viewBox: `0 0 ${W} ${PH}`, role: 'img', 'aria-label': '주간 종가 흐름' },
-    guide(PH), pCur,
-    s('polyline', { points: rows.map((r, i) => `${cx(i).toFixed(1)},${py(r.c).toFixed(1)}`).join(' '), fill: 'none', stroke: 'var(--ink2)', 'stroke-width': 1.6, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }),
-    s('circle', { cx: cx(sigIdx).toFixed(1), cy: py(rows[sigIdx].c).toFixed(1), r: 4, fill: 'var(--accent)', stroke: 'var(--surface)', 'stroke-width': 2 }),
-    pDot);
+  // 캔들
+  const cCur = cursor(CH);
+  const candles = rows.map((r, i) => s('g', { opacity: r.live ? 0.65 : 1 },
+    s('line', { x1: cx(i).toFixed(1), x2: cx(i).toFixed(1), y1: py(r.hi).toFixed(1), y2: py(r.lo).toFixed(1), stroke: col(r), 'stroke-width': 1.2 }),
+    s('rect', { x: (cx(i) - bw / 2).toFixed(1), width: bw.toFixed(1), y: Math.min(py(r.o), py(r.c)).toFixed(1), height: Math.max(1.5, Math.abs(py(r.o) - py(r.c))).toFixed(1), fill: col(r), rx: 0.8 })));
+  const candleSvg = s('svg', { viewBox: `0 0 ${W} ${CH}`, role: 'img', 'aria-label': '주봉 캔들' }, band(CH), cCur, ...candles);
 
-  const bCur = cursor(BH);
-  const restOpacity = (i) => (i === sigIdx ? 1 : rows[i].live ? 0.3 : 0.5);  // 진행 중인 주는 아직 덜 쌓여서 흐리게
-  const bars = rows.map((r, i) => s('rect', {
-    x: (cx(i) - bw / 2).toFixed(1), width: bw.toFixed(1), rx: 1.5,
-    y: (BH - 1 - Math.max(1, (r.tv / tMax) * (BH - 6))).toFixed(1), height: Math.max(1, (r.tv / tMax) * (BH - 6)).toFixed(1),
-    fill: 'var(--s1)', opacity: restOpacity(i) }));
-  const barSvg = s('svg', { viewBox: `0 0 ${W} ${BH}`, role: 'img', 'aria-label': spec.tvCap },
-    guide(BH), bCur, ...bars, s('line', { x1: PX, x2: W - PX, y1: BH - 0.5, y2: BH - 0.5, stroke: 'var(--axis)', 'stroke-width': 1 }));
+  // 거래대금 (캔들과 같은 색)
+  const vCur = cursor(VH);
+  const vbars = rows.map((r, i) => {
+    const hh = Math.max(1, (r.tv / tMax) * (VH - 6));
+    return s('rect', { x: (cx(i) - bw / 2).toFixed(1), width: bw.toFixed(1), rx: 1.5, y: (VH - 1 - hh).toFixed(1), height: hh.toFixed(1), fill: col(r), opacity: restOp(i) });
+  });
+  const volSvg = s('svg', { viewBox: `0 0 ${W} ${VH}`, role: 'img', 'aria-label': spec.tvCap },
+    band(VH), vCur, ...vbars, s('line', { x1: PX, x2: W - PX, y1: VH - 0.5, y2: VH - 0.5, stroke: 'var(--axis)', 'stroke-width': 1 }));
+
+  // RSI (30 이하 구간을 옅게 칠한다)
+  const rCur = cursor(RH);
+  const rDot = s('circle', { r: 3.5, fill: 'var(--surface)', stroke: 'var(--ink)', 'stroke-width': 2, visibility: 'hidden' });
+  const segs = [];
+  let run = [];
+  rows.forEach((r, i) => {
+    if (r.rsi == null) { if (run.length) segs.push(run); run = []; } else run.push(`${cx(i).toFixed(1)},${ry(r.rsi).toFixed(1)}`);
+  });
+  if (run.length) segs.push(run);
+  const sigRsi = rows[sigIdx].rsi;
+  const rsiSvg = s('svg', { viewBox: `0 0 ${W} ${RH}`, role: 'img', 'aria-label': '주봉 RSI' },
+    band(RH),
+    s('rect', { x: PX, y: ry(30).toFixed(1), width: W - PX * 2, height: (ry(0) - ry(30)).toFixed(1), fill: 'var(--bad)', opacity: 0.09 }),
+    s('line', { x1: PX, x2: W - PX, y1: ry(30).toFixed(1), y2: ry(30).toFixed(1), stroke: 'var(--bad)', 'stroke-dasharray': '3 3', 'stroke-width': 1, opacity: 0.7 }),
+    s('line', { x1: PX, x2: W - PX, y1: ry(70).toFixed(1), y2: ry(70).toFixed(1), stroke: 'var(--axis)', 'stroke-dasharray': '3 3', 'stroke-width': 1 }),
+    s('text', { x: PX + 2, y: (ry(30) - 2).toFixed(1), 'font-size': 9, fill: 'var(--muted)' }, '30'),
+    s('text', { x: PX + 2, y: (ry(70) - 2).toFixed(1), 'font-size': 9, fill: 'var(--muted)' }, '70'),
+    rCur,
+    ...segs.map((pts) => s('polyline', { points: pts.join(' '), fill: 'none', stroke: 'var(--ink2)', 'stroke-width': 1.6, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' })),
+    sigRsi == null ? null : s('circle', { cx: cx(sigIdx).toFixed(1), cy: ry(sigRsi).toFixed(1), r: 3.5, fill: 'var(--accent)', stroke: 'var(--surface)', 'stroke-width': 2 }),
+    rDot);
 
   let at = null;
   const pick = (i) => {
     if (i === at) return;
     at = i;
     const on = i != null;
-    for (const c of [pCur, bCur]) { c.setAttribute('visibility', on ? 'visible' : 'hidden'); if (on) { c.setAttribute('x1', cx(i)); c.setAttribute('x2', cx(i)); } }
-    pDot.setAttribute('visibility', on ? 'visible' : 'hidden');
-    if (on) { pDot.setAttribute('cx', cx(i)); pDot.setAttribute('cy', py(rows[i].c)); }
-    bars.forEach((b, k) => b.setAttribute('opacity', k === i ? 1 : restOpacity(k)));
+    for (const c of [cCur, vCur, rCur]) { c.setAttribute('visibility', on ? 'visible' : 'hidden'); if (on) { c.setAttribute('x1', cx(i)); c.setAttribute('x2', cx(i)); } }
+    const showDot = on && rows[i].rsi != null;
+    rDot.setAttribute('visibility', showDot ? 'visible' : 'hidden');
+    if (showDot) { rDot.setAttribute('cx', cx(i)); rDot.setAttribute('cy', ry(rows[i].rsi)); }
+    vbars.forEach((b, k) => b.setAttribute('opacity', k === i ? 1 : restOp(k)));
     setRead(on ? i : sigIdx);
   };
   const idxAt = (svg, ev) => {
     const b = svg.getBoundingClientRect();
     return Math.max(0, Math.min(n - 1, Math.floor(((ev.clientX - b.left) / b.width * W - PX) / step)));
   };
-  for (const svg of [priceSvg, barSvg]) {
+  for (const svg of [candleSvg, volSvg, rsiSvg]) {
     svg.addEventListener('pointermove', (ev) => pick(idxAt(svg, ev)));
     svg.addEventListener('pointerdown', (ev) => pick(idxAt(svg, ev)));
     svg.addEventListener('pointerleave', () => pick(null));
   }
   return [
-    h('div', { class: 'tip-cap', text: `종가 (${px(lo)} ~ ${px(hi)}원)` }), priceSvg,
-    h('div', { class: 'tip-cap', text: `${spec.tvCap} (최대 ${fmtKrw(tMax)})` }), barSvg,
+    h('div', { class: 'tip-cap', text: `주봉 캔들 · 저 ${px(lo)} ~ 고 ${px(hi)}원 (초록 상승 주, 빨강 하락 주, 파란 띠 ${spec.sigLabel} 주)` }), candleSvg,
+    h('div', { class: 'tip-cap', text: `${spec.tvCap} (최대 ${fmtKrw(tMax)})` }), volSvg,
+    h('div', { class: 'tip-cap', text: 'RSI(14) · 빨간 점선 30 아래가 과매도' }), rsiSvg,
   ];
 }
 
@@ -2410,9 +2459,9 @@ function infoTipBuild(spec) {
   const read = h('div', { class: 'tip-read', 'aria-live': 'polite' });
   const setRead = (i) => {
     const x = rows[i];
-    read.textContent = `${mmdd(x.t)} 주 · 종가 ${px(x.c)}원${x.chg == null ? '' : ` (${pctSigned(x.chg)})`} · ${spec.tvShort} ${fmtKrw(x.tv)}${x.rsi == null ? '' : ` · RSI ${x.rsi.toFixed(0)}`}${i === sigIdx ? ` · ${spec.sigLabel}` : ''}${x.live ? ' · 진행 중' : ''}`;
+    read.textContent = `${mmdd(x.t)} 주 · 종가 ${px(x.c)}원${x.chg == null ? '' : ` (${pctSigned(x.chg)})`} · 시 ${px(x.o)} 고 ${px(x.hi)} 저 ${px(x.lo)} · ${spec.tvShort} ${fmtKrw(x.tv)}${x.rsi == null ? '' : ` · RSI ${x.rsi.toFixed(0)}`}${i === sigIdx ? ` · ${spec.sigLabel}` : ''}${x.live ? ' · 진행 중' : ''}`;
   };
-  const body = rows.map((x, i) => [x, i]).slice(-8).reverse().map(([x, i]) => h('tr', { class: i === sigIdx ? 'sig' : '' },
+  const body = rows.map((x, i) => [x, i]).slice(-6).reverse().map(([x, i]) => h('tr', { class: i === sigIdx ? 'sig' : '' },
     h('td', {}, mmdd(x.t), i === sigIdx ? h('span', { class: 'badge', text: spec.sigLabel }) : null, x.live ? h('span', { class: 'badge live', text: '진행 중' }) : null),
     h('td', { text: px(x.c) }),
     h('td', { class: upDown(x.chg), text: x.chg == null ? '—' : pctSigned(x.chg) }),
@@ -2435,10 +2484,40 @@ function infoTipBuild(spec) {
   return el;
 }
 
+// 공시·공지·뉴스 목록 팝업. spec: { kind: 'news', title, sub, sections: [{ head, empty, items: [{ day, tag, level, text, sub, url }] }], link, note }
+// 외부에서 가져온 글이라 글자로만 그리고, 링크는 허용한 사이트(https)만 건다
+const NEWS_HOSTS = new Set(['n.news.naver.com', 'm.stock.naver.com', 'upbit.com', 'www.upbit.com', 'news.google.com']);
+function safeHref(u) {
+  try { const x = new URL(u); return x.protocol === 'https:' && NEWS_HOSTS.has(x.hostname) ? x.href : null; } catch (e) { return null; }
+}
+function newsTipBuild(spec) {
+  const anchor = (text, url) => (url ? h('a', { class: 'nlink', href: url, target: '_blank', rel: 'noopener noreferrer', text }) : h('span', { class: 'ntext', text }));
+  const el = h('div', { class: 'tip', role: 'dialog', 'aria-label': `${spec.title} 공시·뉴스` },
+    h('button', { class: 'tip-x', type: 'button', 'aria-label': '닫기', text: '✕' }),
+    h('h4', {}, spec.title, h('small', { text: spec.sub })),
+    ...spec.sections.flatMap((sec) => [
+      h('div', { class: 'tip-cap', text: sec.head }),
+      sec.items.length
+        ? h('div', {}, sec.items.map((it) => h('div', { class: 'nitem' },
+          h('span', { class: 'nday', text: it.day }),
+          it.tag ? h('span', { class: `nbadge ${it.level}`, text: it.tag }) : null,
+          anchor(it.text, it.url),
+          it.sub ? h('span', { class: 'nsub', text: it.sub }) : null)))
+        : h('div', { class: 'nempty', text: sec.empty }),
+    ]),
+    spec.link && spec.link.url ? h('p', { class: 'tip-note' }, h('a', { class: 'nlink', href: spec.link.url, target: '_blank', rel: 'noopener noreferrer', text: `${spec.link.text} ↗` })) : null,
+    h('p', { class: 'tip-note', text: spec.note }));
+  el.querySelector('.tip-x').addEventListener('click', () => infoTipHide());
+  el.addEventListener('pointerenter', (ev) => { if (ev.pointerType === 'mouse') clearTimeout(infoTip.timer); });
+  el.addEventListener('pointerleave', (ev) => { if (ev.pointerType === 'mouse') infoTipSoonHide(); });
+  return el;
+}
+
 function infoTipShow(btn, pin) {
   if (infoTip.owner === btn) { infoTip.pinned = infoTip.pinned || pin; clearTimeout(infoTip.timer); return; }
   infoTipHide();
-  const el = infoTipBuild(btn._tipSpec());
+  const spec = btn._tipSpec();
+  const el = spec.kind === 'news' ? newsTipBuild(spec) : infoTipBuild(spec);
   document.body.append(el);
   const vw = document.documentElement.clientWidth, vh = window.innerHeight;
   if (vw <= 600) el.classList.add('sheet');
@@ -2454,8 +2533,8 @@ function infoTipShow(btn, pin) {
 }
 
 // 칩 하나: 올리면(마우스) 또는 누르면 팝업. getSpec은 팝업을 열 때 부른다
-function tipChip(key, text, getSpec) {
-  const b = h('button', { class: 'pill tvpill', type: 'button', 'data-tip-key': key, 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-label': `${text}, 눌러서 거래대금과 가격 흐름 보기`, text });
+function tipChip(key, text, getSpec, cls = '', hint = '거래대금과 가격 흐름') {
+  const b = h('button', { class: `pill tvpill ${cls}`.trim(), type: 'button', 'data-tip-key': key, 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-label': `${text}, 눌러서 ${hint} 보기`, text });
   b._tipSpec = getSpec;
   b.addEventListener('pointerenter', (ev) => { if (ev.pointerType === 'mouse') infoTipShow(b, false); });
   b.addEventListener('pointerleave', (ev) => { if (ev.pointerType === 'mouse') infoTipSoonHide(); });
@@ -2488,6 +2567,7 @@ function stockSpec(r) {
   const prevAvg = prev.length ? prev.reduce((a, x) => a + x.tv, 0) / prev.length : null;
   const sum = [];
   if (r.mcap) sum.push(`시가총액 ${fmtMcap(r.mcap)} (조회 시점)`);
+  sum.push(infoTipHighLine(rows));
   if (prevAvg) sum.push(`신호 주 일평균 거래대금 ${fmtKrw(sig.tv)} (직전 ${prev.length}주 평균 ${fmtKrw(prevAvg)}의 ${(sig.tv / prevAvg).toFixed(1)}배)`);
   const after = rows.length - 1 - sigIdx;
   if (after > 0) sum.push(`신호 후 ${after}주 경과, 종가 ${pctSigned(rows[rows.length - 1].c / sig.c - 1)}`);
@@ -2507,6 +2587,7 @@ function coinSpec(r, info) {
   const closed = rows.filter((x) => !x.live), last4 = closed.slice(-4), now = rows[rows.length - 1];
   const sum = [];
   if (info.cap) sum.push(`시가총액 ${fmtMcap(info.cap)} (CoinGecko 기준)`);
+  sum.push(infoTipHighLine(rows));
   if (last4.length) sum.push(`직전 ${last4.length}주 평균 주간 거래대금 ${fmtKrw(last4.reduce((a, x) => a + x.tv, 0) / last4.length)}${now.live ? ` · 이번 주 지금까지 ${fmtKrw(now.tv)}` : ''}`);
   if (now.rsi != null) sum.push(`주봉 RSI ${now.rsi.toFixed(0)}${now.live ? ' (이번 주 진행 중 기준)' : ''}`);
   return {
@@ -2516,7 +2597,47 @@ function coinSpec(r, info) {
   };
 }
 
-// 코인 추천 카드의 칩: 지난주 거래대금(눌러서 흐름 보기), 시가총액
+// 공시·뉴스 칩: 가장 높은 위험도로 색을 낸다(빨강 위험 / 노랑 확인할 것)
+const LVL_RANK = { info: 0, watch: 1, risk: 2 };
+const dayOf = (t) => t.slice(5, 10).replace('-', '/');
+function newsChip(key, disc, news, getSpec, discLabel) {
+  if (!disc.length && !news.length) return null;
+  const lvl = disc.reduce((a, x) => (LVL_RANK[x[2]] > LVL_RANK[a] ? x[2] : a), 'info');
+  const parts = [];
+  if (disc.length) parts.push(`${discLabel} ${disc.length}`);
+  if (news.length) parts.push(`뉴스 ${news.length}`);
+  return tipChip(key, parts.join(' · '), getSpec, lvl === 'info' ? '' : `lvl-${lvl}`, `${discLabel}·뉴스`);
+}
+function stockNewsSpec(r) {
+  const N = r.news || {};
+  return {
+    kind: 'news', title: r.name, sub: `${r.code} · 최근 공시·뉴스`,
+    sections: [
+      { head: '공시 (최근 60일, 주식선물 가격제한 같은 시장조치성 공시 제외)', empty: '최근 60일 안에 눈에 띄는 공시가 없어요.',
+        items: (N.d || []).map((x) => ({ day: dayOf(x[0]), tag: x[1], level: x[2], text: x[3] })) },
+      { head: '관련 뉴스 (제목에 종목명이 든 기사)', empty: '관련 기사를 찾지 못했어요.',
+        items: (N.n || []).map((x) => ({ day: dayOf(x[0]), text: x[2], sub: x[1], url: safeHref(`https://n.news.naver.com/mnews/article/${x[3]}/${x[4]}`) })) },
+    ],
+    link: { text: '네이버 증권에서 더 보기', url: safeHref(`https://m.stock.naver.com/domestic/stock/${r.code}/total`) },
+    note: '공시는 거래소 공시를 네이버 증권이 중계한 것이고, 태그는 제목 키워드로 붙인 거예요(빨강=투자경고·소송 같은 위험, 노랑=증자·실적·임상 같은 확인할 내용). 참고용이고 추천 판단에는 쓰지 않아요.',
+  };
+}
+function coinNewsSpec(r, info) {
+  const big = (info.cap || 0) >= 1e12;
+  return {
+    kind: 'news', title: shortName(r.market), sub: 'KRW · 최근 공지·뉴스',
+    sections: [
+      { head: '업비트 공지 (최근 7일)', empty: '최근 7일 안에 이 코인의 공지가 없어요.',
+        items: (info.notes || []).map((x) => ({ day: dayOf(x[0]), tag: x[1], level: x[2], text: x[3], url: safeHref(`https://upbit.com/service_center/notice?id=${x[4]}`) })) },
+      { head: '뉴스 (구글 뉴스, 국내 주요 매체)', empty: big ? '최근 2주 안에 제목에 이름이 든 기사를 찾지 못했어요.' : '시총 1조 원 미만 코인은 무관한 기사가 섞여서 뉴스를 붙이지 않아요.',
+        items: (info.news || []).map((x) => ({ day: dayOf(x[0]), text: x[2], sub: x[1], url: safeHref(x[3]) })) },
+    ],
+    link: null,
+    note: '업비트 공지는 제목의 티커로 종목을 맞춘 거예요(빨강=유의 종목·거래지원 종료, 노랑=입출금 중단·명칭 변경·네트워크 변경). 참고용이고 추천 판단에는 쓰지 않아요.',
+  };
+}
+
+// 코인 추천 카드의 칩: 지난주 거래대금(눌러서 흐름 보기), 시가총액, 공지·뉴스
 function coinChips(r, d) {
   const info = d.coin_info && d.coin_info.markets && d.coin_info.markets[r.market];
   if (!info || !info.w || info.w.length < 3 || isDone(r)) return [];
@@ -2525,6 +2646,7 @@ function coinChips(r, d) {
   return [
     last ? tipChip(`${key}|tv`, `지난주 거래대금 ${fmtKrw(last[2])}`, spec) : null,
     info.cap ? tipChip(`${key}|cap`, `시총 ${fmtMcap(info.cap)}`, spec) : null,
+    newsChip(`${key}|news`, info.notes || [], info.news || [], () => coinNewsSpec(r, info), '공지'),
   ];
 }
 
@@ -2543,7 +2665,8 @@ function stockCard(r) {
             : h('span', { class: 'pill', text: `거래대금 ${nf0.format(Math.round(r.tv_krw / 1e8))}억` }),
           r.mcap
             ? (r.hist && r.hist.w && r.hist.w.length >= 3 ? tipChip(`stock|${r.code}|${r.signal_week}|cap`, `시총 ${fmtMcap(r.mcap)}`, () => stockSpec(r)) : h('span', { class: 'pill', text: `시총 ${fmtMcap(r.mcap)}` }))
-            : null)),
+            : null,
+          r.news ? newsChip(`stock|${r.code}|${r.signal_week}|news`, r.news.d || [], r.news.n || [], () => stockNewsSpec(r), '공시') : null)),
       h('div', { class: `rec-ret ${upDown(ret.v)}` }, pctSigned(ret.v), h('small', { text: ret.kind }))),
     h('div', { class: 'rec-foot' },
       h('span', { text: `신호 종가 ${wonFmt(r.signal_close)}` }),
