@@ -1,6 +1,7 @@
 """코인 추천 카드의 공지·뉴스 (참고용 표시 전용 - 추천 규칙에는 안 쓴다).
 
-- 업비트 공지: api-manager.upbit.com/api/v1/announcements. 입출금 중단, 거래 유의 종목 지정, 거래지원 종료, 리브랜딩, 신규 상장, 에어드랍 등이
+- 업비트 공지: api-manager.upbit.com/api/v1/announcements (2026-10-07 확인: 내 PC에서는 되지만 GitHub 러너의 해외 IP는 클라우드플레어가 403으로 막는다.
+  막히면 BLOCK_HOURS 동안 다시 시도하지 않고, 대시보드에는 '공지를 못 가져옴'이라고 표시한다. 열리는 환경(다른 서버 등)에서는 저절로 동작한다). 입출금 중단, 거래 유의 종목 지정, 거래지원 종료, 리브랜딩, 신규 상장, 에어드랍 등이
   올라온다. 제목의 '(티커)'로 종목을 맞춘다(정확). 최근 KEEP_DAYS일치를 저장해 두고 SHOW_DAYS일 안의 것만 카드에 보여준다.
 - 뉴스: 시가총액이 큰 코인(NEWS_MIN_CAP 이상)만 구글 뉴스 RSS에서 한국어 이름으로 검색하고, 제목에 이름이 든 기사만 남긴다.
   소형 알트는 무관한 기사가 섞여 나와서 뉴스를 붙이지 않는다.
@@ -25,6 +26,9 @@ NOTICE_URL = "https://api-manager.upbit.com/api/v1/announcements"
 NEWS_URL = "https://news.google.com/rss/search?q={q}&hl=ko&gl=KR&ceid=KR:ko"
 HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; altcoin-recommender dashboard)", "Accept": "application/json, text/xml"}
 META_KEY = "upbit_notices_json"
+OK_KEY = "upbit_notices_ok_at"        # 마지막으로 공지를 성공적으로 받은 시각 (없으면 대시보드가 '못 가져옴'으로 표시)
+BLOCK_KEY = "upbit_notices_block_until"
+BLOCK_HOURS = 6
 KEEP_DAYS = 14
 SHOW_DAYS = 7
 PER_PAGE = 30           # 업비트가 받아 주는 최대치 근처 (50은 400)
@@ -81,6 +85,9 @@ async def _page(session: aiohttp.ClientSession, page: int) -> list[dict]:
 async def refresh_notices(session: aiohttp.ClientSession) -> list[list]:
     """[[id, 최근 갱신 시각(ISO), 분류, 제목], ...] 최신 순. 새 공지만 받아 합친다(첫 실행은 KEEP_DAYS일치). 실패하면 저장본 그대로."""
     prev = load_notices()
+    until = state_store.get_meta(BLOCK_KEY)
+    if until and datetime.now(timezone.utc) < datetime.fromisoformat(until):
+        return prev
     known = {n[0] for n in prev}
     cutoff = (datetime.now(KST) - timedelta(days=KEEP_DAYS)).isoformat()
     got: dict[int, list] = {}
@@ -94,10 +101,19 @@ async def refresh_notices(session: aiohttp.ClientSession) -> list[list]:
             oldest = min((x.get("listed_at") or x.get("first_listed_at") or "9") for x in rows)  # 목록은 최근 갱신 순이라 이 시각으로 멈춘다
             if (known and {x["id"] for x in rows} & known) or oldest < cutoff:
                 break
-    except Exception as exc:
-        print(f"[업비트 공지] 조회 실패(저장본 유지): {exc!r}")
+    except aiohttp.ClientResponseError as exc:
+        if exc.status == 403:
+            state_store.set_meta(BLOCK_KEY, (datetime.now(timezone.utc) + timedelta(hours=BLOCK_HOURS)).isoformat())
+            print(f"[업비트 공지] 403(이 서버 IP가 막힘) - {BLOCK_HOURS}시간 동안 건너뜀")
+        else:
+            print(f"[업비트 공지] 조회 실패(저장본 유지): HTTP {exc.status}")
         if not got:
             return prev
+    except Exception as exc:
+        print(f"[업비트 공지] 조회 실패(저장본 유지): {type(exc).__name__}")
+        if not got:
+            return prev
+    state_store.set_meta(OK_KEY, datetime.now(timezone.utc).isoformat())
     merged = {n[0]: n for n in prev}
     merged.update(got)
     out = sorted((n for n in merged.values() if n[1] >= cutoff), key=lambda n: n[1], reverse=True)

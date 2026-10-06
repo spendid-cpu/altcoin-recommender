@@ -114,7 +114,8 @@ async def refresh(session: aiohttp.ClientSession) -> None:
                 out[m]["news"] = items
         except Exception as exc:
             print(f"[코인 뉴스] 수집 실패(이전 값 유지): {exc!r}")
-    payload = {"markets": out, "at": now.isoformat() if stale else prev.get("at"), "cap_at": cached.get("generated_at"), "cap_src": "CoinGecko"}
+    payload = {"markets": out, "at": now.isoformat() if stale else prev.get("at"), "cap_at": cached.get("generated_at"), "cap_src": "CoinGecko",
+               "notices_at": state_store.get_meta(coin_news.OK_KEY)}
     if not todo and payload == prev:
         return
     state_store.set_meta(META_KEY, jsonutil.dumps(payload, ensure_ascii=False, separators=(",", ":")))

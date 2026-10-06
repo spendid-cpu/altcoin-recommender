@@ -2622,13 +2622,14 @@ function stockNewsSpec(r) {
     note: '공시는 거래소 공시를 네이버 증권이 중계한 것이고, 태그는 제목 키워드로 붙인 거예요(빨강=투자경고·소송 같은 위험, 노랑=증자·실적·임상 같은 확인할 내용). 참고용이고 추천 판단에는 쓰지 않아요.',
   };
 }
-function coinNewsSpec(r, info) {
+function coinNewsSpec(r, info, noticesOk) {
   const big = (info.cap || 0) >= 1e12;
+  const notices = { head: '업비트 공지 (최근 7일)', empty: '최근 7일 안에 이 코인의 공지가 없어요.',
+    items: (info.notes || []).map((x) => ({ day: dayOf(x[0]), tag: x[1], level: x[2], text: x[3], url: safeHref(`https://upbit.com/service_center/notice?id=${x[4]}`) })) };
   return {
     kind: 'news', title: shortName(r.market), sub: 'KRW · 최근 공지·뉴스',
     sections: [
-      { head: '업비트 공지 (최근 7일)', empty: '최근 7일 안에 이 코인의 공지가 없어요.',
-        items: (info.notes || []).map((x) => ({ day: dayOf(x[0]), tag: x[1], level: x[2], text: x[3], url: safeHref(`https://upbit.com/service_center/notice?id=${x[4]}`) })) },
+      noticesOk ? notices : { head: '업비트 공지', empty: '업비트가 이 서버의 접근을 막아서 공지를 가져오지 못해요. 업비트 앱·사이트에서 직접 확인해 주세요.', items: [] },
       { head: '뉴스 (구글 뉴스, 국내 주요 매체)', empty: big ? '최근 2주 안에 제목에 이름이 든 기사를 찾지 못했어요.' : '시총 1조 원 미만 코인은 무관한 기사가 섞여서 뉴스를 붙이지 않아요.',
         items: (info.news || []).map((x) => ({ day: dayOf(x[0]), text: x[2], sub: x[1], url: safeHref(x[3]) })) },
     ],
@@ -2646,7 +2647,7 @@ function coinChips(r, d) {
   return [
     last ? tipChip(`${key}|tv`, `지난주 거래대금 ${fmtKrw(last[2])}`, spec) : null,
     info.cap ? tipChip(`${key}|cap`, `시총 ${fmtMcap(info.cap)}`, spec) : null,
-    newsChip(`${key}|news`, info.notes || [], info.news || [], () => coinNewsSpec(r, info), '공지'),
+    newsChip(`${key}|news`, info.notes || [], info.news || [], () => coinNewsSpec(r, info, !!(d.coin_info && d.coin_info.notices_at)), '공지'),
   ];
 }
 
