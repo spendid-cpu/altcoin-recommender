@@ -89,11 +89,12 @@ async def refresh(session: aiohttp.ClientSession) -> None:
     cached = market_cap.load_cached() or {}
     gecko = cached.get("cands") or {}
 
-    try:
-        notices = await coin_news.refresh_notices(session)
-    except Exception as exc:
-        print(f"[업비트 공지] 처리 실패(공지 없이 진행): {exc!r}")
-        notices = []
+    notices = []
+    if coin_news.NOTICES_ENABLED:
+        try:
+            notices = await coin_news.refresh_notices(session)
+        except Exception as exc:
+            print(f"[업비트 공지] 처리 실패(공지 없이 진행): {exc!r}")
     results = await asyncio.gather(*(fetch_weekly(session, m) for m in todo)) if todo else []
     out = {m: have[m] for m in markets if m in have}
     for m, wk in zip(todo, results):
@@ -115,7 +116,7 @@ async def refresh(session: aiohttp.ClientSession) -> None:
         except Exception as exc:
             print(f"[코인 뉴스] 수집 실패(이전 값 유지): {exc!r}")
     payload = {"markets": out, "at": now.isoformat() if stale else prev.get("at"), "cap_at": cached.get("generated_at"), "cap_src": "CoinGecko",
-               "notices_at": state_store.get_meta(coin_news.OK_KEY)}
+               "notices_at": state_store.get_meta(coin_news.OK_KEY) if coin_news.NOTICES_ENABLED else None}
     if not todo and payload == prev:
         return
     state_store.set_meta(META_KEY, jsonutil.dumps(payload, ensure_ascii=False, separators=(",", ":")))

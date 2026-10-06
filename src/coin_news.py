@@ -25,6 +25,7 @@ KST = ZoneInfo("Asia/Seoul")
 NOTICE_URL = "https://api-manager.upbit.com/api/v1/announcements"
 NEWS_URL = "https://news.google.com/rss/search?q={q}&hl=ko&gl=KR&ceid=KR:ko"
 HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; altcoin-recommender dashboard)", "Accept": "application/json, text/xml"}
+NOTICES_ENABLED = False   # 2026-10-07 사용자 결정: 러너에서 403이라 우선 제외. 접근이 열리는 환경이 되면 True로 켠다(대시보드는 notices_at이 있을 때만 공지를 보여준다)
 META_KEY = "upbit_notices_json"
 OK_KEY = "upbit_notices_ok_at"        # 마지막으로 공지를 성공적으로 받은 시각 (없으면 대시보드가 '못 가져옴'으로 표시)
 BLOCK_KEY = "upbit_notices_block_until"
