@@ -2,7 +2,7 @@
 
 업비트는 시가총액을 안 주기 때문에 외부 소스가 필요하다. 심볼(티커)만으로 매칭하다 보니 같은 심볼을 쓰는
 다른(무명) 프로젝트와 섞일 수 있다 — 시가총액이 큰 코인을 우선(정렬 결과의 첫 등장)으로 남겨서 그 위험을
-줄인다. 자주 안 바뀌는 값이라 REFRESH_HOURS마다만 새로 받고, 실패해도 스캔 전체는 계속돼야 하므로 호출하는
+줄인다. 같은 심볼 후보(시총, 가격)도 cands에 3개까지 남겨 두면, src/coin_info.py가 업비트 가격과 맞는 후보만 골라 쓴다. 자주 안 바뀌는 값이라 REFRESH_HOURS마다만 새로 받고, 실패해도 스캔 전체는 계속돼야 하므로 호출하는
 쪽(pipeline)이 예외를 감싼다.
 """
 
@@ -30,6 +30,7 @@ async def _fetch_page(session: aiohttp.ClientSession, page: int) -> list[dict]:
 
 async def build(session: aiohttp.ClientSession) -> dict:
     caps: dict[str, float] = {}
+    cands: dict[str, list] = {}
     for page in range(1, PAGES + 1):
         try:
             data = await _fetch_page(session, page)
@@ -43,13 +44,16 @@ async def build(session: aiohttp.ClientSession) -> dict:
             cap = c.get("market_cap")
             if sym and cap and sym not in caps:  # 정렬이 시가총액 큰 순이라 먼저 나온 값이 대표값
                 caps[sym] = float(cap)
+            price = c.get("current_price")
+            if sym and cap and price and len(cands.setdefault(sym, [])) < 3:
+                cands[sym].append([round(float(cap)), float(price)])
         await asyncio.sleep(1.5)  # 코인게코 무료 API 속도 제한(분당 요청 수)을 지킨다
-    return {"generated_at": datetime.now(timezone.utc).isoformat(), "caps": caps}
+    return {"generated_at": datetime.now(timezone.utc).isoformat(), "caps": caps, "cands": cands}
 
 
 async def refresh(session: aiohttp.ClientSession) -> None:
     cached = load_cached()
-    if cached:
+    if cached and "cands" in cached:  # cands가 없는 예전 캐시는 한 번 새로 받는다
         age = datetime.now(timezone.utc) - datetime.fromisoformat(cached["generated_at"])
         if age < timedelta(hours=REFRESH_HOURS):
             return

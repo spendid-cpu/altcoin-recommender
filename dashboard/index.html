@@ -367,11 +367,14 @@
   .tip svg { display: block; width: 100%; height: auto; touch-action: pan-y; }
   .tip-read { min-height: 20px; margin-top: 8px; padding: 3px 8px; border-radius: 8px; background: var(--surface2); font-size: 12.5px; font-variant-numeric: tabular-nums; }
   .tip-tbl { width: 100%; margin-top: 8px; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
-  .tip-tbl th { padding: 3px 4px; text-align: right; color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--border); }
+  .tip-tbl th { padding: 3px 4px; text-align: right; color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--border); line-height: 1.25; }
   .tip-tbl td { padding: 3px 4px; text-align: right; border-bottom: 1px solid var(--grid); white-space: nowrap; }
   .tip-tbl th:first-child, .tip-tbl td:first-child { text-align: left; }
   .tip-tbl tr.sig td { background: color-mix(in srgb, var(--accent) 9%, transparent); font-weight: 600; }
   .tip-tbl .badge { display: inline-block; margin-left: 4px; padding: 0 5px; border-radius: 6px; font-size: 10.5px; background: var(--accent); color: var(--on-accent); }
+  .tip-tbl .badge.live { background: transparent; color: var(--ink2); border: 1px solid var(--border-strong); }
+  .tip-tbl td:first-child { white-space: normal; }
+  .tip-sum div + div { margin-top: 1px; }
   .tip-note { margin: 8px 0 0; color: var(--muted); font-size: 11.5px; line-height: 1.45; }
   .cmp-cards { display: none; }
   .cmp-card { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; background: var(--surface2); }
@@ -1047,7 +1050,8 @@
 // v1.19 (2026-10-05) 업비트 공개 API 참고 정보 3가지 추가: 추천 카드의 '체결 매수 N%'(실제 체결 중 사는 쪽 비중, 추천 순간 -> 지금), 업비트 공식 시장 경고 배지(거래량 급증·해외 가격 차이 등), 비트코인 분석 화면의 BTC 김치 프리미엄 타일. 모두 참고용
 // v1.20 (2026-10-07) '주식' 탭 추가(실험): 코스피·코스닥 지수 상태, 마감 주봉 RSI(14) 30 이하 신규 후보(시장별), 추천 기록·4주 성과 통계. 알림 없이 기록만
 // v1.21 (2026-10-07) 주식 카드의 거래대금 칩에 마우스를 올리거나 탭하면 최근 26주 종가·일평균 거래대금 흐름 팝업
-const APP_VERSION = 'v1.21';
+// v1.22 (2026-10-07) 시가총액 칩(주식: 네이버 증권, 코인: CoinGecko) + 코인 추천 카드에도 지난주 거래대금·시총 칩과 같은 주봉 팝업(종가·주간 거래대금·RSI)
+const APP_VERSION = 'v1.22';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DATA_URL = 'dashboard.json';
@@ -1452,8 +1456,8 @@ function recCard(r, d) {
   const left = days * 86400e3 - elapsed;
   const slPrice = r.entry_price * (1 - sl / 100), tpPrice = r.entry_price * (1 + tp / 100);
   const meta = r.strategy === 'original'
-    ? [volPill(r), r.score == null ? null : h('span', { class: 'pill', text: `점수 ${r.score}` }), priorBadge(r, d), obPill(r, d), flowPill(r, d), flagPill(r, d)]
-    : [h('span', { class: 'strat', text: '개선판' }), gradePill(r.grade)];
+    ? [volPill(r), r.score == null ? null : h('span', { class: 'pill', text: `점수 ${r.score}` }), priorBadge(r, d), obPill(r, d), flowPill(r, d), flagPill(r, d), ...coinChips(r, d)]
+    : [h('span', { class: 'strat', text: '개선판' }), gradePill(r.grade), ...coinChips(r, d)];
   const gauge = gaugeBar(ret, tp, sl);
   gauge.querySelector('.gauge-labels').replaceChildren(h('span', { text: `손절 ${fmtKRW(slPrice)}` }), h('span', { text: `익절 ${fmtKRW(tpPrice)}` }));
   return h('article', { class: 'rec' },
@@ -2316,28 +2320,38 @@ function stockRet(r) {
   return { v: null, kind: '' };
 }
 
-/* 거래대금 칩에 마우스를 올리거나(모바일은 탭) 하면 뜨는 주간 이력 팝업: 최근 26주 종가 흐름·일평균 거래대금 */
-const stockTip = { el: null, owner: null, pinned: false, timer: null };
+/* 칩(거래대금·시총)에 마우스를 올리거나(모바일은 탭) 하면 뜨는 주봉 이력 팝업: 종가·거래대금·RSI. 주식 카드와 코인 카드가 같이 쓴다 */
+const infoTip = { el: null, owner: null, pinned: false, timer: null };
 const mmdd = (t) => t.slice(5).replace('-', '/');
-
-function stockTipHide() {
-  clearTimeout(stockTip.timer);
-  if (stockTip.el) stockTip.el.remove();
-  if (stockTip.owner) stockTip.owner.setAttribute('aria-expanded', 'false');
-  stockTip.el = stockTip.owner = null;
-  stockTip.pinned = false;
-}
-function stockTipSoonHide() {
-  clearTimeout(stockTip.timer);
-  stockTip.timer = setTimeout(() => { if (!stockTip.pinned) stockTipHide(); }, 160);
+const px = (v) => fmtKRW(v).replace('원', '');
+// 시가총액: '2조 9,673억' 식으로 (10조 이상은 억 단위를 생략)
+function fmtMcap(v) {
+  if (v == null) return '—';
+  const jo = Math.floor(v / 1e12), eok = Math.round((v - jo * 1e12) / 1e8);
+  if (jo >= 10) return `${nf0.format(jo)}조`;
+  if (jo > 0) return eok ? `${jo}조 ${nf0.format(eok)}억` : `${jo}조`;
+  return eok >= 1 ? `${nf0.format(eok)}억` : `${nf0.format(Math.round(v / 1e4))}만`;
 }
 
-// 주간 이력 [주 시작일, 종가, 주간 거래대금, RSI] -> 그리기용 행 (거래대금은 하루 평균으로 환산)
-function stockTipRows(H) {
-  return H.w.map((p, i) => ({ t: p[0], c: p[1], tv: p[2] / 5, rsi: p[3], chg: i ? p[1] / H.w[i - 1][1] - 1 : null }));
+function infoTipHide() {
+  clearTimeout(infoTip.timer);
+  if (infoTip.el) infoTip.el.remove();
+  if (infoTip.owner) infoTip.owner.setAttribute('aria-expanded', 'false');
+  infoTip.el = infoTip.owner = null;
+  infoTip.pinned = false;
+}
+function infoTipSoonHide() {
+  clearTimeout(infoTip.timer);
+  infoTip.timer = setTimeout(() => { if (!infoTip.pinned) infoTipHide(); }, 160);
 }
 
-function stockTipCharts(rows, sigIdx, setRead) {
+// 주간 이력 [주 시작일, 종가, 주간 거래대금, RSI] -> 그리기용 행 (div: 거래대금을 나눌 값. 주식은 5(하루 평균), 코인은 1(주간 합계))
+function infoTipRows(w, div, liveLast) {
+  return w.map((p, i) => ({ t: p[0], c: p[1], tv: p[2] / div, rsi: p[3], chg: i ? p[1] / w[i - 1][1] - 1 : null, live: !!liveLast && i === w.length - 1 }));
+}
+
+function infoTipCharts(spec, setRead) {
+  const { rows, sigIdx } = spec;
   const W = 336, PX = 6, PH = 64, BH = 52, n = rows.length, step = (W - PX * 2) / n;
   const cx = (i) => PX + step * (i + 0.5);
   const cs = rows.map((r) => r.c), lo = Math.min(...cs), hi = Math.max(...cs);
@@ -2356,11 +2370,12 @@ function stockTipCharts(rows, sigIdx, setRead) {
     pDot);
 
   const bCur = cursor(BH);
+  const restOpacity = (i) => (i === sigIdx ? 1 : rows[i].live ? 0.3 : 0.5);  // 진행 중인 주는 아직 덜 쌓여서 흐리게
   const bars = rows.map((r, i) => s('rect', {
     x: (cx(i) - bw / 2).toFixed(1), width: bw.toFixed(1), rx: 1.5,
     y: (BH - 1 - Math.max(1, (r.tv / tMax) * (BH - 6))).toFixed(1), height: Math.max(1, (r.tv / tMax) * (BH - 6)).toFixed(1),
-    fill: 'var(--s1)', opacity: i === sigIdx ? 1 : 0.5 }));
-  const barSvg = s('svg', { viewBox: `0 0 ${W} ${BH}`, role: 'img', 'aria-label': '주간 일평균 거래대금' },
+    fill: 'var(--s1)', opacity: restOpacity(i) }));
+  const barSvg = s('svg', { viewBox: `0 0 ${W} ${BH}`, role: 'img', 'aria-label': spec.tvCap },
     guide(BH), bCur, ...bars, s('line', { x1: PX, x2: W - PX, y1: BH - 0.5, y2: BH - 0.5, stroke: 'var(--axis)', 'stroke-width': 1 }));
 
   let at = null;
@@ -2371,7 +2386,7 @@ function stockTipCharts(rows, sigIdx, setRead) {
     for (const c of [pCur, bCur]) { c.setAttribute('visibility', on ? 'visible' : 'hidden'); if (on) { c.setAttribute('x1', cx(i)); c.setAttribute('x2', cx(i)); } }
     pDot.setAttribute('visibility', on ? 'visible' : 'hidden');
     if (on) { pDot.setAttribute('cx', cx(i)); pDot.setAttribute('cy', py(rows[i].c)); }
-    bars.forEach((b, k) => b.setAttribute('opacity', k === i || (!on && k === sigIdx) ? 1 : 0.5));
+    bars.forEach((b, k) => b.setAttribute('opacity', k === i ? 1 : restOpacity(k)));
     setRead(on ? i : sigIdx);
   };
   const idxAt = (svg, ev) => {
@@ -2384,55 +2399,46 @@ function stockTipCharts(rows, sigIdx, setRead) {
     svg.addEventListener('pointerleave', () => pick(null));
   }
   return [
-    h('div', { class: 'tip-cap', text: `종가 (${nf0.format(lo)} ~ ${nf0.format(hi)}원)` }), priceSvg,
-    h('div', { class: 'tip-cap', text: `하루 평균 거래대금 (최대 ${fmtKrw(tMax)})` }), barSvg,
+    h('div', { class: 'tip-cap', text: `종가 (${px(lo)} ~ ${px(hi)}원)` }), priceSvg,
+    h('div', { class: 'tip-cap', text: `${spec.tvCap} (최대 ${fmtKrw(tMax)})` }), barSvg,
   ];
 }
 
-function stockTipBuild(r) {
-  const rows = stockTipRows(r.hist);
-  let sigIdx = rows.findIndex((x) => x.t === r.hist.sig);
-  if (sigIdx < 0) sigIdx = rows.length - 1;
+// spec: { title, sub, rows, sigIdx, sigLabel, sum: [문장...], tvCap, tvHead, tvShort, note }
+function infoTipBuild(spec) {
+  const { rows, sigIdx } = spec;
   const read = h('div', { class: 'tip-read', 'aria-live': 'polite' });
   const setRead = (i) => {
     const x = rows[i];
-    read.textContent = `${mmdd(x.t)} 주 · 종가 ${nf0.format(x.c)}원${x.chg == null ? '' : ` (${pctSigned(x.chg)})`} · 일평균 ${fmtKrw(x.tv)}${i === sigIdx ? ' · 신호 주' : ''}`;
+    read.textContent = `${mmdd(x.t)} 주 · 종가 ${px(x.c)}원${x.chg == null ? '' : ` (${pctSigned(x.chg)})`} · ${spec.tvShort} ${fmtKrw(x.tv)}${x.rsi == null ? '' : ` · RSI ${x.rsi.toFixed(0)}`}${i === sigIdx ? ` · ${spec.sigLabel}` : ''}${x.live ? ' · 진행 중' : ''}`;
   };
-  const sig = rows[sigIdx], prev = rows.slice(Math.max(0, sigIdx - 4), sigIdx);
-  const prevAvg = prev.length ? prev.reduce((a, x) => a + x.tv, 0) / prev.length : null;
-  const sum = [];
-  if (prevAvg) sum.push(`신호 주 일평균 거래대금 ${fmtKrw(sig.tv)} (직전 ${prev.length}주 평균 ${fmtKrw(prevAvg)}의 ${(sig.tv / prevAvg).toFixed(1)}배)`);
-  const after = rows.length - 1 - sigIdx;
-  if (after > 0) sum.push(`신호 후 ${after}주 경과, 종가 ${pctSigned(rows[rows.length - 1].c / sig.c - 1)}`);
-
   const body = rows.map((x, i) => [x, i]).slice(-8).reverse().map(([x, i]) => h('tr', { class: i === sigIdx ? 'sig' : '' },
-    h('td', {}, `${mmdd(x.t)}`, i === sigIdx ? h('span', { class: 'badge', text: '신호' }) : null),
-    h('td', { text: nf0.format(x.c) }),
+    h('td', {}, mmdd(x.t), i === sigIdx ? h('span', { class: 'badge', text: spec.sigLabel }) : null, x.live ? h('span', { class: 'badge live', text: '진행 중' }) : null),
+    h('td', { text: px(x.c) }),
     h('td', { class: upDown(x.chg), text: x.chg == null ? '—' : pctSigned(x.chg) }),
     h('td', { text: fmtKrw(x.tv) }),
     h('td', { text: x.rsi == null ? '—' : x.rsi.toFixed(0) })));
   const tbl = h('table', { class: 'tip-tbl' },
-    h('thead', {}, h('tr', {}, ['주(월요일)', '종가', '주간 등락', '일평균 거래대금', 'RSI'].map((t) => h('th', { text: t })))),
+    h('thead', {}, h('tr', {}, ['주(월요일)', '종가', '주간 등락', spec.tvHead, 'RSI'].map((t) => h('th', { text: t })))),
     h('tbody', {}, body));
-
-  const el = h('div', { class: 'tip', role: 'dialog', 'aria-label': `${r.name} 거래대금과 가격 흐름` },
+  const el = h('div', { class: 'tip', role: 'dialog', 'aria-label': `${spec.title} 거래대금과 가격 흐름` },
     h('button', { class: 'tip-x', type: 'button', 'aria-label': '닫기', text: '✕' }),
-    h('h4', {}, r.name, h('small', { text: `${r.code} · 최근 ${rows.length}주` })),
-    sum.length ? h('p', { class: 'tip-sum', text: sum.join(' · ') }) : null,
-    ...stockTipCharts(rows, sigIdx, setRead),
+    h('h4', {}, spec.title, h('small', { text: spec.sub })),
+    spec.sum.length ? h('p', { class: 'tip-sum' }, spec.sum.map((t) => h('div', { text: t }))) : null,
+    ...infoTipCharts(spec, setRead),
     read, tbl,
-    h('p', { class: 'tip-note', text: `카드의 거래대금(${fmtKrw(r.tv_krw)})은 신호 주까지 4주 평균이에요. 거래대금은 주 종가×주간 거래량으로 어림한 값이라 실제와 조금 달라요. 마감된 주봉만 보여줘요.` }));
+    h('p', { class: 'tip-note', text: spec.note }));
   setRead(sigIdx);
-  el.querySelector('.tip-x').addEventListener('click', () => stockTipHide());
-  el.addEventListener('pointerenter', (ev) => { if (ev.pointerType === 'mouse') clearTimeout(stockTip.timer); });
-  el.addEventListener('pointerleave', (ev) => { if (ev.pointerType === 'mouse') stockTipSoonHide(); });
+  el.querySelector('.tip-x').addEventListener('click', () => infoTipHide());
+  el.addEventListener('pointerenter', (ev) => { if (ev.pointerType === 'mouse') clearTimeout(infoTip.timer); });
+  el.addEventListener('pointerleave', (ev) => { if (ev.pointerType === 'mouse') infoTipSoonHide(); });
   return el;
 }
 
-function stockTipShow(btn, r, pin) {
-  if (stockTip.owner === btn) { stockTip.pinned = stockTip.pinned || pin; clearTimeout(stockTip.timer); return; }
-  stockTipHide();
-  const el = stockTipBuild(r);
+function infoTipShow(btn, pin) {
+  if (infoTip.owner === btn) { infoTip.pinned = infoTip.pinned || pin; clearTimeout(infoTip.timer); return; }
+  infoTipHide();
+  const el = infoTipBuild(btn._tipSpec());
   document.body.append(el);
   const vw = document.documentElement.clientWidth, vh = window.innerHeight;
   if (vw <= 600) el.classList.add('sheet');
@@ -2444,27 +2450,83 @@ function stockTipShow(btn, r, pin) {
     el.style.top = `${top}px`;
   }
   btn.setAttribute('aria-expanded', 'true');
-  Object.assign(stockTip, { el, owner: btn, pinned: pin });
+  Object.assign(infoTip, { el, owner: btn, pinned: pin });
 }
 
-function tvPill(r) {
-  const text = `거래대금 ${nf0.format(Math.round(r.tv_krw / 1e8))}억`;
-  if (!r.hist || !r.hist.w || r.hist.w.length < 3) return h('span', { class: 'pill', text });
-  const b = h('button', { class: 'pill tvpill', type: 'button', 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-label': `${text}, 눌러서 거래대금과 가격 흐름 보기`, text });
-  b.addEventListener('pointerenter', (ev) => { if (ev.pointerType === 'mouse') stockTipShow(b, r, false); });
-  b.addEventListener('pointerleave', (ev) => { if (ev.pointerType === 'mouse') stockTipSoonHide(); });
-  b.addEventListener('click', () => { if (stockTip.owner === b && stockTip.pinned) stockTipHide(); else stockTipShow(b, r, true); });
+// 칩 하나: 올리면(마우스) 또는 누르면 팝업. getSpec은 팝업을 열 때 부른다
+function tipChip(key, text, getSpec) {
+  const b = h('button', { class: 'pill tvpill', type: 'button', 'data-tip-key': key, 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-label': `${text}, 눌러서 거래대금과 가격 흐름 보기`, text });
+  b._tipSpec = getSpec;
+  b.addEventListener('pointerenter', (ev) => { if (ev.pointerType === 'mouse') infoTipShow(b, false); });
+  b.addEventListener('pointerleave', (ev) => { if (ev.pointerType === 'mouse') infoTipSoonHide(); });
+  b.addEventListener('click', () => { if (infoTip.owner === b && infoTip.pinned) infoTipHide(); else infoTipShow(b, true); });
   return b;
 }
+// 다시 그리기(5분마다 새로고침)로 칩이 새로 만들어져도 눌러서 열어 둔 팝업은 같은 칩에 다시 붙인다
+const infoTipKept = () => (infoTip.pinned && infoTip.owner ? infoTip.owner.dataset.tipKey : null);
+function infoTipReopen(key) {
+  if (!key) return;
+  const nb = [...document.querySelectorAll('[data-tip-key]')].find((x) => x.dataset.tipKey === key && x.offsetParent !== null);
+  if (nb) infoTipShow(nb, true);
+}
 document.addEventListener('pointerdown', (ev) => {
-  if (stockTip.el && !stockTip.el.contains(ev.target) && !stockTip.owner.contains(ev.target)) stockTipHide();
+  if (infoTip.el && !infoTip.el.contains(ev.target) && !infoTip.owner.contains(ev.target)) infoTipHide();
 }, true);
 document.addEventListener('keydown', (ev) => {
-  if (ev.key === 'Escape' && stockTip.el) { const o = stockTip.owner; stockTipHide(); if (o && o.isConnected) o.focus(); }
+  if (ev.key === 'Escape' && infoTip.el) { const o = infoTip.owner; infoTipHide(); if (o && o.isConnected) o.focus(); }
 });
-document.addEventListener('scroll', (ev) => { if (stockTip.el && !stockTip.el.classList.contains('sheet') && !stockTip.el.contains(ev.target)) stockTipHide(); }, true);
+document.addEventListener('scroll', (ev) => { if (infoTip.el && !infoTip.el.classList.contains('sheet') && !infoTip.el.contains(ev.target)) infoTipHide(); }, true);
 let tipVw = window.innerWidth;
-window.addEventListener('resize', () => { if (window.innerWidth !== tipVw) { tipVw = window.innerWidth; stockTipHide(); } });
+window.addEventListener('resize', () => { if (window.innerWidth !== tipVw) { tipVw = window.innerWidth; infoTipHide(); } });
+
+// 주식 카드: 신호 주 기준 이력 (일평균 거래대금 = 주 종가x거래량/5)
+function stockSpec(r) {
+  const rows = infoTipRows(r.hist.w, 5, false);
+  let sigIdx = rows.findIndex((x) => x.t === r.hist.sig);
+  if (sigIdx < 0) sigIdx = rows.length - 1;
+  const sig = rows[sigIdx], prev = rows.slice(Math.max(0, sigIdx - 4), sigIdx);
+  const prevAvg = prev.length ? prev.reduce((a, x) => a + x.tv, 0) / prev.length : null;
+  const sum = [];
+  if (r.mcap) sum.push(`시가총액 ${fmtMcap(r.mcap)} (조회 시점)`);
+  if (prevAvg) sum.push(`신호 주 일평균 거래대금 ${fmtKrw(sig.tv)} (직전 ${prev.length}주 평균 ${fmtKrw(prevAvg)}의 ${(sig.tv / prevAvg).toFixed(1)}배)`);
+  const after = rows.length - 1 - sigIdx;
+  if (after > 0) sum.push(`신호 후 ${after}주 경과, 종가 ${pctSigned(rows[rows.length - 1].c / sig.c - 1)}`);
+  return {
+    title: r.name, sub: `${r.code} · 최근 ${rows.length}주`, rows, sigIdx, sigLabel: '신호', sum,
+    tvCap: '하루 평균 거래대금', tvHead: '일평균 거래대금', tvShort: '일평균',
+    note: `카드의 거래대금(${fmtKrw(r.tv_krw)})은 신호 주까지 4주 평균이에요. 거래대금은 주 종가×주간 거래량으로 어림한 값이라 실제와 조금 달라요. 시가총액은 네이버 증권 기준이에요. 마감된 주봉만 보여줘요.`,
+  };
+}
+
+// 코인 카드: 추천 주 기준 이력 (주간 거래대금 = 업비트 원화 시장 실제 체결 금액 합계, 이번 주는 진행 중)
+function coinSpec(r, info) {
+  const rows = infoTipRows(info.w, 1, info.live);
+  const t0 = new Date(r.entered_at).getTime();
+  let sigIdx = 0;
+  rows.forEach((x, i) => { if (Date.parse(`${x.t}T09:00:00+09:00`) <= t0) sigIdx = i; });
+  const closed = rows.filter((x) => !x.live), last4 = closed.slice(-4), now = rows[rows.length - 1];
+  const sum = [];
+  if (info.cap) sum.push(`시가총액 ${fmtMcap(info.cap)} (CoinGecko 기준)`);
+  if (last4.length) sum.push(`직전 ${last4.length}주 평균 주간 거래대금 ${fmtKrw(last4.reduce((a, x) => a + x.tv, 0) / last4.length)}${now.live ? ` · 이번 주 지금까지 ${fmtKrw(now.tv)}` : ''}`);
+  if (now.rsi != null) sum.push(`주봉 RSI ${now.rsi.toFixed(0)}${now.live ? ' (이번 주 진행 중 기준)' : ''}`);
+  return {
+    title: shortName(r.market), sub: `KRW · 최근 ${rows.length}주`, rows, sigIdx, sigLabel: '추천', sum,
+    tvCap: '주간 거래대금', tvHead: '주간 거래대금', tvShort: '거래대금',
+    note: '주봉은 월요일 오전 9시(한국시간)에 시작해요. 거래대금은 업비트 원화 시장 체결 금액이고, 이번 주는 아직 진행 중이라 거래대금과 RSI가 바뀌어요. 시가총액은 CoinGecko 기준이라 참고용이에요.',
+  };
+}
+
+// 코인 추천 카드의 칩: 지난주 거래대금(눌러서 흐름 보기), 시가총액
+function coinChips(r, d) {
+  const info = d.coin_info && d.coin_info.markets && d.coin_info.markets[r.market];
+  if (!info || !info.w || info.w.length < 3 || isDone(r)) return [];
+  const last = info.w[info.w.length - (info.live ? 2 : 1)];
+  const key = `coin|${r.market}|${r.entered_at}`, spec = () => coinSpec(r, info);
+  return [
+    last ? tipChip(`${key}|tv`, `지난주 거래대금 ${fmtKrw(last[2])}`, spec) : null,
+    info.cap ? tipChip(`${key}|cap`, `시총 ${fmtMcap(info.cap)}`, spec) : null,
+  ];
+}
 
 function stockCard(r) {
   const ret = stockRet(r);
@@ -2476,7 +2538,12 @@ function stockCard(r) {
           h('span', { class: 'pill', text: MK_LABEL[r.market] || r.market }),
           h('span', { class: 'pill', text: `RSI ${r.rsi.toFixed(1)}` }),
           r.chg4w != null ? h('span', { class: 'pill', text: `직전 4주 ${r.chg4w >= 0 ? '+' : ''}${r.chg4w.toFixed(0)}%` }) : null,
-          tvPill(r))),
+          r.hist && r.hist.w && r.hist.w.length >= 3
+            ? tipChip(`stock|${r.code}|${r.signal_week}|tv`, `거래대금 ${nf0.format(Math.round(r.tv_krw / 1e8))}억`, () => stockSpec(r))
+            : h('span', { class: 'pill', text: `거래대금 ${nf0.format(Math.round(r.tv_krw / 1e8))}억` }),
+          r.mcap
+            ? (r.hist && r.hist.w && r.hist.w.length >= 3 ? tipChip(`stock|${r.code}|${r.signal_week}|cap`, `시총 ${fmtMcap(r.mcap)}`, () => stockSpec(r)) : h('span', { class: 'pill', text: `시총 ${fmtMcap(r.mcap)}` }))
+            : null)),
       h('div', { class: `rec-ret ${upDown(ret.v)}` }, pctSigned(ret.v), h('small', { text: ret.kind }))),
     h('div', { class: 'rec-foot' },
       h('span', { text: `신호 종가 ${wonFmt(r.signal_close)}` }),
@@ -2485,7 +2552,7 @@ function stockCard(r) {
 }
 
 function renderStock(d) {
-  stockTipHide();
+  infoTipHide();
   const S = d.stock;
   const tilesEl = $('#stock-tiles'), candEl = $('#stock-cands'), histEl = $('#stock-hist'), statEl = $('#stock-stats'), moreBtn = $('#stock-more');
   if (!S) {
@@ -2514,7 +2581,7 @@ function renderStock(d) {
   const groups = [['유가', '코스피'], ['코스닥', '코스닥']].map(([mk, label]) => {
     const rows = cur.filter((r) => r.market === mk).sort((a, b) => b.tv_krw - a.tv_krw);
     return h('section', { style: 'margin-bottom:22px' },
-      h('div', { class: 'sec-head' }, h('h2', { text: `${label} 신규 후보` }), h('span', { class: 'count', text: `${rows.length}종목 · 거래대금 큰 순 · 거래대금을 누르면 흐름` })),
+      h('div', { class: 'sec-head' }, h('h2', { text: `${label} 신규 후보` }), h('span', { class: 'count', text: `${rows.length}종목 · 거래대금 큰 순 · 거래대금·시총을 누르면 흐름` })),
       rows.length ? h('div', { class: 'rec-grid' }, rows.map(stockCard)) : empty(`이번 주 ${label} 신규 후보는 없어요.`));
   });
   candEl.replaceChildren(...groups);
@@ -2548,6 +2615,8 @@ function renderStock(d) {
 }
 
 function renderAll() {
+  const keepTip = infoTipKept();
+  infoTipHide();
   wireStratFilter();
   charts.forEach((c) => c && c.destroy());
   charts = [];
@@ -2580,6 +2649,7 @@ function renderAll() {
   renderWall(d);
   renderCycle(d);
   renderStock(d);
+  infoTipReopen(keepTip);
 }
 
 /* ---------- 비트코인 분석 탭 ---------- */

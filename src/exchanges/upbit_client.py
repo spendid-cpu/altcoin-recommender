@@ -13,6 +13,7 @@ BASE_URL = "https://api.upbit.com/v1"
 # 프레임 이름 -> 업비트 캔들 엔드포인트 경로
 _ENDPOINTS = {
     "day": "candles/days",
+    "week": "candles/weeks",
     "4h": "candles/minutes/240",
     "1h": "candles/minutes/60",
     "15m": "candles/minutes/15",
@@ -22,6 +23,7 @@ _ENDPOINTS = {
 # 프레임 이름 -> 캔들 1개의 길이 (마감 여부 판단, 백테스트에서 '정보가 확정되는 시각' 계산에 쓴다)
 FRAME_DELTA = {
     "day": pd.Timedelta(days=1),
+    "week": pd.Timedelta(days=7),
     "4h": pd.Timedelta(hours=4),
     "1h": pd.Timedelta(hours=1),
     "15m": pd.Timedelta(minutes=15),

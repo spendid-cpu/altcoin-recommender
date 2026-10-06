@@ -51,10 +51,12 @@ def _connect():
     conn.execute(
         "CREATE TABLE IF NOT EXISTS stock_recs ("
         "code TEXT NOT NULL, signal_week TEXT NOT NULL, name TEXT, market TEXT, rsi REAL, k REAL, d REAL, signal_close REAL, tv_krw REAL, "
-        "created_at TEXT, entry_open REAL, ret1w REAL, ret4w REAL, base4w REAL, shown INTEGER, chg4w REAL, last_price REAL, last_at TEXT, hist TEXT, PRIMARY KEY (code, signal_week))"
+        "created_at TEXT, entry_open REAL, ret1w REAL, ret4w REAL, base4w REAL, shown INTEGER, chg4w REAL, last_price REAL, last_at TEXT, hist TEXT, mcap REAL, PRIMARY KEY (code, signal_week))"
     )
-    if "hist" not in [r[1] for r in conn.execute("PRAGMA table_info(stock_recs)")]:  # 이미 만들어진 DB에는 열을 추가한다
-        conn.execute("ALTER TABLE stock_recs ADD COLUMN hist TEXT")
+    have = [r[1] for r in conn.execute("PRAGMA table_info(stock_recs)")]
+    for col, typ in (("hist", "TEXT"), ("mcap", "REAL")):  # 이미 만들어진 DB에는 열을 추가한다
+        if col not in have:
+            conn.execute(f"ALTER TABLE stock_recs ADD COLUMN {col} {typ}")
     return conn
 
 
@@ -285,6 +287,60 @@ async def backfill_history(session: aiohttp.ClientSession, conn, week: pd.Timest
     return n
 
 
+NAVER_INFO = "https://m.stock.naver.com/api/stock/{code}/integration"
+NAVER_HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; altcoin-recommender dashboard)", "Accept": "application/json"}
+MCAP_WINDOW_DAYS = 84  # 대시보드가 보여주는 기간(12주)의 추천만 시총을 채운다
+
+
+def parse_krw_text(text: str) -> float | None:
+    """네이버의 '2조 9,673억' / '5,432억' / '812만' 같은 금액 문자열을 원 단위 숫자로."""
+    if not text:
+        return None
+    total, found = 0.0, False
+    for num, unit in re.findall(r"([\d,]+(?:\.\d+)?)\s*(조|억|만)?", text):
+        if not num.strip(",") :
+            continue
+        v = float(num.replace(",", ""))
+        mult = {"조": 1e12, "억": 1e8, "만": 1e4}.get(unit)
+        if mult is None:
+            if found:
+                continue
+            mult = 1.0
+        total += v * mult
+        found = True
+    return total if found and total > 0 else None
+
+
+async def fetch_naver_mcap(session: aiohttp.ClientSession, sem: asyncio.Semaphore, code: str) -> float | None:
+    async with sem:
+        try:
+            async with session.get(NAVER_INFO.format(code=code), headers=NAVER_HEADERS, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                if resp.status != 200:
+                    return None
+                j = await resp.json(content_type=None)
+        except Exception:
+            return None
+    for x in j.get("totalInfos") or []:
+        if x.get("code") == "marketValue":
+            return parse_krw_text(x.get("value") or "")
+    return None
+
+
+async def refresh_mcap(session: aiohttp.ClientSession, conn) -> int:
+    """진행 중인 추천은 매번, 끝난 추천은 값이 없을 때만 현재 시가총액을 받아 둔다(네이버 증권, 참고용)."""
+    cutoff = (datetime.now(KST) - timedelta(days=MCAP_WINDOW_DAYS)).date().isoformat()
+    rows = conn.execute("SELECT DISTINCT code FROM stock_recs WHERE ret4w IS NULL OR (mcap IS NULL AND signal_week >= ?)", (cutoff,)).fetchall()
+    sem = asyncio.Semaphore(8)
+    got = await asyncio.gather(*(fetch_naver_mcap(session, sem, r[0]) for r in rows))
+    n = 0
+    for (code,), v in zip(rows, got):
+        if v:
+            conn.execute("UPDATE stock_recs SET mcap=? WHERE code=? AND (ret4w IS NULL OR mcap IS NULL OR signal_week >= ?)", (v, code, cutoff))
+            n += 1
+    conn.commit()
+    return n
+
+
 async def refresh_open_prices(session: aiohttp.ClientSession, conn) -> int:
     """아직 4주가 안 끝난 추천의 현재가(야후 최신가)를 받아 둔다 - 대시보드의 '지금 수익'용."""
     rows = conn.execute("SELECT DISTINCT code, market FROM stock_recs WHERE ret4w IS NULL").fetchall()
@@ -366,7 +422,7 @@ def export() -> dict | None:
         return None
     conn = _connect()
     try:
-        cols = ["code", "signal_week", "name", "market", "rsi", "k", "d", "signal_close", "tv_krw", "entry_open", "ret1w", "ret4w", "base4w", "shown", "chg4w", "last_price", "last_at", "hist"]
+        cols = ["code", "signal_week", "name", "market", "rsi", "k", "d", "signal_close", "tv_krw", "entry_open", "ret1w", "ret4w", "base4w", "shown", "chg4w", "last_price", "last_at", "hist", "mcap"]
         rows = conn.execute(f"SELECT {', '.join(cols)} FROM stock_recs ORDER BY signal_week DESC, tv_krw DESC LIMIT 600").fetchall()
         recs = [dict(zip(cols, r)) for r in rows]
         keep_from = (pd.Timestamp(json.loads(raw)["week"]) - pd.Timedelta(days=84)).date().isoformat()
@@ -439,6 +495,7 @@ async def run(session: aiohttp.ClientSession, now: datetime | None = None, force
         if conn is not None:
             result["hist_filled"] = await backfill_history(session, conn, week)
             result["open_prices"] = await refresh_open_prices(session, conn)
+            result["mcap"] = await refresh_mcap(session, conn)
             prev = json.loads(state_store.get_meta(OVERVIEW_KEY) or "{}")
             if not new_week and "universe" in prev:
                 overview["universe"] = prev["universe"]

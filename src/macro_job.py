@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo
 import aiohttp
 import pandas as pd
 
-from src import btc_macro, btc_watch, config, jsonutil, liquidations, macro_calendar, orderbook, state_store, telegram_client, upbit_extra, volume_profile
+from src import btc_macro, btc_watch, coin_info, config, jsonutil, liquidations, macro_calendar, orderbook, state_store, telegram_client, upbit_extra, volume_profile
 from src.exchanges import binance_client
 
 KST = ZoneInfo("Asia/Seoul")
@@ -289,6 +289,10 @@ async def run(session: aiohttp.ClientSession) -> None:
         await upbit_extra.refresh(session)
     except Exception as exc:
         print(f"[업비트 참고] 수집 실패(이번 사이클은 건너뜀): {type(exc).__name__}: {exc}")
+    try:  # 코인 카드의 주봉 이력·시가총액 (1시간에 한 번, 새 추천 종목은 바로)
+        await coin_info.refresh(session)
+    except Exception as exc:
+        print(f"[코인 참고] 수집 실패(이번 사이클은 건너뜀): {type(exc).__name__}: {exc}")
     try:
         now = datetime.now(timezone.utc)
         due = briefing_due(now)
