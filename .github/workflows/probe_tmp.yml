@@ -1,0 +1,24 @@
+name: probe_tmp
+
+# 임시 점검용(곧 삭제): 러너에서 업비트 공지·뉴스 경로가 열리는지 확인한다.
+on:
+  workflow_dispatch: {}
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: probe
+        run: |
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+          U1="https://api-manager.upbit.com/api/v1/announcements?os=web&page=1&per_page=5&category=all"
+          code() { curl -s -o /tmp/o.txt -w "%{http_code}" -m 20 "$@"; }
+          echo "control api.upbit.com market/all: $(code -A "$UA" "https://api.upbit.com/v1/market/all")"
+          echo "A announcements chrome UA: $(code -A "$UA" "$U1")"
+          echo "B announcements + referer/origin/lang: $(code -A "$UA" -H 'Referer: https://upbit.com/service_center/notice' -H 'Origin: https://upbit.com' -H 'Accept-Language: ko-KR,ko;q=0.9' -H 'Accept: application/json, text/plain, */*' "$U1")"
+          echo "C notices endpoint: $(code -A "$UA" "https://api-manager.upbit.com/api/v1/notices?page=1&per_page=5")"
+          echo "D upbit.com notice page: $(code -A "$UA" -L "https://upbit.com/service_center/notice")"
+          echo "E google news rss: $(code -A "$UA" "https://news.google.com/rss/search?q=%EB%B9%84%ED%8A%B8%EC%BD%94%EC%9D%B8&hl=ko&gl=KR&ceid=KR:ko")"
+          head -c 200 /tmp/o.txt; echo
+          echo "F naver news: $(code -A "$UA" "https://m.stock.naver.com/api/news/stock/298380?page=1&pageSize=3")"
