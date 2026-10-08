@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 
 import aiohttp
 
-from src import config, cycle, exits, macro_job, market_cap, orderbook, original_alerts, original_scanner, paper_limit, price_tracker, report, scan_log, state_store, telegram_client, upbit_extra
+from src import config, cycle, exits, fear_greed, macro_job, market_cap, orderbook, original_alerts, original_scanner, paper_limit, price_tracker, report, scan_log, state_store, telegram_client, upbit_extra
 from src.scoring import find_support_lows
 from src.exchanges import upbit_client
 from src.notifier import diff_alerts
@@ -151,6 +151,7 @@ async def _run_baseline_scan(session: aiohttp.ClientSession, markets: list[str],
         except Exception as exc:
             print(f"기준선: 진입 시점 체결·경고 조회 실패(기록만 생략): {exc!r}")
             snap = {}
+        fng = fear_greed.latest_value()  # 추천 순간의 공포·탐욕 지수 (참고용 기록, 추천 판단에는 안 씀)
         entered = []
         for market, result in found:
             price = prices.get(market)
@@ -164,6 +165,8 @@ async def _run_baseline_scan(session: aiohttp.ClientSession, markets: list[str],
                 extra["flow"] = sn["flow"]
             if "caution" in sn:
                 extra["caution"] = sn["caution"]
+            if fng is not None:
+                extra["fng"] = fng
             rec_at = price_tracker.record_entry(
                 market, price, "-", round(result.score, 1), original_scanner.breakdown(result, vol_pct, extra), strategy="original")
             entered.append((market, price, round(result.score, 1), vol_pct, prior.get(market), ob["imb"] if ob else None, (sn.get("flow") or {}).get("buy"), sn.get("caution") or []))

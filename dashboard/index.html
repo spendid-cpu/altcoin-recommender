@@ -1061,9 +1061,10 @@
 // v1.19 (2026-10-05) 업비트 공개 API 참고 정보 3가지 추가: 추천 카드의 '체결 매수 N%'(실제 체결 중 사는 쪽 비중, 추천 순간 -> 지금), 업비트 공식 시장 경고 배지(거래량 급증·해외 가격 차이 등), 비트코인 분석 화면의 BTC 김치 프리미엄 타일. 모두 참고용
 // v1.20 (2026-10-07) '주식' 탭 추가(실험): 코스피·코스닥 지수 상태, 마감 주봉 RSI(14) 30 이하 신규 후보(시장별), 추천 기록·4주 성과 통계. 알림 없이 기록만
 // v1.21 (2026-10-07) 주식 카드의 거래대금 칩에 마우스를 올리거나 탭하면 최근 26주 종가·일평균 거래대금 흐름 팝업
+// v1.24 (2026-10-09) 오늘 화면에 공포·탐욕 지수 타일(참고) + 라이브 검증 현황에 '탐욕 구간 손절' 카드. 추천 순간 지수는 detail.fng로 기록
 // v1.23 (2026-10-07) 팝업을 주봉 캔들+거래대금(상승·하락 색)+RSI(30선)로 바꾸고, 주식 공시·뉴스 / 코인 업비트 공지·뉴스 칩 추가(표시 전용)
 // v1.22 (2026-10-07) 시가총액 칩(주식: 네이버 증권, 코인: CoinGecko) + 코인 추천 카드에도 지난주 거래대금·시총 칩과 같은 주봉 팝업(종가·주간 거래대금·RSI)
-const APP_VERSION = 'v1.23';
+const APP_VERSION = 'v1.24';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DATA_URL = 'dashboard.json';
@@ -1402,6 +1403,7 @@ const originalRecs = (d) => (d.recommendations || []).filter((r) => stratOf(r) =
 const sgn = (v) => (v == null ? '—' : signed(v));
 const upDown = (v) => (v > 0 ? 'up' : v < 0 ? 'down' : '');
 
+const FNG_KO = { 'Extreme Fear': '극단적 공포', Fear: '공포', Neutral: '중립', Greed: '탐욕', 'Extreme Greed': '극단적 탐욕' };
 function renderHomeKpis(d) {
   const host = $('#tiles');
   const orig = originalRecs(d);
@@ -1435,6 +1437,14 @@ function renderHomeKpis(d) {
     tiles.push(tile('BTC 필터', [statusIcon(btc.favorable ? 'on' : 'off'), btc.favorable ? '켜짐' : '꺼짐'],
       `${btc.hold_days_required > 1 ? `MA20 위 ${btc.days_above}일째 (${btc.hold_days_required}일 이상이면 켜짐)` : (btc.favorable ? `MA20 위 ${btc.days_above}일째` : '일봉 종가가 MA20 아래')} · ${nf0.format(btc.close)} (${change >= 0 ? '+' : ''}${change.toFixed(2)}%)`,
       closes.length > 1 ? sparkline(closes) : null));
+  }
+  const fg = d.fear_greed;
+  if (fg && fg.latest && fg.hist && fg.hist.length > 1) {
+    const v = fg.latest.v;
+    tiles.push(tile('공포·탐욕 지수', [String(v), h('span', { class: 'unit', text: FNG_KO[fg.latest.c] || fg.latest.c })],
+      v >= 75 ? '⚠ 75 이상(극단적 탐욕): 과거 기록에서 이때 추천은 손절 근처까지 간 비율이 높았어요 (검증 전, 참고)'
+        : `${fg.latest.d} 기준 · 75 이상이면 극단적 탐욕 (과거 기록에서 손절이 많았던 구간, 검증 전)`,
+      sparkline(fg.hist.map((x) => x[1]).slice(-30))));
   }
   host.replaceChildren(...tiles);
 }
@@ -1988,6 +1998,32 @@ function renderExperiments(d) {
       bars: [expProg('🔹 낮음 종료', L.n, TARGET), expProg('🔸 높음 종료', H.n, TARGET)],
       reading: [line('🔹 낮음', L), line('🔸 높음', H)],
       criteria: `두 표식 모두 종료 ${TARGET}건 이상일 때, ① 낮은 쪽 손절률이 더 낮고 ② 낮은 쪽 평균 손익이 높은 쪽보다 0.5%p 넘게 나쁘지 않으면 '낮은 변동폭만 추천'을 정식 테스트로 넘겨요. 그 전에는 결론을 내리지 않아요.`,
+      verdict,
+    }));
+  }
+
+  // ①-2 탐욕 구간 손절 (공포·탐욕 지수 75 이상, 사후 관찰의 라이브 재현 확인)
+  {
+    const fngOf = (r) => (r.detail && r.detail.fng != null ? r.detail.fng : null);
+    const hot = realClosed(orig.filter((r) => fngOf(r) != null && fngOf(r) >= 75));
+    const rest = realClosed(orig.filter((r) => fngOf(r) != null && fngOf(r) < 75));
+    const st = (a) => ({ n: a.length, mean: avg(a.map((r) => r.exit.return_pct)), stop: a.length ? a.filter((r) => r.exit.reason === 'stop_loss').length / a.length * 100 : null });
+    const H = st(hot), R = st(rest);
+    const dayN = new Set(hot.map((r) => kstDayStart(new Date(r.entered_at).getTime()))).size;
+    const ready = H.n >= TARGET && R.n >= TARGET && dayN >= 10;
+    const line = (name, v) => (v.n ? `${name} ${v.n}건 · 평균 ${sgn(v.mean)} · 손절 ${v.stop.toFixed(0)}%` : `${name} 아직 종료된 추천이 없어요`);
+    let verdict = null;
+    if (ready) {
+      verdict = H.stop - R.stop >= 10 ? '재현됐어요: 탐욕 구간 손절률이 10%p 넘게 높아요. 정식 사전 등록 테스트로 넘길 만해요 (그때까지 추천 규칙은 그대로).'
+        : '재현되지 않았어요: 탐욕 구간 손절률 차이가 10%p 미만이에요. 추천 규칙은 바꾸지 않아요.';
+    }
+    cards.push(expCard({
+      title: '탐욕 구간 손절 (공포·탐욕 지수 75 이상)',
+      what: '과거 백테스트에서 지수가 75 이상(극단적 탐욕)일 때 진입한 신호가 3일 안에 -5%를 건드린 비율이 74%로, 나머지(39%)보다 높았어요(사후 관찰, 에피소드 11개). 라이브에서도 그런지 추천 순간의 지수를 기록해 지켜봐요.',
+      state: ready ? { text: '판단 가능', cls: 'ready' } : { text: '수집 중 · 결론 보류', cls: '' },
+      bars: [expProg('탐욕(75↑) 종료', H.n, TARGET), expProg('그 외 종료', R.n, TARGET), expProg('탐욕 진입 일수', dayN, 10)],
+      reading: [line('탐욕(75↑)', H), line('그 외', R)],
+      criteria: `탐욕 구간 추천이 종료 ${TARGET}건·서로 다른 10일 이상, 그 외도 ${TARGET}건 이상 모였을 때 탐욕 구간 손절률이 10%p 이상 높으면 재현으로 보고 정식 사전 등록 테스트로 넘겨요. 그 전에는 결론을 내리지 않아요. 지수는 2026-10-09부터 기록해요.`,
       verdict,
     }));
   }
