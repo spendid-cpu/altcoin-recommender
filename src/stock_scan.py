@@ -32,6 +32,7 @@ SEED_FILE = Path(__file__).resolve().parent.parent / "data" / "kr_universe_seed.
 UNIVERSE_KEY = "kr_universe_json"
 UNIVERSE_AT_KEY = "kr_universe_at"
 LAST_WEEK_KEY = "stock_last_week"
+LAST_RUN_KEY = "stock_last_run_at"
 OVERVIEW_KEY = "stock_overview_json"
 UNIVERSE_REFRESH_DAYS = 7
 
@@ -111,6 +112,20 @@ def last_closed_week_start(now_kst: datetime) -> pd.Timestamp:
     monday = pd.Timestamp((now_kst - timedelta(days=now_kst.weekday())).date())
     closed_now = now_kst.weekday() > 4 or (now_kst.weekday() == 4 and now_kst.hour >= 17)
     return monday if closed_now else monday - pd.Timedelta(days=7)
+
+
+def due(now: datetime | None = None) -> str | None:
+    """15분마다 도는 스캔 작업에 얹어 부를 때 지금 실행해야 하는지(네트워크 없음).
+    'new_week' = 새로 마감된 주봉을 아직 처리하지 않음(금요일 17시 이후 첫 실행, 늦어져도 이후 첫 실행이 잡는다),
+    'daily' = 평일 한국장 마감(15:30) 뒤 16시 이후 오늘 아직 안 돌았음(진행 중 종목 현재가·공시·뉴스 하루 한 번 갱신), 그 밖에는 None."""
+    now = (now or datetime.now(KST)).astimezone(KST)
+    if state_store.get_meta(LAST_WEEK_KEY) != last_closed_week_start(now).date().isoformat():
+        return "new_week"
+    if now.weekday() < 5 and now.hour >= 16:
+        last = state_store.get_meta(LAST_RUN_KEY)
+        if not last or datetime.fromisoformat(last).astimezone(KST).date() < now.date():
+            return "daily"
+    return None
 
 
 async def _chart(session: aiohttp.ClientSession, sem: asyncio.Semaphore, symbol: str, rng: str, itv: str) -> dict | None:
@@ -521,6 +536,7 @@ async def run(session: aiohttp.ClientSession, now: datetime | None = None, force
             if not new_week and "universe" in prev:
                 overview["universe"] = prev["universe"]
             state_store.set_meta(OVERVIEW_KEY, jsonutil.dumps(overview, ensure_ascii=False, separators=(",", ":")))
+            state_store.set_meta(LAST_RUN_KEY, now.isoformat())
     finally:
         if conn is not None:
             conn.close()
