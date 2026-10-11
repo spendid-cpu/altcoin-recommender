@@ -382,6 +382,25 @@
   .nlink { color: var(--ink); text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 2px; }
   .nlink:hover { color: var(--accent); }
   .nsub { color: var(--muted); font-size: 11.5px; }
+  /* 섹터 탭 */
+  .sector-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(236px, 1fr)); gap: 10px; margin: 10px 0 14px; }
+  .sector-card { text-align: left; font: inherit; color: var(--ink); cursor: pointer; border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; display: grid; gap: 6px; box-shadow: var(--shadow); }
+  .sector-card:hover { border-color: var(--border-strong); }
+  .sector-card[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 28%, transparent); }
+  .sector-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .sector-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .sector-name { font-weight: 700; font-size: 15px; letter-spacing: -.01em; }
+  .sector-avg { font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .sector-desc { color: var(--muted); font-size: 12px; }
+  .sector-meta { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--ink2); font-variant-numeric: tabular-nums; }
+  .sector-bar { height: 5px; border-radius: 3px; background: color-mix(in srgb, var(--ink) 10%, transparent); overflow: hidden; }
+  .sector-bar > span { display: block; height: 100%; background: var(--good); }
+  .sector-movers { font-size: 12px; color: var(--ink2); line-height: 1.5; }
+  .sector-together { margin: 8px 0 4px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--good) 11%, transparent); font-size: 13px; line-height: 1.55; }
+  .sector-together.cold { background: color-mix(in srgb, var(--bad) 10%, transparent); }
+  .sector-detail { margin-top: 4px; }
+  .sector-detail h3 { margin: 6px 0 2px; font-size: 15px; }
+  .sector-detail .sub { margin: 0 0 8px; }
   .nempty { padding: 4px 0; color: var(--muted); font-size: 12.5px; }
   .tip-tbl .badge.live { background: transparent; color: var(--ink2); border: 1px solid var(--border-strong); }
   .tip-tbl td:first-child { white-space: normal; }
@@ -505,6 +524,8 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3.5v3M7 17.5v3M5 6.5h4v11H5zM17 2.5v3M17 14.5v4M15 5.5h4v9h-4z"/></svg><span>비트코인</span></button>
     <button id="tab-cycle" class="tab" role="tab" type="button" data-tab="cycle" aria-controls="view-cycle" aria-selected="false">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v4.2h-4.2"/></svg><span>사이클</span></button>
+    <button id="tab-sector" class="tab" role="tab" type="button" data-tab="sector" aria-controls="view-sector" aria-selected="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg><span>섹터</span></button>
     <button id="tab-stock" class="tab" role="tab" type="button" data-tab="stock" aria-controls="view-stock" aria-selected="false">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8M15 7h6v6"/></svg><span>주식</span></button>
   </nav>
@@ -968,6 +989,22 @@
 
 
   <!-- ===== 주식 (실험) ===== -->
+  <main id="view-sector" role="tabpanel" aria-labelledby="tab-sector" hidden>
+    <section class="card" aria-labelledby="h-sector">
+      <div class="card-head">
+        <div>
+          <h2 id="h-sector">코인 섹터(테마)</h2>
+          <p class="sub">같은 테마 종목은 같이 움직이는 일이 많아요. 업비트 원화 종목을 테마별로 묶어 평균 등락을 보여줘요. 한 종목이 여러 테마에 속할 수 있고, 분류는 CoinGecko 카테고리에 직접 보정(양자내성 등)을 더한 거예요. 참고용이고 추천에는 안 써요.</p>
+        </div>
+      </div>
+      <div id="sector-period" class="period-bar" role="group" aria-label="기간"></div>
+      <div id="sector-together"></div>
+      <div id="sector-grid" class="sector-grid"></div>
+      <div id="sector-detail"></div>
+      <p id="sector-note" class="card-note"></p>
+    </section>
+  </main>
+
   <main id="view-stock" role="tabpanel" aria-labelledby="tab-stock" hidden>
     <div class="notice" style="border-color:var(--border);background:var(--surface)">
       <span aria-hidden="true">🧪</span>
@@ -1061,10 +1098,11 @@
 // v1.19 (2026-10-05) 업비트 공개 API 참고 정보 3가지 추가: 추천 카드의 '체결 매수 N%'(실제 체결 중 사는 쪽 비중, 추천 순간 -> 지금), 업비트 공식 시장 경고 배지(거래량 급증·해외 가격 차이 등), 비트코인 분석 화면의 BTC 김치 프리미엄 타일. 모두 참고용
 // v1.20 (2026-10-07) '주식' 탭 추가(실험): 코스피·코스닥 지수 상태, 마감 주봉 RSI(14) 30 이하 신규 후보(시장별), 추천 기록·4주 성과 통계. 알림 없이 기록만
 // v1.21 (2026-10-07) 주식 카드의 거래대금 칩에 마우스를 올리거나 탭하면 최근 26주 종가·일평균 거래대금 흐름 팝업
+// v1.25 (2026-10-11) '섹터' 탭 추가(업비트 원화 종목을 테마별로 묶은 오늘·7일·30일 평균 등락, 같이 오르는 섹터, 종목표). 사이클 데이터에 기간별 수익률(chg_1d/7d/30d) 추가
 // v1.24 (2026-10-09) 오늘 화면에 공포·탐욕 지수 타일(참고) + 라이브 검증 현황에 '탐욕 구간 손절' 카드. 추천 순간 지수는 detail.fng로 기록
 // v1.23 (2026-10-07) 팝업을 주봉 캔들+거래대금(상승·하락 색)+RSI(30선)로 바꾸고, 주식 공시·뉴스 / 코인 업비트 공지·뉴스 칩 추가(표시 전용)
 // v1.22 (2026-10-07) 시가총액 칩(주식: 네이버 증권, 코인: CoinGecko) + 코인 추천 카드에도 지난주 거래대금·시총 칩과 같은 주봉 팝업(종가·주간 거래대금·RSI)
-const APP_VERSION = 'v1.24';
+const APP_VERSION = 'v1.25';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DATA_URL = 'dashboard.json';
@@ -1478,8 +1516,8 @@ function recCard(r, d) {
   const left = days * 86400e3 - elapsed;
   const slPrice = r.entry_price * (1 - sl / 100), tpPrice = r.entry_price * (1 + tp / 100);
   const meta = r.strategy === 'original'
-    ? [volPill(r), r.score == null ? null : h('span', { class: 'pill', text: `점수 ${r.score}` }), priorBadge(r, d), obPill(r, d), flowPill(r, d), flagPill(r, d), ...coinChips(r, d)]
-    : [h('span', { class: 'strat', text: '개선판' }), gradePill(r.grade), ...coinChips(r, d)];
+    ? [volPill(r), r.score == null ? null : h('span', { class: 'pill', text: `점수 ${r.score}` }), priorBadge(r, d), obPill(r, d), flowPill(r, d), flagPill(r, d), ...coinChips(r, d), ...sectorPills(r, d)]
+    : [h('span', { class: 'strat', text: '개선판' }), gradePill(r.grade), ...coinChips(r, d), ...sectorPills(r, d)];
   const gauge = gaugeBar(ret, tp, sl);
   gauge.querySelector('.gauge-labels').replaceChildren(h('span', { text: `손절 ${fmtKRW(slPrice)}` }), h('span', { text: `익절 ${fmtKRW(tpPrice)}` }));
   return h('article', { class: 'rec' },
@@ -2774,6 +2812,101 @@ function renderStock(d) {
   statEl.replaceChildren(buildTable(['구분', '4주 경과 종목', '평균 수익', '중앙값', '플러스 비율', '시장 대비 초과'], sRows, 1));
 }
 
+/* ---------- 섹터(테마): 업비트 원화 종목을 테마로 묶은 평균 등락 (표시 전용) ---------- */
+const SECTOR_PERIODS = { '1d': ['오늘', 'chg_1d'], '7d': ['7일', 'chg_7d'], '30d': ['30일', 'chg_30d'] };
+let sectorPeriod = '1d', sectorSel = null;
+try { const sp = localStorage.getItem('sectorPeriod'); if (sp && sp in SECTOR_PERIODS) sectorPeriod = sp; } catch (e) { /* 무시 */ }
+const chgTxt = (v) => (v == null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(1)}%`);
+
+function sectorsOfMarket(d) {
+  // 종목 -> 소속 테마 이름들 (작은 테마가 앞: 더 구체적인 분류)
+  if (sectorsOfMarket.cache && sectorsOfMarket.cache.d === d) return sectorsOfMarket.cache.map;
+  const map = new Map();
+  const themes = Object.values((d.sectors && d.sectors.themes) || {}).sort((a, b) => a.markets.length - b.markets.length);
+  for (const t of themes) for (const m of t.markets) { if (!map.has(m)) map.set(m, []); map.get(m).push(t.name); }
+  sectorsOfMarket.cache = { d, map };
+  return map;
+}
+// 추천 카드의 소속 섹터 칩: 가장 구체적인(작은) 테마 2개까지 (참고용)
+function sectorPills(r, d) {
+  if (!d.sectors) return [];
+  return (sectorsOfMarket(d).get(r.market) || []).slice(0, 2).map((name) => h('span', { class: 'pill', title: '소속 섹터(참고용). 섹터 탭에서 같은 테마 종목의 움직임을 볼 수 있어요', text: name }));
+}
+
+function renderSector(d) {
+  const S = d.sectors, C = d.cycle;
+  const perEl = $('#sector-period'), togEl = $('#sector-together'), gridEl = $('#sector-grid'), detEl = $('#sector-detail'), note = $('#sector-note');
+  perEl.replaceChildren(...Object.entries(SECTOR_PERIODS).map(([k, [label]]) => h('button', { class: 'btn', type: 'button', 'data-p': k, 'aria-pressed': String(k === sectorPeriod), text: label })));
+  perEl.onclick = (ev) => {
+    const b = ev.target.closest('[data-p]');
+    if (!b || b.dataset.p === sectorPeriod) return;
+    sectorPeriod = b.dataset.p;
+    try { localStorage.setItem('sectorPeriod', sectorPeriod); } catch (e) { /* 무시 */ }
+    renderSector(d);
+  };
+  if (!S || !S.themes || !C || !C.items || !C.items.length) {
+    togEl.replaceChildren(); gridEl.replaceChildren(); detEl.replaceChildren(); note.textContent = '';
+    gridEl.append(empty('섹터 분류나 사이클 데이터가 아직 없어요. 다음 스캔(최대 15분) 뒤에 표시돼요. BTC 추세가 불리하면 스캔을 건너뛰어 갱신이 늦어질 수 있어요.'));
+    return;
+  }
+  const label = SECTOR_PERIODS[sectorPeriod][0], key = SECTOR_PERIODS[sectorPeriod][1];
+  const byMarket = new Map(C.items.filter((it) => !it.is_new_listing && it[key] != null).map((it) => [it.market, it]));
+  const mAvg = avg([...byMarket.values()].map((it) => it[key]));
+  const rows = Object.entries(S.themes).map(([id, t]) => {
+    const items = t.markets.map((m) => byMarket.get(m)).filter(Boolean).sort((a, b) => b[key] - a[key]);
+    const vals = items.map((it) => it[key]);
+    return { id, t, items, n: items.length, avg: avg(vals), med: vals.length ? median(vals) : null, up: vals.filter((v) => v > 0).length };
+  }).filter((r) => r.n >= 2).sort((a, b) => b.avg - a.avg);
+
+  // 같이 오르는 / 같이 빠지는 섹터: 종목의 60% 이상이 같은 방향이고 평균이 시장 평균보다 1%p 이상 앞서거나 뒤처질 때
+  const hot = rows.filter((r) => r.n >= 4 && r.up / r.n >= 0.6 && r.avg > 0 && r.avg >= mAvg + 1).slice(0, 6);
+  const cold = rows.filter((r) => r.n >= 4 && (r.n - r.up) / r.n >= 0.6 && r.avg < 0 && r.avg <= mAvg - 1).slice(-6).reverse();
+  const brief = (list) => list.map((r) => `${r.t.name} ${chgTxt(r.avg)} (${r.up}/${r.n})`).join(' · ');
+  togEl.replaceChildren(...[
+    h('div', { class: 'sector-together' }, h('strong', { text: `같이 오르는 섹터 (${label}) ` }), hot.length ? brief(hot) : '시장보다 뚜렷하게 앞서면서 같이 오르는 섹터가 지금은 없어요.',
+      h('div', { class: 'muted', style: 'font-size:12px;margin-top:2px', text: `전체 시장 평균 ${chgTxt(mAvg)} · 종목이 4개 이상이고 60% 이상이 오르면서 시장보다 1%p 넘게 앞설 때만 표시해요` })),
+    cold.length ? h('div', { class: 'sector-together cold' }, h('strong', { text: `같이 빠지는 섹터 (${label}) ` }), brief(cold)) : null].filter(Boolean));
+
+  gridEl.replaceChildren(...rows.map((r) => {
+    const tint = Math.min(26, Math.abs(r.avg) * 4);
+    const movers = r.items.slice(0, 3).map((it) => `${shortName(it.market)} ${chgTxt(it[key])}`).join(' · ');
+    return h('button', { class: 'sector-card', type: 'button', 'data-s': r.id, 'aria-pressed': String(r.id === sectorSel),
+      style: `background: color-mix(in srgb, var(${r.avg >= 0 ? '--good' : '--bad'}) ${tint.toFixed(0)}%, var(--surface))` },
+      h('div', { class: 'sector-top' }, h('span', { class: 'sector-name', text: r.t.name }), h('span', { class: `sector-avg ${upDown(r.avg)}`, text: chgTxt(r.avg) })),
+      h('div', { class: 'sector-desc', text: r.t.desc }),
+      h('div', { class: 'sector-bar', 'aria-hidden': 'true' }, h('span', { style: `width:${(r.up / r.n * 100).toFixed(0)}%` })),
+      h('div', { class: 'sector-meta' }, h('span', { text: `상승 ${r.up}/${r.n}` }), h('span', { text: `시장 대비 ${r.avg - mAvg >= 0 ? '+' : ''}${(r.avg - mAvg).toFixed(1)}%p` })),
+      h('div', { class: 'sector-movers', text: movers }));
+  }));
+  gridEl.onclick = (ev) => {
+    const c = ev.target.closest('[data-s]');
+    if (!c) return;
+    sectorSel = sectorSel === c.dataset.s ? null : c.dataset.s;
+    renderSector(d);
+  };
+
+  // 선택한 섹터의 종목표
+  const sel = rows.find((r) => r.id === sectorSel);
+  if (!sel) { detEl.replaceChildren(); } else {
+    const others = sectorsOfMarket(d);
+    const excluded = sel.t.markets.length - sel.n;
+    const body = sel.items.map((it) => [
+      h('span', {}, h('strong', { text: shortName(it.market) }), h('small', { style: 'margin-left:6px;color:var(--muted)', text: (others.get(it.market) || []).filter((n) => n !== sel.t.name).slice(0, 2).join('·') })),
+      h('span', { class: upDown(it.chg_1d), text: chgTxt(it.chg_1d) }),
+      h('span', { class: upDown(it.chg_7d), text: chgTxt(it.chg_7d) }),
+      h('span', { class: upDown(it.chg_30d), text: chgTxt(it.chg_30d) }),
+      it.market_cap ? fmtCap(it.market_cap) : h('span', { class: 'muted', text: '—' }),
+    ]);
+    const node = h('div', { class: 'sector-detail', style: 'grid-column:1/-1' },
+      h('h3', { text: `${sel.t.name} · 종목 ${sel.n}개` }),
+      h('p', { class: 'sub', text: `${sel.t.desc}. ${label} 평균 ${chgTxt(sel.avg)} · 중앙값 ${chgTxt(sel.med)} · 시장 평균 ${chgTxt(mAvg)}${excluded > 0 ? ` · 신규 상장·자료 부족 ${excluded}종목은 뺐어요` : ''}` }),
+      h('div', { class: 'table-wrap' }, buildTable(['종목(다른 섹터)', '오늘', '7일', '30일', '시총'], body, 1)));
+    const cardEl = gridEl.querySelector(`[data-s="${sel.id}"]`);
+    if (cardEl) cardEl.after(node);  // 선택한 카드 바로 아래에 펼친다
+  }
+  note.textContent = `평균은 종목 동일 비중이에요. 오늘 등락은 오전 9시(일봉 시작) 기준이고, 상장 ${C.new_listing_min_days}일 미만 신규 상장은 뺐어요. 분류 ${S.built_at ? kst(S.built_at) : ''} 생성 · 미분류 ${(S.unclassified || []).length}종목(새 상장 등, data/sector_overrides.json에서 직접 지정할 수 있어요).`;
+}
+
 function renderAll() {
   const keepTip = infoTipKept();
   infoTipHide();
@@ -2809,6 +2942,7 @@ function renderAll() {
   renderWall(d);
   renderCycle(d);
   renderStock(d);
+  renderSector(d);
   infoTipReopen(keepTip);
 }
 
@@ -3988,7 +4122,7 @@ $('#mc-mode').addEventListener('click', (ev) => {
 
 /* ---------- 탭 ---------- */
 // 최상위 탭 5개 + 추천(진행 중/완료/후보)·비트코인(분석/차트)의 하위 구분. 예전 주소(#done #macro #chart)도 그대로 열린다
-const TABS = ['home', 'recs', 'perf', 'btc', 'cycle', 'stock'];
+const TABS = ['home', 'recs', 'perf', 'btc', 'cycle', 'sector', 'stock'];
 const HASH_ALIAS = { done: 'recs/done', macro: 'btc/analysis', chart: 'btc/chart', liq: 'btc/liq', wall: 'btc/wall', active: 'recs/active' };
 let currentTab = 'home', recsSub = 'active', btcSub = 'analysis';
 

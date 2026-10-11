@@ -42,6 +42,13 @@ DOWN_TIERS = [
 ]
 
 
+def _chg(current: float, closes: list[float], back: int) -> float | None:
+    """현재가가 '오늘 일봉 시작(마지막 마감 종가) 시점에서 back일 전' 마감 종가보다 몇 % 올랐나. back=0이면 오늘(오전 9시 이후) 등락."""
+    if len(closes) <= back or closes[-1 - back] <= 0:
+        return None
+    return round((current / closes[-1 - back] - 1) * 100, 2)
+
+
 def _tier_of(pct: float, tiers: list[tuple[float, float, str]]) -> int:
     for i, (lo, hi, _) in enumerate(tiers):
         if lo <= pct < hi:
@@ -72,6 +79,7 @@ async def build(session: aiohttp.ClientSession, cache: dict, markets: list[str])
             "last_close": float(day["close"].iloc[-1]),
             "listing_days": len(day),  # 상장 후 며칠째인지 추정(일봉 개수) — 짧으면 상승·하락 폭이 왜곡될 수 있다
             "ma20": float(day["close"].tail(20).mean()) if len(day) >= 20 else None,
+            "closes": [float(x) for x in day["close"].tail(31)],  # 섹터 화면의 7일·30일 수익률용(마감된 일봉 종가, 오래된 순)
         })
 
     now = datetime.now(timezone.utc)
@@ -102,6 +110,10 @@ async def build(session: aiohttp.ClientSession, cache: dict, markets: list[str])
             "is_new_listing": r["listing_days"] < config.NEW_LISTING_MIN_DAYS,
             "ma20": round(r["ma20"], 8) if r["ma20"] is not None else None,
             "above_ma20": r["ma20"] is not None and current > r["ma20"],
+            # 기간별 수익률(%): 오늘 = 마지막 마감 일봉 종가(오전 9시) 대비 현재가, 7일·30일 = 오늘 일봉 시작 7일·30일 전 마감 종가 대비 현재가
+            "chg_1d": _chg(current, r["closes"], 0),
+            "chg_7d": _chg(current, r["closes"], 7),
+            "chg_30d": _chg(current, r["closes"], 30),
         })
     items.sort(key=lambda x: x["pct_from_low"])
     return {"generated_at": now.isoformat(), "lookback_days": config.CYCLE_LOOKBACK_DAYS,

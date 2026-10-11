@@ -1,0 +1,571 @@
+{
+ "built_at": "2026-10-11T05:16:35.300785+00:00",
+ "source": "CoinGecko 카테고리 + data/sector_overrides.json",
+ "themes": {
+  "ai": {
+   "name": "AI",
+   "desc": "인공지능·에이전트",
+   "markets": [
+    "KRW-0G",
+    "KRW-AI",
+    "KRW-AKT",
+    "KRW-ARKM",
+    "KRW-ATH",
+    "KRW-AWE",
+    "KRW-CARV",
+    "KRW-CP",
+    "KRW-CYBER",
+    "KRW-DATA",
+    "KRW-DKA",
+    "KRW-DOS",
+    "KRW-ELSA",
+    "KRW-FLOCK",
+    "KRW-GLM",
+    "KRW-GRT",
+    "KRW-HOLO",
+    "KRW-ICP",
+    "KRW-IN",
+    "KRW-IO",
+    "KRW-IQ",
+    "KRW-KAITO",
+    "KRW-KITE",
+    "KRW-LA",
+    "KRW-LPT",
+    "KRW-MIRA",
+    "KRW-NEAR",
+    "KRW-NEWT",
+    "KRW-OPEN",
+    "KRW-OPG",
+    "KRW-PIEVERSE",
+    "KRW-POD",
+    "KRW-PRL",
+    "KRW-RENDER",
+    "KRW-SAHARA",
+    "KRW-SENT",
+    "KRW-TAO",
+    "KRW-TFUEL",
+    "KRW-THETA",
+    "KRW-TRAC",
+    "KRW-VANA",
+    "KRW-VIRTUAL",
+    "KRW-VVV",
+    "KRW-WAL",
+    "KRW-WLD"
+   ],
+   "source": [
+    "artificial-intelligence",
+    "ai-agents",
+    "ai-applications",
+    "ai-framework"
+   ],
+   "manual_add": [
+    "KRW-WLD"
+   ]
+  },
+  "robotics": {
+   "name": "로보틱스",
+   "desc": "로봇·자율 시스템",
+   "markets": [
+    "KRW-GEOD",
+    "KRW-VIRTUAL"
+   ],
+   "source": [
+    "robotics"
+   ]
+  },
+  "rwa": {
+   "name": "RWA·토큰화",
+   "desc": "실물자산·국채·금 토큰화",
+   "markets": [
+    "KRW-CFG",
+    "KRW-CPOOL",
+    "KRW-CTC",
+    "KRW-ONDO",
+    "KRW-PLUME",
+    "KRW-POLYX",
+    "KRW-RE",
+    "KRW-RED",
+    "KRW-SYRUP"
+   ],
+   "source": [
+    "real-world-assets-rwa",
+    "rwa-protocol",
+    "tokenized-gold"
+   ]
+  },
+  "quantum": {
+   "name": "양자내성",
+   "desc": "양자컴퓨터에 안전한 서명·구조 서사",
+   "markets": [
+    "KRW-ALGO",
+    "KRW-CKB"
+   ],
+   "source": [
+    "quantum-resistant"
+   ]
+  },
+  "zk": {
+   "name": "ZK",
+   "desc": "영지식 증명",
+   "markets": [
+    "KRW-BREV",
+    "KRW-G",
+    "KRW-IMX",
+    "KRW-LA",
+    "KRW-LINEA",
+    "KRW-MINA",
+    "KRW-MOVE",
+    "KRW-POL",
+    "KRW-PROVE",
+    "KRW-SIGN",
+    "KRW-TAIKO",
+    "KRW-ZBT",
+    "KRW-ZK",
+    "KRW-ZKC",
+    "KRW-ZKP"
+   ],
+   "source": [
+    "zero-knowledge-zk"
+   ]
+  },
+  "l2": {
+   "name": "레이어2·모듈러",
+   "desc": "확장·데이터 가용성",
+   "markets": [
+    "KRW-ALT",
+    "KRW-ARB",
+    "KRW-ASTR",
+    "KRW-AZTEC",
+    "KRW-BLEND",
+    "KRW-CELO",
+    "KRW-CKB",
+    "KRW-CYBER",
+    "KRW-DRV",
+    "KRW-IMX",
+    "KRW-KAT",
+    "KRW-LINEA",
+    "KRW-LSK",
+    "KRW-MEGA",
+    "KRW-MNT",
+    "KRW-MOVE",
+    "KRW-MTL",
+    "KRW-OP",
+    "KRW-OPEN",
+    "KRW-ORDER",
+    "KRW-POL",
+    "KRW-PROM",
+    "KRW-SNT",
+    "KRW-SONIC",
+    "KRW-SOON",
+    "KRW-STX",
+    "KRW-TAIKO",
+    "KRW-TIA",
+    "KRW-ZK",
+    "KRW-ZORA"
+   ],
+   "source": [
+    "layer-2",
+    "modular-blockchain"
+   ]
+  },
+  "l1": {
+   "name": "레이어1",
+   "desc": "독립 메인넷",
+   "markets": [
+    "KRW-0G",
+    "KRW-A",
+    "KRW-ADA",
+    "KRW-ALGO",
+    "KRW-APT",
+    "KRW-ARK",
+    "KRW-ASTR",
+    "KRW-AVAX",
+    "KRW-BCH",
+    "KRW-BERA",
+    "KRW-BSV",
+    "KRW-BTC",
+    "KRW-CC",
+    "KRW-CFX",
+    "KRW-CHZ",
+    "KRW-CRO",
+    "KRW-CTC",
+    "KRW-DATA",
+    "KRW-DOT",
+    "KRW-ELF",
+    "KRW-ETC",
+    "KRW-ETH",
+    "KRW-FIL",
+    "KRW-G",
+    "KRW-HBAR",
+    "KRW-HIVE",
+    "KRW-HP",
+    "KRW-ICP",
+    "KRW-INJ",
+    "KRW-IOST",
+    "KRW-IOTA",
+    "KRW-IRYS",
+    "KRW-KAIA",
+    "KRW-KAVA",
+    "KRW-KITE",
+    "KRW-MINA",
+    "KRW-MON",
+    "KRW-MOVE",
+    "KRW-NEAR",
+    "KRW-NEO",
+    "KRW-NXPC",
+    "KRW-ONG",
+    "KRW-ONT",
+    "KRW-PLUME",
+    "KRW-POLYX",
+    "KRW-PROS",
+    "KRW-QTUM",
+    "KRW-SEI",
+    "KRW-SOL",
+    "KRW-SOMI",
+    "KRW-STRAX",
+    "KRW-SUI",
+    "KRW-TAO",
+    "KRW-THETA",
+    "KRW-TIA",
+    "KRW-TRX",
+    "KRW-VANA",
+    "KRW-VET",
+    "KRW-VTHO",
+    "KRW-WAVES",
+    "KRW-WAXP",
+    "KRW-XCN",
+    "KRW-XEC",
+    "KRW-XLM",
+    "KRW-XPL",
+    "KRW-XRP",
+    "KRW-XTZ",
+    "KRW-ZETA"
+   ],
+   "source": [
+    "layer-1"
+   ],
+   "manual_add": [
+    "KRW-DOT",
+    "KRW-NEO",
+    "KRW-ONT",
+    "KRW-QTUM",
+    "KRW-BSV",
+    "KRW-IOST",
+    "KRW-WAVES",
+    "KRW-STRAX",
+    "KRW-CFX"
+   ]
+  },
+  "privacy": {
+   "name": "프라이버시",
+   "desc": "익명성·기밀 거래",
+   "markets": [
+    "KRW-AZTEC",
+    "KRW-CC",
+    "KRW-MINA",
+    "KRW-ZK"
+   ],
+   "source": [
+    "privacy-coins",
+    "privacy-blockchain"
+   ]
+  },
+  "defi": {
+   "name": "디파이",
+   "desc": "탈중앙 금융 전반",
+   "markets": [
+    "KRW-1INCH",
+    "KRW-AAVE",
+    "KRW-AERO",
+    "KRW-API3",
+    "KRW-AUCTION",
+    "KRW-AVNT",
+    "KRW-AWE",
+    "KRW-BABY",
+    "KRW-BARD",
+    "KRW-BERA",
+    "KRW-BSB",
+    "KRW-CAP",
+    "KRW-CHIP",
+    "KRW-COMP",
+    "KRW-COW",
+    "KRW-CPOOL",
+    "KRW-CRV",
+    "KRW-DEEP",
+    "KRW-DRV",
+    "KRW-EDGE",
+    "KRW-ENA",
+    "KRW-ETHFI",
+    "KRW-EUL",
+    "KRW-F",
+    "KRW-FF",
+    "KRW-FLUID",
+    "KRW-GRVT",
+    "KRW-HOME",
+    "KRW-INJ",
+    "KRW-IOTA",
+    "KRW-JST",
+    "KRW-JTO",
+    "KRW-JUP",
+    "KRW-KAT",
+    "KRW-KERNEL",
+    "KRW-KMNO",
+    "KRW-KNC",
+    "KRW-LAYER",
+    "KRW-LINK",
+    "KRW-LIT",
+    "KRW-MMT",
+    "KRW-MORPHO",
+    "KRW-NMR",
+    "KRW-O",
+    "KRW-ONDO",
+    "KRW-ORBS",
+    "KRW-ORCA",
+    "KRW-ORDER",
+    "KRW-PENDLE",
+    "KRW-PUNDIX",
+    "KRW-PYTH",
+    "KRW-QUID",
+    "KRW-RAY",
+    "KRW-SEI",
+    "KRW-SKY",
+    "KRW-SLX",
+    "KRW-SPK",
+    "KRW-SUN",
+    "KRW-SYRUP",
+    "KRW-T",
+    "KRW-TREE",
+    "KRW-UNI",
+    "KRW-WET",
+    "KRW-WLFI",
+    "KRW-ZBT",
+    "KRW-ZRX"
+   ],
+   "source": [
+    "decentralized-finance-defi",
+    "decentralized-exchange",
+    "lending-borrowing"
+   ],
+   "manual_add": [
+    "KRW-WLFI"
+   ]
+  },
+  "staking": {
+   "name": "스테이킹·리스테이킹",
+   "desc": "유동성 스테이킹",
+   "markets": [
+    "KRW-ALT",
+    "KRW-ANKR",
+    "KRW-BABY",
+    "KRW-BFC",
+    "KRW-ETHFI",
+    "KRW-JTO",
+    "KRW-KERNEL",
+    "KRW-LAYER",
+    "KRW-PENDLE"
+   ],
+   "source": [
+    "liquid-staking",
+    "restaking"
+   ]
+  },
+  "oracle": {
+   "name": "오라클",
+   "desc": "외부 데이터 연결",
+   "markets": [
+    "KRW-API3",
+    "KRW-LINK",
+    "KRW-PYTH",
+    "KRW-RED",
+    "KRW-ZKP"
+   ],
+   "source": [
+    "oracle"
+   ]
+  },
+  "depin": {
+   "name": "DePIN·스토리지",
+   "desc": "탈중앙 물리 인프라·저장",
+   "markets": [
+    "KRW-AKT",
+    "KRW-ANKR",
+    "KRW-ATH",
+    "KRW-BTT",
+    "KRW-FIL",
+    "KRW-GEOD",
+    "KRW-GLM",
+    "KRW-GRT",
+    "KRW-IO",
+    "KRW-IOTA",
+    "KRW-LPT",
+    "KRW-MVL",
+    "KRW-POD",
+    "KRW-POKT",
+    "KRW-POWR",
+    "KRW-RENDER",
+    "KRW-SC",
+    "KRW-TAO",
+    "KRW-TFUEL",
+    "KRW-THETA",
+    "KRW-TRAC",
+    "KRW-WAL"
+   ],
+   "source": [
+    "depin",
+    "storage"
+   ]
+  },
+  "meme": {
+   "name": "밈",
+   "desc": "밈코인",
+   "markets": [
+    "KRW-AHT",
+    "KRW-ANIME",
+    "KRW-BIRB",
+    "KRW-CASHCAT",
+    "KRW-DOGE",
+    "KRW-MEW",
+    "KRW-MOODENG",
+    "KRW-PENGU",
+    "KRW-PEPE",
+    "KRW-PUMP",
+    "KRW-SHIB",
+    "KRW-SPX",
+    "KRW-TOSHI",
+    "KRW-TRUMP",
+    "KRW-WIF"
+   ],
+   "source": [
+    "meme-token"
+   ]
+  },
+  "gaming": {
+   "name": "게임·메타버스",
+   "desc": "게임파이·메타버스",
+   "markets": [
+    "KRW-AXS",
+    "KRW-BEAM",
+    "KRW-BIGTIME",
+    "KRW-BORA",
+    "KRW-CARV",
+    "KRW-GEOD",
+    "KRW-GMT",
+    "KRW-HUNT",
+    "KRW-IMX",
+    "KRW-MANA",
+    "KRW-MOCA",
+    "KRW-NXPC",
+    "KRW-RENDER",
+    "KRW-SAND",
+    "KRW-SONIC",
+    "KRW-SUPER",
+    "KRW-TRAC",
+    "KRW-WAXP",
+    "KRW-YGG"
+   ],
+   "source": [
+    "gaming",
+    "gaming-platform",
+    "metaverse"
+   ]
+  },
+  "social": {
+   "name": "소셜·미디어",
+   "desc": "소셜파이",
+   "markets": [
+    "KRW-CYBER",
+    "KRW-HIVE",
+    "KRW-SNT",
+    "KRW-STEEM",
+    "KRW-ZORA"
+   ],
+   "source": [
+    "socialfi"
+   ]
+  },
+  "interop": {
+   "name": "상호운용·브리지",
+   "desc": "체인 간 연결",
+   "markets": [
+    "KRW-AXL",
+    "KRW-CKB",
+    "KRW-HYPER",
+    "KRW-TRAC",
+    "KRW-W",
+    "KRW-ZRO"
+   ],
+   "source": [
+    "interoperability"
+   ],
+   "manual_add": [
+    "KRW-ZRO"
+   ]
+  },
+  "exchange": {
+   "name": "거래소 토큰",
+   "desc": "중앙화 거래소 발행 토큰",
+   "markets": [
+    "KRW-CRO"
+   ],
+   "source": [
+    "centralized-exchange-token-cex"
+   ]
+  },
+  "cosmos_eco": {
+   "name": "코스모스 생태계",
+   "desc": "IBC 체인",
+   "markets": [
+    "KRW-ATOM",
+    "KRW-INJ",
+    "KRW-TIA"
+   ],
+   "source": [
+    "cosmos-ecosystem"
+   ]
+  }
+ },
+ "unclassified": [
+  "KRW-2Z",
+  "KRW-AGLD",
+  "KRW-ARDR",
+  "KRW-ARX",
+  "KRW-B3",
+  "KRW-BAT",
+  "KRW-BIO",
+  "KRW-BLUR",
+  "KRW-BOUNTY",
+  "KRW-CBK",
+  "KRW-CVC",
+  "KRW-DOOD",
+  "KRW-ENS",
+  "KRW-ENSO",
+  "KRW-ERA",
+  "KRW-ESP",
+  "KRW-EURC",
+  "KRW-FCT2",
+  "KRW-FOLD",
+  "KRW-GAME2",
+  "KRW-GAS",
+  "KRW-ID",
+  "KRW-JPYC",
+  "KRW-MASK",
+  "KRW-MBL",
+  "KRW-ME",
+  "KRW-MED",
+  "KRW-MET2",
+  "KRW-META",
+  "KRW-META2",
+  "KRW-MLK",
+  "KRW-MOC",
+  "KRW-NCT",
+  "KRW-PONS",
+  "KRW-QKC",
+  "KRW-SAFE",
+  "KRW-SKR",
+  "KRW-TOKAMAK",
+  "KRW-TRUST",
+  "KRW-UP2",
+  "KRW-WCT",
+  "KRW-ZAMA"
+ ]
+}

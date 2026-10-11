@@ -9,3 +9,4 @@ dashboard/dashboard.json
 dashboard/dashboard.enc.json
 # 백테스트용 캔들 캐시(재실행 속도용)
 backtest_cache/
+.sector_cache.json
