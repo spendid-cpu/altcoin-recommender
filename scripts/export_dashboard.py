@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import aiohttp
 import pandas as pd
 
-from src import btc_wave_gate, coin_info, funnel, config, cycle, fear_greed, jsonutil, liquidations, macro_calendar, macro_job, orderbook, paper_limit, price_tracker, scan_log, shadow, stock_scan, upbit_extra
+from src import btc_wave_gate, coin_info, funnel, manual_tp, config, cycle, fear_greed, jsonutil, liquidations, macro_calendar, macro_job, orderbook, paper_limit, price_tracker, scan_log, shadow, stock_scan, upbit_extra
 from src.btc_trend import days_above_ma, is_trend_favorable
 from src.exchanges import binance_client
 
@@ -81,6 +81,7 @@ def _nearest_within(snaps: list[tuple[datetime, float]], target: datetime, toler
 def build_recommendations(now: datetime) -> list[dict]:
     """price_history의 진입 기록(is_entry=1) 하나가 '추천' 하나. 이후 스냅샷을 붙여 수익률을 계산한다."""
     out = []
+    hz = manual_tp.signals()  # 일봉 고점권 안내가 나간 추천 (수동 익절 추천 표시용)
     for rec in price_tracker.load_recommendations():
         entry_at, entry_price = rec["entered_at"], rec["entry_price"]
         snaps = rec["snaps"]
@@ -115,6 +116,7 @@ def build_recommendations(now: datetime) -> list[dict]:
             "last_at": last_at.isoformat(),
             "return_pct": pct(last_price),
             "strategy": rec["strategy"],
+            "high_zone": hz.get((rec["market"], entry_at.isoformat())),  # 일봉 고점권 안내(수동 익절 추천)가 나간 추천
             "horizons": horizons,
             "active": ended is None and age_hours < price_tracker.TRACK_DAYS * 24,
             "series": [[0, 0.0]] + [

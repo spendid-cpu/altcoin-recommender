@@ -359,6 +359,8 @@
   .funnel-bar { height: 12px; border-radius: 6px; background: color-mix(in srgb, var(--accent, #4f8cff) 70%, transparent); min-width: 3px; }
   .funnel-track { background: color-mix(in srgb, var(--ink2) 12%, transparent); border-radius: 6px; }
   .funnel-reasons { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
+  .rec.hz { border-color: color-mix(in srgb, var(--warn) 70%, var(--border)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--warn) 45%, transparent); }
+  .rec-hz { margin: 8px 0 0; padding: 6px 9px; border-radius: 8px; font-size: 12.5px; line-height: 1.45; background: color-mix(in srgb, var(--warn) 24%, transparent); color: var(--ink); }
   .rec-warn { margin: 8px 0 0; padding: 5px 9px; border-radius: 8px; font-size: 12.5px; line-height: 1.4; background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--ink); }
   .below-count { margin-left: 8px; font-size: 12.5px; font-weight: 600; padding: 1px 9px; border-radius: 999px; background: color-mix(in srgb, var(--warn) 24%, transparent); }
   .pill.ob-bid { background: color-mix(in srgb, var(--good) 14%, transparent); border-color: transparent; color: var(--ink); }
@@ -692,7 +694,7 @@
     <details class="fold">
       <summary>지지선 지정가 병행 실험<span class="hint">모의 · 실제 주문 아님</span></summary>
       <div class="fold-body">
-        <p class="sub">알트매크로 추천이 추천할 때마다 (1) 그 가격에 바로 산 결과와 (2) 아래쪽 지지선(현재가 -1%~-6% 사이 1시간봉 스윙 저점)에 24시간짜리 지정가를 건 결과를 나란히 기록해요. 지정가는 안 걸리면 취소(수익 0), 걸리면 익절 +5% / 손절 -5% / BTC 이탈 / 3일 만료 규칙을 체결가 기준으로 적용해요. 백테스트에서는 통계적 우위가 확인되지 않아서 라이브로 확인하는 중이에요.</p>
+        <p class="sub">알트매크로 추천이 추천할 때마다 (1) 그 가격에 바로 산 결과와 (2) 아래쪽 지지선(현재가 -1%~-6% 사이 1시간봉 스윙 저점)에 24시간짜리 지정가를 건 결과를 나란히 기록해요. 지정가는 안 걸리면 취소(수익 0), 걸리면 익절 / 손절 / BTC 이탈 / 3일 만료 규칙을 체결가 기준으로 적용해요. 백테스트에서는 통계적 우위가 확인되지 않아서 라이브로 확인하는 중이에요.</p>
         <div id="pp-tiles" class="tiles" aria-label="지정가 병행 실험 요약"></div>
         <div id="pp-compare" class="table-wrap"></div>
         <p id="pp-note" class="card-note"></p>
@@ -708,7 +710,7 @@
           <li>추천이 나온 뒤 추천가 기준 익절선에 닿으면 익절, 손절선에 닿으면 손절로 끝나요. 3일 안에 둘 다 안 닿으면 기간 만료로 끝나고 그때 가격으로 손익을 매겨요.</li>
           <li>승률은 익절 수 ÷ (익절 수 + 손절 수)예요. 기간 만료는 승패에 넣지 않고 따로 세요.</li>
           <li>추천된 종목은 5분마다 가격을 확인해서 선을 넘은 직후의 가격으로 기록돼요. 실제로 선에 닿은 가격과 조금 다를 수 있지만, 그 차이는 보통 0.1% 안팎이에요.</li>
-          <li>익절선과 손절선을 같은 폭으로 두면 아무 종목이나 골랐을 때도 승률이 50% 안팎으로 나와요. 그래서 실제 승률이 그보다 뚜렷하게 높은지가 프로그램의 쓸모를 보는 기준이에요. 종료된 추천이 30건쯤 쌓이기 전에는 우연일 수 있어요.</li>
+          <li>익절은 추천가 대비 +10%, 손절은 -5%, 3일 안에 둘 다 안 닿으면 기간 만료예요(2026-10-12부터 익절을 +5%에서 +10%로 올렸어요). 손절이 익절의 절반이라 본전 승률은 약 33%예요. 일봉이 고점권(스토RSI %K 80 이상)에 닿으면 텔레그램으로 '수동 익절 추천'이 한 번 나가고, 버튼을 누르면 그 추천이 '수동 익절'로 완료돼요. 수동 익절은 수익이면 익절로 세요. 예전 +5% 규칙의 통계와는 승패 구성이 달라서 같은 표에서 비교할 때 주의하세요. 종료된 추천이 30건쯤 쌓이기 전에는 우연일 수 있어요.</li>
           <li>점수·등급(2026-10-12 개편): 각 프레임 통과 점수(일봉 3·4시간 2·1시간 1·15분 0.5·5분 0.25)에 저점 확인(골든크로스) 점수(일봉 4·4시간 3·1시간 2·15분 1·5분 1), 장기 스토RSI 상승 전환(일봉·4시간·1시간 각 1.5)을 더하고, 보조 조건으로 4시간 이평선 합류 근접도(1% 이내 2·2% 이내 1)·최근 3일 급등 이력 적음(5% 미만 1·10% 미만 0.5)·1시간 거래량 급증(1)·BTC 환경(일봉 MA20 위 2·작은 파동 상승 1·큰 파동 상승 1)을 더해요. S 25점·A 21점·B 16점 이상이에요. 조건을 얼마나 충족했는지의 표시일 뿐 성과를 보장하지 않아요 — 점수가 높을수록 결과가 좋아지는지는 라이브로 지켜봐야 해요. 이전 추천의 등급은 옛 기준이에요.</li>
           <li>비트코인 일봉 종가가 MA20 아래여도 알트매크로 추천은 경고와 함께 추천을 계속해요(2026-10-11부터). 이때 나온 추천에는 '⚠ MA20 아래 진입' 표시가 붙고 BTC 이탈 전량 정리는 적용하지 않아요.</li>
           <li>알트매크로 추천은 2026-10-11부터 일봉 스토캐스틱 RSI 저점이 확인된(저점권에서 %K가 %D 위로 올라선 골든크로스) 종목만 추천해요. 4시간은 막 20 이하로 내려온 최초 도달도 허용하고, 1시간·15분·5분 저점 조건은 그대로예요. 백테스트에서는 손절이 줄어드는 근거가 없었고 추천 수만 줄어요(일봉만 확인하면 약 44% 남음) — 라이브에서 지켜보는 규칙이에요.</li>
@@ -1082,6 +1084,8 @@
 // v1.19 (2026-10-05) 업비트 공개 API 참고 정보 3가지 추가: 추천 카드의 '체결 매수 N%'(실제 체결 중 사는 쪽 비중, 추천 순간 -> 지금), 업비트 공식 시장 경고 배지(거래량 급증·해외 가격 차이 등), 비트코인 분석 화면의 BTC 김치 프리미엄 타일. 모두 참고용
 // v1.20 (2026-10-07) '주식' 탭 추가(실험): 코스피·코스닥 지수 상태, 마감 주봉 RSI(14) 30 이하 신규 후보(시장별), 추천 기록·4주 성과 통계. 알림 없이 기록만
 // v1.21 (2026-10-07) 주식 카드의 거래대금 칩에 마우스를 올리거나 탭하면 최근 26주 종가·일평균 거래대금 흐름 팝업
+// v1.37 (2026-10-12) 익절 +5% -> +10%(손절 -5%·3일 만료 그대로) + 일봉 고점권 안내/수동 익절: 추적 중인 추천의 일봉 스토RSI %K가 처음 80 이상에 닿으면 텔레그램으로 한 번 안내하고(버튼 '수동 익절'),
+//   카드에 '🔔 수동 익절 추천' 표시. 버튼을 누르면 '수동 익절'로 완료 처리(완료 가격은 처리 시각의 현재가). 통계에서는 수익이면 익절로 셈
 // v1.36 (2026-10-12) 새 점수(score_v 2) 이전에 나간 추천의 등급에 '옛 기준' 표시
 // v1.35 (2026-10-12) 점수·등급 개편: S/A/B 등급(S 25점·A 21점·B 16점 이상). 저점 확인(골든크로스) 점수를 프레임별로 차등(일봉 4·4시간 3·1시간 2·15분 1·5분 1), 장기 전환은 상위 3개 프레임 1.5점,
 //   보조 조건(4시간 이평선 합류 근접도·최근 급등 이력·거래량·BTC 일봉 MA20 위/작은·큰 파동 상승)을 '보조' 항목으로 가산. 등급은 조건 충족도 표시이고 성과 보장이 아님
@@ -1102,14 +1106,14 @@
 // v1.24 (2026-10-09) 오늘 화면에 공포·탐욕 지수 타일(참고) + 라이브 검증 현황에 '탐욕 구간 손절' 카드. 추천 순간 지수는 detail.fng로 기록
 // v1.23 (2026-10-07) 팝업을 주봉 캔들+거래대금(상승·하락 색)+RSI(30선)로 바꾸고, 주식 공시·뉴스 / 코인 업비트 공지·뉴스 칩 추가(표시 전용)
 // v1.22 (2026-10-07) 시가총액 칩(주식: 네이버 증권, 코인: CoinGecko) + 코인 추천 카드에도 지난주 거래대금·시총 칩과 같은 주봉 팝업(종가·주간 거래대금·RSI)
-const APP_VERSION = 'v1.36';
+const APP_VERSION = 'v1.37';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DATA_URL = 'dashboard.json';
 const STALE_MINUTES = 45;
 const EXPECTED_GAP_MINUTES = 15;
 const FRAME_LABEL = { day: '일봉', '4h': '4시간', '1h': '1시간', '15m': '15분', '5m': '5분', extra: '보조' };
-const EXIT_LABEL = { take_profit: '익절', stop_loss: '손절', trailing: '되돌림', expired: '기간 만료', excluded: '제외 정리', btc_exit: 'BTC 이탈 정리' };
+const EXIT_LABEL = { take_profit: '익절', stop_loss: '손절', trailing: '되돌림', expired: '기간 만료', excluded: '제외 정리', btc_exit: 'BTC 이탈 정리', manual_tp: '수동 익절' };
 const $ = (sel, root = document) => root.querySelector(sel);
 
 let DATA = null;
@@ -1193,7 +1197,7 @@ const shortName = (m) => m.replace(/^KRW-/, '');
 const marketLabel = (m, cls = 'rec-name') => h('span', { class: cls }, h('small', { text: 'KRW' }), shortName(m));
 function exitRulesOf(d) {
   const x = d.exit_rules || {};
-  return { tp: x.take_profit_pct ?? 5, sl: x.stop_loss_pct ?? 5, days: x.track_days || d.track_days || 3 };
+  return { tp: x.take_profit_pct ?? 10, sl: x.stop_loss_pct ?? 5, days: x.track_days || d.track_days || 3 };
 }
 // 손절(-) ~ 익절(+) 사이에서 지금 수익률이 어디쯤인지 보여주는 막대
 function gaugeBar(ret, tp, sl) {
@@ -1564,6 +1568,14 @@ function renderNotice(d) {
 }
 
 // 추천 카드: 손절~익절 사이 지금 위치를 한눈에 (진행 중이면 현재가, 끝났으면 종료가 기준)
+// 일봉 고점권 안내(수동 익절 추천): 진행 중인 추천의 일봉 스토RSI가 처음 고점권에 닿으면 서버가 한 번 안내하고 이 표시가 뜬다
+const hzActive = (r) => !!(r.high_zone && !r.exit);
+function hzNote(r) {
+  if (!hzActive(r)) return null;
+  const z = r.high_zone;
+  return h('div', { class: 'rec-hz' }, h('strong', { text: '🔔 수동 익절 추천' }),
+    ` · 일봉이 고점권에 닿았어요(스토RSI %K ${z.k ?? '—'}, 당시 추천가 대비 ${z.ret == null ? '—' : signed(z.ret)}). 텔레그램 안내 메시지의 '수동 익절' 버튼을 누르면 완료 처리돼요. 누르지 않으면 익절·손절·만료 규칙대로 계속 따라가요.`);
+}
 function recCard(r, d) {
   const { tp, sl, days } = exitRulesOf(d);
   const o = outcomeOf(r);
@@ -1575,12 +1587,13 @@ function recCard(r, d) {
   const meta = [h('span', { class: 'strat', text: '알트매크로' }), gradePillRec(r), lowPill(r), belowPill(r), flagPill(r, d), chipFold(r, [...coinChips(r, d), unlockChip(r, d), ...sectorPills(r, d)])];
   const gauge = gaugeBar(ret, tp, sl);
   gauge.querySelector('.gauge-labels').replaceChildren(h('span', { text: `손절 ${fmtKRW(slPrice)}` }), h('span', { text: `익절 ${fmtKRW(tpPrice)}` }));
-  return h('article', { class: 'rec' },
+  return h('article', { class: hzActive(r) ? 'rec hz' : 'rec' },
     h('div', { class: 'rec-top' },
       h('div', {}, marketLabel(r.market), h('div', { class: 'rec-meta' }, meta)),
       h('div', { class: `rec-ret ${upDown(ret)}` }, signed(ret), h('small', { text: `${holdText(elapsed)} 경과` }))),
     h('div', { class: 'rec-price', text: `${fmtKRW(r.entry_price)} → ${fmtKRW(endPrice)}` }),
     belowNote(r),
+    hzNote(r),
     gauge,
     h('div', { class: 'rec-foot' }, h('span', { text: `추천 ${kst(r.entered_at)}` }), h('span', { text: left > 0 ? `만료까지 ${holdText(left)}` : '만료 시각 지남' })));
 }
@@ -1591,8 +1604,9 @@ function renderHomeActive(d) {
   const active = mainRecs(d).filter((r) => !isDone(r)).sort((a, b) => b.entered_at.localeCompare(a.entered_at));
   $('#h-home-active').firstChild.nodeValue = `진행 중인 ${mainName(d)}`;
   const gate = gateOf(d);
-  const nBelow = belowCount(active);
+  const nBelow = belowCount(active), nHz = active.filter(hzActive).length;
   $('#home-active-count').replaceChildren(active.length ? `${active.length}건` : '',
+    nHz ? h('span', { class: 'below-count', title: '일봉이 고점권에 닿은 추천 — 텔레그램의 수동 익절 버튼으로 완료할 수 있어요', text: `🔔 수동 익절 추천 ${nHz}건` }) : null,
     nBelow ? h('span', { class: 'below-count', title: '비트코인 일봉이 MA20 아래일 때 나온 추천', text: `⚠ MA20 아래 진입 ${nBelow}건` }) : null);
   if (!active.length) {
     host.replaceChildren(h('div', { style: 'grid-column:1/-1' }, empty(btcBlocks(d)
@@ -2024,7 +2038,7 @@ function renderExperiments(d) {
     const ready = groups.some((g) => g.v.n >= TARGET && g.v.days >= 10);
     cards.push(expCard({
       title: '막은 추천의 사후 성과',
-      what: '규칙(일봉 저점 확인, 작은 파동 하락 게이트) 때문에 추천하지 못한 종목을 막지 않았다면 추천이 됐을 시점에 가상으로 진입한 걸로 치고, 실제 추천과 같은 규칙(-5%·+5%·3일)으로 따라가요. 두 규칙은 백테스트로 이득이 입증되지 않았어서, 막은 쪽이 정말 더 나빴는지를 라이브로 확인해요.',
+      what: '규칙(일봉 저점 확인, 작은 파동 하락 게이트) 때문에 추천하지 못한 종목을 막지 않았다면 추천이 됐을 시점에 가상으로 진입한 걸로 치고, 실제 추천과 같은 익절·손절·3일 규칙으로 따라가요. 두 규칙은 백테스트로 이득이 입증되지 않았어서, 막은 쪽이 정말 더 나빴는지를 라이브로 확인해요.',
       state: ready ? { text: '판단 가능', cls: 'ready' } : { text: '수집 중 · 결론 보류', cls: '' },
       bars: groups.map((g) => expProg(`${g.name} 종료`, g.v.n, TARGET)),
       reading: [...groups.map((g) => line(g.name, g.v)), line('실제 알트매크로 추천(전체)', R), `아직 진행 중인 가상 진입 ${openN}건 · 가상 진입은 막힌 순간부터 쌓여요(2026-10-12~)`],
@@ -3370,6 +3384,7 @@ function renderMacro(d) {
 const BACKTEST_REF = { rule: [255, 215], old: [365, 291], random: [1004, 829] };
 const RESULT_INFO = {
   take_profit: { label: '익절', mark: '▲', cls: 'tp' },
+  manual_tp: { label: '수동 익절', mark: '▲', cls: 'tp' },
   stop_loss: { label: '손절', mark: '▼', cls: 'sl' },
   trailing: { label: '되돌림 종료', mark: '▼', cls: 'sl' },
   expired: { label: '기간 만료', mark: '■', cls: '' },
@@ -3389,9 +3404,10 @@ function perfSummary(recs) {
   const s = { total: recs.length, take_profit: 0, stop_loss: 0, trailing: 0, expired: 0, active: 0, closedRets: [], expiredRets: [] };
   for (const r of recs) {
     const o = outcomeOf(r);
-    s[o.key] = (s[o.key] || 0) + 1;
+    const key = o.key === 'manual_tp' ? (o.ret > 0 ? 'take_profit' : 'expired') : o.key;  // 수동 익절은 수익이면 익절 칸에 센다
+    s[key] = (s[key] || 0) + 1;
     if (o.closed && o.ret != null) s.closedRets.push(o.ret);
-    if (o.key === 'expired' && o.ret != null) s.expiredRets.push(o.ret);
+    if (key === 'expired' && o.ret != null) s.expiredRets.push(o.ret);
   }
   s.closed = s.total - s.active;
   s.decided = s.take_profit + s.stop_loss;
@@ -3492,11 +3508,12 @@ function wilson(w, n) {  // 승률의 95% 신뢰구간(%)
 
 function renderWinRate(recs) {
   const tilesEl = $('#pw-tiles'), stripEl = $('#pw-strip'), chartEl = $('#pw-chart'), note = $('#pw-note');
-  const isWin = (r) => r.exit.reason === 'take_profit';
-  const decided = recs.filter((r) => r.exit && (r.exit.reason === 'take_profit' || r.exit.reason === 'stop_loss'))
+  const winKey = (r) => (r.exit.reason === 'manual_tp' ? (r.exit.return_pct > 0 ? 'take_profit' : 'expired') : r.exit.reason);  // 수동 익절은 수익이면 익절로 센다
+  const isWin = (r) => winKey(r) === 'take_profit';
+  const decided = recs.filter((r) => r.exit && (winKey(r) === 'take_profit' || winKey(r) === 'stop_loss'))
     .sort((a, b) => new Date(a.exit.ended_at) - new Date(b.exit.ended_at));
   const skipped = { expired: 0, btc_exit: 0, excluded: 0, trailing: 0 };
-  for (const r of recs) if (r.exit && r.exit.reason in skipped) skipped[r.exit.reason] += 1;
+  for (const r of recs) if (r.exit && winKey(r) in skipped) skipped[winKey(r)] += 1;
   chartEl.replaceChildren(); stripEl.replaceChildren();
   if (!decided.length) {
     tilesEl.replaceChildren();

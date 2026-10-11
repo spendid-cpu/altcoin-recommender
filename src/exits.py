@@ -20,6 +20,7 @@ REASONS = {
     "trailing": "📉 고점 대비 되돌림",
     "expired": "⏰ 추적 기간 만료",
     "btc_exit": "🪙 BTC 20일선 이탈 — 전량 정리",
+    "manual_tp": "🖐 수동 익절",
 }
 # 이 기간보다 오래전에 이미 만료된 추천(기능 도입 전 기록 등)은 알림 없이 조용히 종료 처리한다
 EXPIRY_NOTICE_WINDOW = timedelta(days=1)

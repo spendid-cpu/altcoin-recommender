@@ -168,7 +168,7 @@ def build_delta_report(
     all_recs = price_tracker.load_recommendations()
     new_n = sum(1 for r in all_recs if r["entered_at"] > since)
     ended = [r["exit"]["reason"] for r in all_recs if r["exit"] and r["exit"]["ended_at"] > since]
-    labels = {"take_profit": "익절", "stop_loss": "손절", "btc_exit": "BTC 이탈", "expired": "만료", "trailing": "되돌림"}
+    labels = {"take_profit": "익절", "manual_tp": "수동 익절", "stop_loss": "손절", "btc_exit": "BTC 이탈", "expired": "만료", "trailing": "되돌림"}
     ended_text = ", ".join(f"{labels.get(k, k)} {ended.count(k)}" for k in dict.fromkeys(ended))
 
     movers = []

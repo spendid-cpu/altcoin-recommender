@@ -13,7 +13,7 @@
 
 import aiohttp
 
-from src import exits, gap_replay, macro_job, migrations, pipeline, report, shadow
+from src import exits, gap_replay, macro_job, manual_tp, migrations, pipeline, report, shadow
 from src.scanner import check_btc_trend
 
 
@@ -36,6 +36,10 @@ async def run_once(session: aiohttp.ClientSession) -> None:
     # 종료 알림의 BTC 필터 표기, BTC 이탈 정리, 모의 지정가 취소 판단에 모두 쓰이는 실제 추세.
     # (여기서는 새 후보를 스캔하지 않으므로 candidates=[]는 항상 빈 목록이다.)
     favorable = await check_btc_trend(session)
+    try:  # 텔레그램 '수동 익절' 버튼은 추적할 추천이 없어도 받아서 처리한다
+        await manual_tp.poll_actions(session)
+    except Exception as exc:
+        print(f"[수동 익절] 버튼 확인 실패(추적은 계속): {exc!r}")
     try:  # 규칙에 막힌 추천의 그림자 진입도 5분마다 가격을 확인한다 (실제 추천과 같은 간격)
         await shadow.update(session)
     except Exception as exc:
@@ -46,6 +50,10 @@ async def run_once(session: aiohttp.ClientSession) -> None:
         await pipeline._update_paper(session, favorable)
         return
     closed = await exits.process_exits(session, prices, [], btc_filter_on=favorable)
+    try:  # 일봉이 처음 고점권에 닿은 추천을 한 번 안내한다 (종료된 건 제외하려고 종료 처리 뒤에 본다)
+        await manual_tp.check_high_zone(session, prices)
+    except Exception as exc:
+        print(f"[일봉 고점권] 확인 실패(추적은 계속): {exc!r}")
     await report.maybe_send_report(session, prices, [], btc_filter_on=favorable)
     await pipeline._update_paper(session, favorable)
     print(f"추적 {len(prices)}종목 확인, 종료 {closed}건")

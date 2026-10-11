@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 
 import aiohttp
 
-from src import btc_context, scoring, btc_wave_gate, config, cycle, exits, fear_greed, funnel, macro_job, market_cap, migrations, paper_limit, price_tracker, report, scan_log, shadow, state_store, telegram_client
+from src import btc_context, manual_tp, scoring, btc_wave_gate, config, cycle, exits, fear_greed, funnel, macro_job, market_cap, migrations, paper_limit, price_tracker, report, scan_log, shadow, state_store, telegram_client
 from src.exchanges import upbit_client
 from src.notifier import diff_alerts
 from src.scanner import check_btc_trend, scan_all
@@ -216,6 +216,7 @@ async def run_once(session: aiohttp.ClientSession) -> None:
     # BTC가 MA20 위일 때 들어간 추천은 BTC 이탈 규칙대로 정리하고, 경고를 달고 나간 추천은 exits.check_exit가 뺀다.
     await exits.process_exits(session, prices, candidates, btc_filter_on=favorable)
     await _update_paper(session, True)
+    await _manual_tp_cycle(session, prices)
     try:  # 그림자 진입(막힌 추천)의 가격 확인·종료
         await shadow.update(session)
     except Exception as exc:
@@ -226,6 +227,18 @@ async def run_once(session: aiohttp.ClientSession) -> None:
     await _send_heartbeat(
         session, f"💓 {now} 스캔 완료 — 후보 {len(candidates)}개, 알림 {len(alerts)}건" + (" (BTC MA20 아래 경고)" if btc_warn else "")
     )
+
+
+async def _manual_tp_cycle(session: aiohttp.ClientSession, prices: dict[str, float]) -> None:
+    """텔레그램 '수동 익절' 버튼 처리 + 일봉 고점권에 처음 닿은 추천 안내. 실패해도 스캔/추적 사이클은 계속 진행한다."""
+    try:
+        await manual_tp.poll_actions(session)
+    except Exception as exc:
+        print(f"[수동 익절] 버튼 확인 실패(사이클은 계속): {exc!r}")
+    try:
+        await manual_tp.check_high_zone(session, prices)
+    except Exception as exc:
+        print(f"[일봉 고점권] 확인 실패(사이클은 계속): {exc!r}")
 
 
 async def _update_paper(session: aiohttp.ClientSession, btc_favorable: bool) -> None:
