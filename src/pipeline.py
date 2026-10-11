@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 
 import aiohttp
 
-from src import btc_wave_gate, config, cycle, exits, fear_greed, macro_job, market_cap, orderbook, original_alerts, original_scanner, paper_limit, price_tracker, report, scan_log, state_store, telegram_client, upbit_extra
+from src import btc_context, btc_wave_gate, config, cycle, exits, fear_greed, macro_job, market_cap, orderbook, original_alerts, original_scanner, paper_limit, price_tracker, report, scan_log, state_store, telegram_client, upbit_extra
 from src.scoring import find_support_lows
 from src.exchanges import upbit_client
 from src.notifier import diff_alerts
@@ -163,6 +163,11 @@ async def run_once(session: aiohttp.ClientSession) -> None:
     if not telegram_client.is_configured():
         print("(텔레그램 미설정 -> 콘솔에만 출력, .env에 TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID를 넣으면 전송됨)")
     candidate_by_market = {c.market: c for c in candidates}
+    try:
+        btc_ctx = btc_context.snapshot() if any(a.kind == "new_candidate" for a in alerts) else None
+    except Exception as exc:
+        print(f"[BTC 컨텍스트] 기록값 준비 실패(기록만 생략): {exc!r}")
+        btc_ctx = None
     for a in alerts:
         print(f"  [{a.kind}] {a.message}")
         # 알림 하나(전송 실패 등)에서 난 오류로 나머지 알림·진입 기록이 막히면 안 된다
@@ -178,6 +183,8 @@ async def run_once(session: aiohttp.ClientSession) -> None:
                 detail = c.breakdown()
                 if btc_warn:  # MA20 아래에서 경고를 달고 나간 추천 표식 — 나중에 따로 성과를 비교하고, BTC 이탈 정리 대상에서도 뺀다
                     detail = {**detail, "btc_below_ma20": True}
+                if btc_ctx is not None:  # 추천 순간의 BTC 지표 상태(일목·MACD·볼린저·파동·MVRV) — 나중에 검증하려는 기록, 추천 판단에는 안 씀
+                    detail = {**detail, "btc_ctx": btc_ctx}
                 rec_at = price_tracker.record_entry(a.market, c.current_price, c.grade, round(c.total_score, 1), detail)
                 paper_limit.place(a.market, rec_at, c.current_price, c.support_lows)
             except Exception as exc:
@@ -236,6 +243,11 @@ async def _run_baseline_scan(session: aiohttp.ClientSession, markets: list[str],
             print(f"기준선: 진입 시점 체결·경고 조회 실패(기록만 생략): {exc!r}")
             snap = {}
         fng = fear_greed.latest_value()  # 추천 순간의 공포·탐욕 지수 (참고용 기록, 추천 판단에는 안 씀)
+        try:  # 추천 순간의 BTC 지표 상태 (일목·MACD·볼린저·파동·MVRV, 기록만)
+            btc_ctx = btc_context.snapshot()
+        except Exception as exc:
+            print(f"기준선: BTC 컨텍스트 준비 실패(기록만 생략): {exc!r}")
+            btc_ctx = None
         entered = []
         for market, result in found:
             price = prices.get(market)
@@ -251,6 +263,8 @@ async def _run_baseline_scan(session: aiohttp.ClientSession, markets: list[str],
                 extra["caution"] = sn["caution"]
             if fng is not None:
                 extra["fng"] = fng
+            if btc_ctx is not None:
+                extra["btc_ctx"] = btc_ctx
             rec_at = price_tracker.record_entry(
                 market, price, "-", round(result.score, 1), original_scanner.breakdown(result, vol_pct, extra), strategy="original")
             entered.append((market, price, round(result.score, 1), vol_pct, prior.get(market), ob["imb"] if ob else None, (sn.get("flow") or {}).get("buy"), sn.get("caution") or []))

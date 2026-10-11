@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo
 import aiohttp
 import pandas as pd
 
-from src import btc_macro, btc_watch, coin_info, config, fear_greed, jsonutil, liquidations, macro_calendar, orderbook, state_store, telegram_client, upbit_extra, volume_profile
+from src import btc_context, btc_macro, btc_mvrv, btc_watch, coin_info, config, fear_greed, jsonutil, liquidations, macro_calendar, orderbook, state_store, telegram_client, upbit_extra, volume_profile
 from src.exchanges import binance_client
 
 KST = ZoneInfo("Asia/Seoul")
@@ -63,6 +63,10 @@ async def build_macro(session: aiohttp.ClientSession) -> dict:
     )
     macro = btc_macro.analyse(day, h4_long, h1, price, week=week)  # 분석과 차트 모두 최근 6개월 4시간봉
     macro["generated_at"] = datetime.now(timezone.utc).isoformat()
+    try:  # 추천 순간 기록용 BTC 지표 상태(일목·MACD·볼린저·파동). 기록 전용이라 계산 문제로 매크로 분석 전체가 실패하면 안 된다
+        macro["ctx"] = btc_context.build(day, h4_long, (macro.get("fib") or {}).get("waves"))
+    except Exception as exc:
+        print(f"[BTC 컨텍스트] 계산 실패(건너뜀): {type(exc).__name__}: {exc}")
     try:  # 거래 매물대(체결 기반)는 참고 표시라 계산 문제로 매크로 분석 전체가 실패하면 안 된다
         macro["profile"] = volume_profile.build(h4_long, price)
     except Exception as exc:
@@ -293,6 +297,10 @@ async def run(session: aiohttp.ClientSession) -> None:
         await fear_greed.refresh(session)
     except Exception as exc:
         print(f"[공포·탐욕] 수집 실패(이번 사이클은 건너뜀): {type(exc).__name__}: {exc}")
+    try:  # 비트코인 MVRV Z-score (추천 순간 기록용, 하루 두 번만 받음)
+        await btc_mvrv.refresh(session)
+    except Exception as exc:
+        print(f"[MVRV] 수집 실패(이번 사이클은 건너뜀): {type(exc).__name__}: {exc}")
     try:  # 코인 카드의 주봉 이력·시가총액 (1시간에 한 번, 새 추천 종목은 바로)
         await coin_info.refresh(session)
     except Exception as exc:
