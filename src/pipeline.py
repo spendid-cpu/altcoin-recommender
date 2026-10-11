@@ -24,6 +24,29 @@ async def _send_heartbeat(session: aiohttp.ClientSession, text: str) -> None:
             print(f"[하트비트] 전송 실패(무시): {exc!r}")
 
 
+BTC_MA20_STATE_KEY = "btc_ma20_state"  # 직전 스캔의 BTC 일봉 MA20 위/아래 ('above' | 'below') — 바뀔 때만 알린다
+
+
+async def _notify_btc_ma20(session: aiohttp.ClientSession, favorable: bool) -> None:
+    """BTC 일봉 종가가 MA20을 넘나들 때 한 번 알린다 (개선판이 알림 주체일 때만, 첫 스캔은 알리지 않고 상태만 저장)."""
+    cur = "above" if favorable else "below"
+    prev = state_store.get_meta(BTC_MA20_STATE_KEY)
+    state_store.set_meta(BTC_MA20_STATE_KEY, cur)
+    if prev is None or prev == cur or config.ALERT_STRATEGY != "legacy" or not telegram_client.is_configured():
+        return
+    if favorable:
+        text = "🟢 BTC 일봉 종가가 MA20 위로 올라왔어요 — MA20 아래 경고를 해제해요"
+    elif config.BTC_FILTER_MODE == "warn":
+        text = ("⚠️ BTC 일봉 종가가 MA20 아래로 내려갔어요 — 개선판 추천은 계속 나오지만 하락장 추천이라 위험이 더 커요. "
+                "이때 나온 추천에는 BTC 이탈 정리를 적용하지 않아요")
+    else:
+        text = "🔴 BTC 일봉 종가가 MA20 아래로 내려갔어요 — 개선판 신규 추천을 멈춰요 (이미 추천한 종목은 BTC 이탈 규칙대로 정리)"
+    try:
+        await telegram_client.send_message(session, text)
+    except Exception as exc:
+        print(f"[BTC MA20] 상태 변경 알림 전송 실패(무시): {exc!r}")
+
+
 CYCLE_IDLE_REFRESH_MIN = 55  # BTC 필터가 꺼져 스캔이 일찍 끝나는 동안에도 사이클·섹터 탭 데이터는 이 시간이 지나면 새로 만든다
 
 
@@ -63,6 +86,13 @@ async def run_once(session: aiohttp.ClientSession) -> None:
 
     favorable = await check_btc_trend(session)
     print(f"[BTC 추세] 일봉 종가 MA20 위 {config.BTC_HOLD_DAYS}일 이상 유지: {favorable}")
+    btc_warn = (not favorable) and config.BTC_FILTER_MODE == "warn"  # MA20 아래여도 경고만 달고 추천은 계속한다 (config.BTC_FILTER_MODE)
+    if btc_warn:
+        print("⚠️ BTC 일봉이 MA20 아래 — 경고와 함께 추천은 계속합니다 (BTC_FILTER_MODE=warn)")
+    try:
+        await _notify_btc_ma20(session, favorable)
+    except Exception as exc:
+        print(f"[BTC MA20] 상태 기록 실패(무시): {exc!r}")
     try:  # 작은 파동 게이트: 막혀 있으면 개선판 신규 추천만 보류 (대조군·추적·종료는 그대로). 계산이 실패하면 막지 않는다
         gate, gate_changed = btc_wave_gate.evaluate()
     except Exception as exc:
@@ -70,7 +100,7 @@ async def run_once(session: aiohttp.ClientSession) -> None:
         gate, gate_changed = {"blocked": False, "known": False, "small": None, "note": "계산 실패"}, False
     small = gate.get("small") or {}
     print(f"[BTC 작은 파동 게이트] {config.BTC_WAVE_GATE}: " + ("보류 중" if gate["blocked"] else "통과") + f" — 작은 파동 {small.get('label', gate.get('note') or '-')}")
-    if not favorable:
+    if not favorable and not btc_warn:
         print("BTC 추세 불리 -> 알트코인 추천 중지 (설계 문서: BTC 추세 필터)")
         # BTC 추세가 꺾이면 현재 후보는 모두 없는 것으로 본다. 추적 기간이 끝난 종목은 상태를 비워 다음에
         # 추세가 돌아왔을 때 새 추천으로 알리고, 추적 중인 종목은 이미 알린 단계를 유지해 중복 알림을 막는다.
@@ -120,7 +150,7 @@ async def run_once(session: aiohttp.ClientSession) -> None:
 
     # candidates가 비어 있어도 diff_alerts/save_all은 실행한다 — 이번에 후보에서 빠진 종목의 상태를
     # 정리해야 하기 때문이다 (추적이 끝난 종목은 초기화, 추적 중인 종목은 알린 단계 유지).
-    alerts, new_states = diff_alerts(candidates, gate_blocked=gate["blocked"])
+    alerts, new_states = diff_alerts(candidates, gate_blocked=gate["blocked"], btc_warning=btc_warn)
     state_store.save_all(new_states)
 
     legacy_alerts_on = config.ALERT_STRATEGY == "legacy"
@@ -145,7 +175,10 @@ async def run_once(session: aiohttp.ClientSession) -> None:
             try:
                 # 발굴 시점의 가격/등급/점수를 '진입 기록'으로 남긴다 — 이후 계속 추적해 실제 수익률을 검증하는 원본 데이터.
                 c = candidate_by_market[a.market]
-                rec_at = price_tracker.record_entry(a.market, c.current_price, c.grade, round(c.total_score, 1), c.breakdown())
+                detail = c.breakdown()
+                if btc_warn:  # MA20 아래에서 경고를 달고 나간 추천 표식 — 나중에 따로 성과를 비교하고, BTC 이탈 정리 대상에서도 뺀다
+                    detail = {**detail, "btc_below_ma20": True}
+                rec_at = price_tracker.record_entry(a.market, c.current_price, c.grade, round(c.total_score, 1), detail)
                 paper_limit.place(a.market, rec_at, c.current_price, c.support_lows)
             except Exception as exc:
                 print(f"  {a.market} 진입 기록 실패(이번 사이클은 건너뜀): {exc!r}")
@@ -153,13 +186,15 @@ async def run_once(session: aiohttp.ClientSession) -> None:
     await _run_baseline_scan(session, markets, candle_cache)
 
     prices = await track_prices(session)
-    await exits.process_exits(session, prices, candidates, btc_filter_on=True)
+    # warn 모드에서 MA20 아래여도 이번 스캔에서 후보를 받았으니 리포트는 일반 상태로 쓴다. 종료 판단에는 실제 BTC 상태를 넘겨서
+    # BTC가 MA20 위일 때 들어간 추천은 BTC 이탈 규칙대로 정리하고, 경고를 달고 나간 추천은 exits.check_exit가 뺀다.
+    await exits.process_exits(session, prices, candidates, btc_filter_on=favorable)
     await _update_paper(session, True)
     await report.maybe_send_report(session, prices, candidates, btc_filter_on=True)
-    scan_log.record_scan(btc_favorable=True, candidates=len(candidates), alerts=len(alerts))
+    scan_log.record_scan(btc_favorable=favorable, candidates=len(candidates), alerts=len(alerts))
 
     await _send_heartbeat(
-        session, f"💓 {now} 스캔 완료 — 후보 {len(candidates)}개, 알림 {len(alerts) if legacy_alerts_on else 0}건"
+        session, f"💓 {now} 스캔 완료 — 후보 {len(candidates)}개, 알림 {len(alerts) if legacy_alerts_on else 0}건" + (" (BTC MA20 아래 경고)" if btc_warn else "")
     )
 
 

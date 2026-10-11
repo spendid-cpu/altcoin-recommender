@@ -733,6 +733,7 @@
           <li>추천된 종목은 5분마다 가격을 확인해서 선을 넘은 직후의 가격으로 기록돼요. 실제로 선에 닿은 가격과 조금 다를 수 있지만, 그 차이는 보통 0.1% 안팎이에요.</li>
           <li>익절선과 손절선을 같은 폭으로 두면 아무 종목이나 골랐을 때도 승률이 50% 안팎으로 나와요. 그래서 실제 승률이 그보다 뚜렷하게 높은지가 프로그램의 쓸모를 보는 기준이에요. 종료된 추천이 30건쯤 쌓이기 전에는 우연일 수 있어요.</li>
           <li>대조군과 개선판은 매도 규칙이 같아서(익절 +5%·손절 -5%·3일 만료) 종료 손익을 그대로 비교할 수 있어요. 다만 대조군은 규칙(진입 조건·BTC 필터 일수)이 처음부터 다르니, 결국 비교하는 건 '진입을 어떻게 잡느냐'의 차이예요. 지금은 개선판이 텔레그램 알림을 보내는 메인이고(BTC 작은 파동이 하락 중이면 신규 추천을 보류하는 시험 규칙 적용), 대조군은 규칙을 그대로 둔 채 알림 없이 기록만 해요.</li>
+          <li>비트코인 일봉 종가가 MA20 아래여도 개선판은 경고와 함께 추천을 계속해요(2026-10-11부터). 이때 나온 추천에는 '⚠ MA20 아래 진입' 표시가 붙고 BTC 이탈 전량 정리는 적용하지 않아요. 대조군은 처음 규칙대로 MA20 위 2일 이상일 때만 추천해요.</li>
           <li>변동폭 표식(🔹낮음 / 🔸높음)은 대조군 추천을 최근 14일 평균 일중 등락폭 7.1%로 나눈 표시예요. 추천 대상은 그대로이고, 표식별 성과를 쌓아서 비교하려는 용도예요.</li>
           <li>투자 권유가 아니에요. 정해 둔 기준에 도달했는지를 기록하는 화면이에요.</li>
         </ul>
@@ -1104,6 +1105,8 @@
 // v1.19 (2026-10-05) 업비트 공개 API 참고 정보 3가지 추가: 추천 카드의 '체결 매수 N%'(실제 체결 중 사는 쪽 비중, 추천 순간 -> 지금), 업비트 공식 시장 경고 배지(거래량 급증·해외 가격 차이 등), 비트코인 분석 화면의 BTC 김치 프리미엄 타일. 모두 참고용
 // v1.20 (2026-10-07) '주식' 탭 추가(실험): 코스피·코스닥 지수 상태, 마감 주봉 RSI(14) 30 이하 신규 후보(시장별), 추천 기록·4주 성과 통계. 알림 없이 기록만
 // v1.21 (2026-10-07) 주식 카드의 거래대금 칩에 마우스를 올리거나 탭하면 최근 26주 종가·일평균 거래대금 흐름 팝업
+// v1.28 (2026-10-11) BTC 일봉이 MA20 아래여도 개선판은 경고와 함께 추천을 계속한다(BTC_FILTER_MODE=warn, 대조군은 처음 규칙 그대로): 오늘 화면 경고 배너·BTC 필터 타일 '경고',
+//   MA20 아래에서 나간 추천에 '⚠ MA20 아래 진입' 표식(detail.btc_below_ma20, BTC 이탈 정리 제외), 라이브 검증 현황에 'MA20 아래 진입 추천' 카드
 // v1.27 (2026-10-11) 알림·화면 중심을 개선판으로 되돌림(대조군은 규칙 그대로 기록만, 저장소 변수 ALERT_STRATEGY=original로 복귀 가능) + 'BTC 작은 파동 게이트':
 //   작은 파동이 하락 파동이면 개선판 신규 추천을 보류(후보 표에 '보류' 표시, 오늘 화면 타일). 사전 등록 백테스트는 통과했지만 라이브 3주는 반대라 '시험 중인 보류'
 // v1.26 (2026-10-11) 토큰 언락(유통량이 늘어나는 시점) 열: 사이클·섹터 표의 '다음 언락'(날짜·유통량 대비 %, 30일 합계)과 추천 카드의 '언락 D-n' 칩. DefiLlama 일정+CoinGecko 유통량, 업비트 114종목, 표시 전용
@@ -1111,7 +1114,7 @@
 // v1.24 (2026-10-09) 오늘 화면에 공포·탐욕 지수 타일(참고) + 라이브 검증 현황에 '탐욕 구간 손절' 카드. 추천 순간 지수는 detail.fng로 기록
 // v1.23 (2026-10-07) 팝업을 주봉 캔들+거래대금(상승·하락 색)+RSI(30선)로 바꾸고, 주식 공시·뉴스 / 코인 업비트 공지·뉴스 칩 추가(표시 전용)
 // v1.22 (2026-10-07) 시가총액 칩(주식: 네이버 증권, 코인: CoinGecko) + 코인 추천 카드에도 지난주 거래대금·시총 칩과 같은 주봉 팝업(종가·주간 거래대금·RSI)
-const APP_VERSION = 'v1.27';
+const APP_VERSION = 'v1.28';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DATA_URL = 'dashboard.json';
@@ -1202,7 +1205,7 @@ function stratPill(r) {
   if (r.strategy === 'original') {
     return h('span', {}, h('span', { class: 'strat', text: '대조군' }), h('span', { class: 'pill', text: '일봉 통과' }), volPill(r));
   }
-  return h('span', {}, h('span', { class: 'strat', text: '개선판' }), gradePill(r.grade));
+  return h('span', {}, h('span', { class: 'strat', text: '개선판' }), gradePill(r.grade), belowPill(r));
 }
 const shortName = (m) => m.replace(/^KRW-/, '');
 const marketLabel = (m, cls = 'rec-name') => h('span', { class: cls }, h('small', { text: 'KRW' }), shortName(m));
@@ -1453,6 +1456,11 @@ const mainRecs = (d) => (d.recommendations || []).filter((r) => stratOf(r) === m
 const mainName = (d) => STRAT_LABEL[mainStrat(d)];
 const otherStrat = (d) => (mainStrat(d) === 'original' ? 'legacy' : 'original');
 // BTC 작은 파동 게이트(개선판 신규 추천 보류): 상태를 알 때만 돌려준다
+// BTC 일봉이 MA20 아래일 때: 대조군이 중심이거나 필터 모드가 block이면 추천이 멈추고, 개선판 중심 + warn이면 경고만 한다
+const btcBlocks = (d) => !!(d.btc && d.btc.favorable === false && (mainStrat(d) === 'original' || d.btc_filter_mode === 'block'));
+const btcWarn = (d) => !!(d.btc && d.btc.favorable === false && !btcBlocks(d));
+const belowPill = (r) => (r.detail && r.detail.btc_below_ma20
+  ? h('span', { class: 'pill warn', title: '비트코인 일봉 종가가 MA20 아래일 때 경고를 달고 나온 추천이에요. BTC 이탈 전량 정리는 적용하지 않아요.', text: '⚠ MA20 아래 진입' }) : null);
 const gateOf = (d) => { const g = d.btc_wave_gate; return g && g.mode !== 'off' && g.known && g.small ? g : null; };
 const sgn = (v) => (v == null ? '—' : signed(v));
 const upDown = (v) => (v > 0 ? 'up' : v < 0 ? 'down' : '');
@@ -1474,7 +1482,7 @@ function renderHomeKpis(d) {
   const todayN = fresh.filter((r) => new Date(r.entered_at).getTime() >= todayStart).length;
   const last = fresh.length ? fresh.reduce((a, b) => (a.entered_at > b.entered_at ? a : b)) : null;
   const gate = gateOf(d);
-  const offNote = d.btc && d.btc.favorable === false ? 'BTC 필터가 꺼져 있어 새 추천이 없어요'
+  const offNote = btcBlocks(d) ? 'BTC 필터가 꺼져 있어 새 추천이 없어요'
     : (mainStrat(d) === 'legacy' && gate && gate.blocked ? 'BTC 작은 파동이 하락 중이라 신규 추천을 보류하고 있어요' : null);
   tiles.push(tile('오늘 새 추천', [String(todayN), h('span', { class: 'unit', text: '종목' })],
     offNote || (last ? `마지막 추천 ${kst(last.entered_at)} · ${ago(last.entered_at)}` : '추천 기록이 아직 없어요')));
@@ -1490,8 +1498,9 @@ function renderHomeKpis(d) {
   } else {
     const change = (btc.close / btc.prev_close - 1) * 100;
     const closes = btc.series.map((p) => p.close).slice(-30);
-    tiles.push(tile('BTC 필터', [statusIcon(btc.favorable ? 'on' : 'off'), btc.favorable ? '켜짐' : '꺼짐'],
-      `${btc.hold_days_required > 1 ? `MA20 위 ${btc.days_above}일째 (${btc.hold_days_required}일 이상이면 켜짐)` : (btc.favorable ? `MA20 위 ${btc.days_above}일째` : '일봉 종가가 MA20 아래')} · ${nf0.format(btc.close)} (${change >= 0 ? '+' : ''}${change.toFixed(2)}%)`,
+    const warnMode = btcWarn(d);
+    tiles.push(tile('BTC 필터', [statusIcon(btc.favorable ? 'on' : (warnMode ? 'warn' : 'off')), btc.favorable ? '켜짐' : (warnMode ? '경고 · MA20 아래' : '꺼짐')],
+      `${btc.hold_days_required > 1 ? `MA20 위 ${btc.days_above}일째 (${btc.hold_days_required}일 이상이면 켜짐)` : (btc.favorable ? `MA20 위 ${btc.days_above}일째` : (warnMode ? '일봉 종가가 MA20 아래 · 경고만 하고 개선판 추천은 계속해요' : '일봉 종가가 MA20 아래'))} · ${nf0.format(btc.close)} (${change >= 0 ? '+' : ''}${change.toFixed(2)}%)`,
       closes.length > 1 ? sparkline(closes) : null));
   }
   if (gateOf(d)) {
@@ -1523,11 +1532,19 @@ function renderScanChip(d) {
 
 function renderNotice(d) {
   const el = $('#home-notice'), w = d.macro && d.macro.watch;
-  if (!w || w.mode === 'normal') { el.hidden = true; return; }
-  const cap = w.mode === 'capitulation';
+  const rows = [];
+  if (btcWarn(d)) {
+    rows.push(['⚠️', h('div', {}, h('strong', { text: 'BTC가 일봉 MA20 아래예요' }),
+      ' · 개선판 추천은 계속 나오지만 하락장에서 나온 추천이라 위험이 더 커요. 이때 나온 추천에는 \'⚠ MA20 아래 진입\' 표시가 붙고 BTC 이탈 정리는 적용하지 않아요.')]);
+  }
+  if (w && w.mode !== 'normal') {
+    const cap = w.mode === 'capitulation';
+    rows.push([cap ? '⚠️' : '👀', h('div', {}, h('strong', { text: cap ? 'BTC 투매 발생' : 'BTC 저점권 관찰 중' }), ' · 매수 신호가 아니에요. 비트코인 탭에서 자세히 볼 수 있어요.')]);
+  }
+  if (!rows.length) { el.hidden = true; return; }
   el.hidden = false;
-  el.replaceChildren(h('span', { 'aria-hidden': 'true', text: cap ? '⚠️' : '👀' }),
-    h('div', {}, h('strong', { text: cap ? 'BTC 투매 발생' : 'BTC 저점권 관찰 중' }), ' · 매수 신호가 아니에요. 비트코인 탭에서 자세히 볼 수 있어요.'));
+  el.style.flexDirection = 'column';
+  el.replaceChildren(...rows.map(([icon, body]) => h('div', { style: 'display:flex;gap:10px;align-items:flex-start' }, h('span', { 'aria-hidden': 'true', text: icon }), body)));
 }
 
 // 추천 카드: 손절~익절 사이 지금 위치를 한눈에 (진행 중이면 현재가, 끝났으면 종료가 기준)
@@ -1541,7 +1558,7 @@ function recCard(r, d) {
   const slPrice = r.entry_price * (1 - sl / 100), tpPrice = r.entry_price * (1 + tp / 100);
   const meta = r.strategy === 'original'
     ? [volPill(r), r.score == null ? null : h('span', { class: 'pill', text: `점수 ${r.score}` }), priorBadge(r, d), obPill(r, d), flowPill(r, d), flagPill(r, d), ...coinChips(r, d), unlockChip(r, d), ...sectorPills(r, d)]
-    : [h('span', { class: 'strat', text: '개선판' }), gradePill(r.grade), ...coinChips(r, d), unlockChip(r, d), ...sectorPills(r, d)];
+    : [h('span', { class: 'strat', text: '개선판' }), gradePill(r.grade), belowPill(r), ...coinChips(r, d), unlockChip(r, d), ...sectorPills(r, d)];
   const gauge = gaugeBar(ret, tp, sl);
   gauge.querySelector('.gauge-labels').replaceChildren(h('span', { text: `손절 ${fmtKRW(slPrice)}` }), h('span', { text: `익절 ${fmtKRW(tpPrice)}` }));
   return h('article', { class: 'rec' },
@@ -1561,7 +1578,7 @@ function renderHomeActive(d) {
   const gate = gateOf(d);
   $('#home-active-count').textContent = active.length ? `${active.length}건` : '';
   if (!active.length) {
-    host.replaceChildren(h('div', { style: 'grid-column:1/-1' }, empty(d.btc && d.btc.favorable === false
+    host.replaceChildren(h('div', { style: 'grid-column:1/-1' }, empty(btcBlocks(d)
       ? 'BTC 필터가 꺼져 있어 새 추천이 없어요. 이미 진행 중인 추천은 끝까지 따라가요.'
       : mainStrat(d) === 'original' ? '지금 진행 중인 대조군 추천이 없어요. 새 추천은 매일 오전 9시 일봉이 마감된 직후에 나와요.'
         : (gate && gate.blocked ? 'BTC 작은 파동이 하락 중이라 신규 추천을 보류하고 있어요. 이미 진행 중인 추천은 끝까지 따라가요.'
@@ -1727,18 +1744,20 @@ function renderCandidates(d) {
   const all = d.candidates || [];
   const cands = freshCandidates(d);
   const gate = gateOf(d), gateEl = $('#cand-gate');
-  gateEl.hidden = !gate;
+  const warnTxt = btcWarn(d) ? '⚠️ BTC가 일봉 MA20 아래라 하락장 경고 중이에요 — 추천은 계속 나오지만 위험이 더 커요. ' : '';
+  gateEl.hidden = !gate && !warnTxt;
+  if (!gate && warnTxt) gateEl.textContent = warnTxt.trim();
   if (gate) {
     const nHeld = cands.filter((c) => c.gated).length;
-    gateEl.textContent = gate.blocked
+    gateEl.textContent = warnTxt + (gate.blocked
       ? `🚦 BTC 작은 파동이 하락 중(${gate.small.label})이라 개선판 신규 추천을 보류하고 있어요${nHeld ? ` — 추천 조건을 채운 ${nHeld}개 종목이 '보류'로 표시돼요` : ''}. ${ago(gate.since || gate.at)}부터 · 이미 추천한 종목은 그대로 추적해요.`
-      : `🟢 BTC 작은 파동 ${gate.small.label} — 보류 없이 추천이 나와요 (하락 파동이 되면 신규 추천을 잠시 보류해요).`;
+      : `🟢 BTC 작은 파동 ${gate.small.label} — 보류 없이 추천이 나와요 (하락 파동이 되면 신규 추천을 잠시 보류해요).`);
   }
   $('#n-cand').textContent = String(cands.length);
   if (!cands.length) {
     host.replaceChildren(empty(all.length
       ? `새로 볼 후보가 없어요. 이미 추천한 ${all.length}개 종목은 아래 '진행 중인 추천'이나 완료 탭에서 볼 수 있어요.`
-      : (d.btc && d.btc.favorable === false
+      : (btcBlocks(d)
         ? 'BTC 추세 필터가 꺼져 있어서 스캔을 건너뛰고 있어요.'
         : '지금 조건을 통과한 종목이 없어요.')));
     return;
@@ -2101,6 +2120,32 @@ function renderExperiments(d) {
       bars: [expProg('탐욕(75↑) 종료', H.n, TARGET), expProg('그 외 종료', R.n, TARGET), expProg('탐욕 진입 일수', dayN, 10)],
       reading: [line('탐욕(75↑)', H), line('그 외', R)],
       criteria: `탐욕 구간 추천이 종료 ${TARGET}건·서로 다른 10일 이상, 그 외도 ${TARGET}건 이상 모였을 때 탐욕 구간 손절률이 10%p 이상 높으면 재현으로 보고 정식 사전 등록 테스트로 넘겨요. 그 전에는 결론을 내리지 않아요. 지수는 2026-10-09부터 기록해요.`,
+      verdict,
+    }));
+  }
+
+  // ①-3 BTC MA20 아래 진입 추천 (개선판, 2026-10-11부터 경고를 달고 추천 계속)
+  {
+    const leg = (d.recommendations || []).filter((r) => stratOf(r) === 'legacy');
+    const flagged = realClosed(leg.filter((r) => r.detail && r.detail.btc_below_ma20));
+    const base = realClosed(leg.filter((r) => !(r.detail && r.detail.btc_below_ma20)));
+    const st = (a) => ({ n: a.length, mean: avg(a.map((r) => r.exit.return_pct)), stop: a.length ? a.filter((r) => r.exit.reason === 'stop_loss').length / a.length * 100 : null });
+    const F = st(flagged), B = st(base);
+    const dayN = new Set(flagged.map((r) => kstDayStart(new Date(r.entered_at).getTime()))).size;
+    const ready = F.n >= TARGET && dayN >= 5;
+    const line = (name, v) => (v.n ? `${name} ${v.n}건 · 평균 ${sgn(v.mean)} · 손절 ${v.stop.toFixed(0)}%` : `${name} 아직 종료된 추천이 없어요`);
+    let verdict = null;
+    if (ready) {
+      verdict = F.stop - B.stop >= 10 ? '기준 충족: MA20 아래 진입 추천의 손절률이 10%p 넘게 높아요. BTC 필터를 다시 켜는 것(BTC_FILTER_MODE=block)을 검토할 만해요.'
+        : '기준 미충족: MA20 아래 진입 추천의 손절률이 나머지보다 10%p 이상 높지 않아요. 경고만 하고 추천을 계속해요.';
+    }
+    cards.push(expCard({
+      title: 'MA20 아래 진입 추천 (개선판)',
+      what: '비트코인 일봉이 MA20 아래일 때도 개선판이 경고와 함께 추천을 계속해요. 이때 나간 추천이 나머지보다 정말 손절이 많은지 지켜봐요. (사용자 결정으로 필터를 뺀 것이라, 결과가 나쁘면 다시 켤지 판단하려는 확인용이에요)',
+      state: ready ? { text: '판단 가능', cls: 'ready' } : { text: '수집 중 · 결론 보류', cls: '' },
+      bars: [expProg('MA20 아래 진입 종료', F.n, TARGET), expProg('서로 다른 진입 일수', dayN, 5)],
+      reading: [line('⚠ MA20 아래 진입', F), line('그 외 개선판', B)],
+      criteria: `MA20 아래 진입 추천이 종료 ${TARGET}건·서로 다른 5일 이상 모였을 때 손절률이 그 외 개선판보다 10%p 이상 높으면 필터를 다시 켜는 것을 검토해요. 그 전에는 결론을 내리지 않아요. 표식은 2026-10-11 이후 추천부터 붙어요.`,
       verdict,
     }));
   }

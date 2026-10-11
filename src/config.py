@@ -217,6 +217,11 @@ VOL_MARK_PCT = 7.1
 # 개선판('legacy')을 중심으로 되돌렸다. 대조군으로 보내려면 저장소 변수 ALERT_STRATEGY=original.
 ALERT_STRATEGY = "original" if (os.environ.get("ALERT_STRATEGY") or "legacy").strip().lower() == "original" else "legacy"
 
+# BTC 일봉 종가가 MA20 아래일 때 개선판이 하는 일 (2026-10-11 사용자 결정): warn(기본) = 경고만 달고 추천은 계속, block = 예전처럼 스캔·추천 중단.
+# 대조군(original)은 원래 규칙(MA20 위 2일 이상일 때만 추천)을 그대로 지킨다. warn에서 MA20 아래일 때 나온 추천은 detail.btc_below_ma20=True로 기록하고
+# 'BTC 이탈 전량 정리'(BTC_EXIT_ENABLED)는 그 추천에는 적용하지 않는다(들어오자마자 정리되는 모순 방지). 저장소 변수 BTC_FILTER_MODE=block으로 되돌린다.
+BTC_FILTER_MODE = "block" if (os.environ.get("BTC_FILTER_MODE") or "warn").strip().lower() == "block" else "warn"
+
 # BTC 작은 파동이 하락 중이면 개선판 신규 추천을 보류하는 게이트(src/btc_wave_gate.py, 2026-10-11 사용자 결정으로 알림에 바로 적용).
 # 사전 등록 백테스트는 통과했지만 라이브 3주는 반대였다 — '시험 중인 보류'이며 대조군에는 적용하지 않는다.
 # down = 작은 파동이 하락 파동(기본), bear = 하락 우세만, off = 끔 (저장소 변수 BTC_WAVE_GATE).

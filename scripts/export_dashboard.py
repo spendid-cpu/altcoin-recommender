@@ -217,6 +217,7 @@ async def main(out_path: Path) -> None:
         "liquidations": liquidations.export((macro_job.load_cached() or {}).get("price")),  # 비트코인 탭 청산 화면(OKX 실제 청산 기록, 참고용)
         "stock": stock_scan.export(),  # 주식 탭(코스피·코스닥 주봉 RSI 과매도 후보 기록, 실험)
         "btc_wave_gate": btc_wave_gate.export(),  # 개선판 신규 추천 보류 게이트(BTC 작은 파동 하락) 상태
+        "btc_filter_mode": config.BTC_FILTER_MODE,  # warn = BTC가 MA20 아래여도 개선판 추천 계속(경고만), block = 추천 중단
         "alert_strategy": config.ALERT_STRATEGY,  # 텔레그램 알림을 보내는 전략(화면의 중심 전략)
         "fear_greed": fear_greed.export(),  # 오늘 화면의 공포·탐욕 지수 타일 (참고용)
         "coin_info": coin_info.export(),  # 코인 카드 팝업(주봉 종가·거래대금·RSI)과 시가총액 (참고용)

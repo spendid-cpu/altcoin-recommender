@@ -36,7 +36,8 @@ def _is_excluded(rec: dict, warned: set[str]) -> bool:
 
 def check_exit(rec: dict, current: float, now: datetime, btc_filter_on: bool = True) -> str | None:
     """종료 사유(REASONS의 키) 또는 None. 같은 시점에 여러 개가 걸리면 손절 > BTC 이탈 > 되돌림 > 익절 > 만료 순.
-    BTC 이탈은 개선판 추천에만 적용한다(대조군은 원래 규칙 그대로) — btc_filter_on이 False면 BTC 일봉 종가가 MA20 아래다."""
+    BTC 이탈은 개선판 추천에만 적용한다(대조군은 원래 규칙 그대로) — btc_filter_on이 False면 BTC 일봉 종가가 MA20 아래다.
+    다만 MA20 아래에서 경고를 달고 나간 추천(detail.btc_below_ma20, config.BTC_FILTER_MODE=warn)은 BTC 이탈로 정리하지 않는다."""
     entry = rec["entry_price"]
     if not entry:
         return None
@@ -46,7 +47,8 @@ def check_exit(rec: dict, current: float, now: datetime, btc_filter_on: bool = T
 
     if config.EXIT_STOP_LOSS_PCT is not None and ret <= -config.EXIT_STOP_LOSS_PCT:
         return "stop_loss"
-    if (config.BTC_EXIT_ENABLED and not btc_filter_on and rec["strategy"] != "original"
+    below_at_entry = bool((rec.get("detail") or {}).get("btc_below_ma20"))  # BTC가 MA20 아래일 때 경고를 달고 낸 추천은 BTC 이탈 정리를 받지 않는다
+    if (config.BTC_EXIT_ENABLED and not btc_filter_on and rec["strategy"] != "original" and not below_at_entry
             and now - rec["entered_at"] < timedelta(days=price_tracker.TRACK_DAYS)):
         return "btc_exit"
     if config.EXIT_TRAIL_ARM_PCT is not None and config.EXIT_TRAIL_DD_PCT is not None:

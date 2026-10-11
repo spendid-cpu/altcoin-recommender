@@ -36,13 +36,17 @@ def _support_line(cur: dict) -> str:
     return f"\n🧱 가까운 지지 {fmt_price(sp)} ({(sp / price - 1) * 100:+.1f}%) · 참고용, 지켜준다는 보장은 아니에요"
 
 
-def _message(title: str, market: str, cur: dict) -> str:
+BTC_BELOW_WARNING = "\n⚠️ BTC가 일봉 MA20 아래예요 — 하락장에서 나온 추천이라 위험이 더 커요 (이 추천에는 BTC 이탈 정리를 적용하지 않아요)"
+
+
+def _message(title: str, market: str, cur: dict, btc_warning: bool = False) -> str:
     score = f"{cur['score']:.1f}" if cur.get("score") is not None else "—"
     return (
         f"{title} · {grade_badge(cur['grade'])}\n"
         f"{market} @ {fmt_price(cur['current_price'])}\n"
         f"점수 {score} · 통과: {frames_text(cur['cleared_frames'])}"
         f"{_support_line(cur)}"
+        f"{BTC_BELOW_WARNING if btc_warning else ''}"
     )
 
 
@@ -96,7 +100,7 @@ def _normalize(state: dict | None) -> dict:
     return normalized
 
 
-def diff_alerts(candidates: list[CandidateResult], gate_blocked: bool = False) -> tuple[list[Alert], dict[str, dict]]:
+def diff_alerts(candidates: list[CandidateResult], gate_blocked: bool = False, btc_warning: bool = False) -> tuple[list[Alert], dict[str, dict]]:
     """이번 스캔 결과 vs 저장된 이전 상태를 비교해 (알림 목록, 다음에 저장할 전체 상태)를 반환한다.
 
     - 추천 대상(CandidateResult.recommendable: 기본은 일봉/4시간/1시간/15분 통과 + 5분 저점)이 아닌 후보는 대시보드에만
@@ -105,6 +109,7 @@ def diff_alerts(candidates: list[CandidateResult], gate_blocked: bool = False) -
     - 프레임 확장 / 5분 타점: 이미 알린 단계보다 더 진행됐을 때만 알린다 (후보에서 빠졌다 돌아와도 반복 안 함).
     - 후보에서 빠졌을 때: 최근 추천한 종목이면 알린 단계를 유지하고, 아니면 초기화해서 다음 재진입을 새 추천으로 본다.
     - gate_blocked: BTC 작은 파동 게이트가 막고 있으면 모든 후보를 '추천 대상 아님'으로 취급한다(알림·진입 기록 없음, 후보 목록에는 표시).
+    - btc_warning: BTC 일봉이 MA20 아래인데 추천을 계속하는 중(config.BTC_FILTER_MODE=warn)이면 알림에 경고 줄을 붙인다.
     """
     previous = state_store.load_all()
     tracked = set(price_tracker.recent_recommendation_markets())
@@ -146,22 +151,22 @@ def diff_alerts(candidates: list[CandidateResult], gate_blocked: bool = False) -
                 new_states[market] = {**cur, "alerted_frames": [], "alerted_entry": False}
                 continue
             if market not in tracked:
-                alerts.append(Alert(market, "new_candidate", _message("🆕 [개선판] 신규 추천", market, cur)))
+                alerts.append(Alert(market, "new_candidate", _message("🆕 [개선판] 신규 추천", market, cur, btc_warning)))
                 new_alert_index = len(alerts) - 1
             alerted_frames = cur["cleared_frames"]  # 알림을 생략해도 기준선은 갱신한다
         elif len(cur["cleared_frames"]) > len(alerted_frames):
-            alerts.append(Alert(market, "frame_advance", _message("📈 [개선판] 단계 상승", market, cur)))
+            alerts.append(Alert(market, "frame_advance", _message("📈 [개선판] 단계 상승", market, cur, btc_warning)))
             alerted_frames = cur["cleared_frames"]
 
         if cur["entry_ready"] and not alerted_entry:
             if new_alert_index is not None:
                 # 같은 스캔에서 신규 추천과 5분 타점이 함께 나오면 한 통으로 합친다 (같은 종목 알림이 연달아 두 번 가지 않게)
                 alerts[new_alert_index] = Alert(
-                    market, "new_candidate", _message("🆕🎯 [개선판] 신규 추천 · 5분 매수 타점 동시 발생", market, cur))
+                    market, "new_candidate", _message("🆕🎯 [개선판] 신규 추천 · 5분 매수 타점 동시 발생", market, cur, btc_warning))
             else:
                 alerts.append(Alert(
                     market, "entry_ready",
-                    _message("🎯 [개선판] 5분 매수 타점 · 이미 추천한 종목의 추가 알림", market, cur) + _since_recommended(market, cur)))
+                    _message("🎯 [개선판] 5분 매수 타점 · 이미 추천한 종목의 추가 알림", market, cur, btc_warning) + _since_recommended(market, cur)))
             alerted_entry = True
 
         new_states[market] = {**cur, "alerted_frames": alerted_frames, "alerted_entry": alerted_entry}
