@@ -1,0 +1,45 @@
+name: unlocks
+
+# 토큰 언락 표(data/unlocks.json, 대시보드 사이클·섹터 표의 '다음 언락')를 일주일에 한 번 새로 만든다 (표시 전용).
+# 자료: DefiLlama 언락 데이터셋 + CoinGecko 공급량. state.db를 건드리지 않아서 scan 동시성 그룹은 쓰지 않는다.
+permissions:
+  contents: write  # data/unlocks.json 커밋+푸시
+
+on:
+  schedule:
+    - cron: "17 3 * * 1"   # 매주 월요일 12:17 KST
+  workflow_dispatch: {}
+
+concurrency:
+  group: unlocks
+  cancel-in-progress: false
+
+jobs:
+  unlocks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r requirements.txt
+
+      - run: python scripts/build_unlocks.py
+
+      - name: 결과 커밋
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/unlocks.json
+          if git diff --staged --quiet; then echo "변경 없음"; exit 0; fi
+          git commit -m "data: 토큰 언락 표 갱신 [skip ci]"
+          for i in 1 2 3; do
+            git pull -q --rebase origin master && git push -q origin HEAD:master && exit 0
+            sleep 5
+          done
+          exit 1

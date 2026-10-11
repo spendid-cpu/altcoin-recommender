@@ -179,6 +179,14 @@ def build_candidates(latest_by_market: dict[str, dict]) -> tuple[list[dict], str
     return candidates, last_update
 
 
+def load_unlocks() -> dict | None:
+    """data/unlocks.json(scripts/build_unlocks.py가 만든 토큰 언락 표, 주 1회 갱신). 없거나 깨져 있으면 None."""
+    try:
+        return json.loads((Path(__file__).resolve().parent.parent / "data" / "unlocks.json").read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
 def load_sectors() -> dict | None:
     """data/sectors.json(scripts/build_sectors.py가 만든 섹터 분류표). 없거나 깨져 있으면 None."""
     try:
@@ -229,6 +237,7 @@ async def main(out_path: Path) -> None:
         "paper_limit": paper_limit.export_rows(),
         "cycle": cycle.load_cached(),
         "sectors": load_sectors(),  # 섹터 탭(코인 테마 분류, 참고용)
+        "unlocks": load_unlocks(),  # 사이클·섹터 표와 추천 카드의 토큰 언락(유통량 증가 시점, 참고용)
     }
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(jsonutil.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
