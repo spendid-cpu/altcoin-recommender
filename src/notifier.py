@@ -17,7 +17,7 @@ _EMPTY_STATE = {
     "cleared_frames": [], "entry_ready": False, "grade": "-", "current_price": 0.0, "score": None,
     "recommendable": False, "low_15m": False, "runup_excluded": False, "recent_runup_pct": 0.0, "support_price": None,
     "ma20": 0.0, "above_ma20": False, "ma_confluence_excluded": False, "ma_confluence_gap_pct": None,
-    "alerted_frames": [], "alerted_entry": False, "gated": False,
+    "alerted_frames": [], "alerted_entry": False, "gated": False, "low_confirmed": {},
 }
 
 
@@ -45,6 +45,7 @@ def _message(title: str, market: str, cur: dict, btc_warning: bool = False) -> s
         f"{title} · {grade_badge(cur['grade'])}\n"
         f"{market} @ {fmt_price(cur['current_price'])}\n"
         f"점수 {score} · 통과: {frames_text(cur['cleared_frames'])}"
+        f"{_low_line(cur)}"
         f"{_support_line(cur)}"
         f"{BTC_BELOW_WARNING if btc_warning else ''}"
     )
@@ -65,6 +66,20 @@ def _since_recommended(market: str, cur: dict) -> str:
         return ""
 
 
+def _low_confirmed(candidate: CandidateResult) -> dict:
+    """일봉·4시간 프레임의 'RSI 저점 확인' 여부: 스토캐스틱 RSI 골든크로스(저점권에서 %K가 %D 위로 올라섬)가 있었는가.
+    False = 최초 도달(%K가 막 20 이하로 내려옴)만으로 통과한 프레임 — 아직 반등 확인 전이다. 표시용이고 추천 규칙에는 안 쓴다."""
+    return {f.frame: bool(f.detail.get("golden_cross")) for f in candidate.frames if f.frame in ("day", "4h") and f.passed_gate}
+
+
+def _low_line(cur: dict) -> str:
+    lc = cur.get("low_confirmed") or {}
+    if "day" not in lc or "4h" not in lc:
+        return ""
+    mark = lambda ok: "✅ 확인" if ok else "⏳ 미확인(반등 전)"  # noqa: E731
+    return f"\n📉 RSI 저점: 일봉 {mark(lc['day'])} · 4시간 {mark(lc['4h'])}"
+
+
 def _snapshot(candidate: CandidateResult, gated: bool = False) -> dict:
     """gated=True면 BTC 작은 파동 게이트(src/btc_wave_gate.py)가 신규 추천을 보류 중이라는 뜻 —
     추천 대상이던 후보도 '추천 대상 아님'으로 저장하고 gated 표식만 남긴다 (후보 목록에는 계속 보인다)."""
@@ -77,6 +92,7 @@ def _snapshot(candidate: CandidateResult, gated: bool = False) -> dict:
         "score": round(candidate.total_score, 1),
         "recommendable": recommendable and not gated,
         "gated": bool(gated and recommendable),
+        "low_confirmed": _low_confirmed(candidate),
         "low_15m": candidate.low_15m,
         "support_price": nearest_support(candidate.support_lows, candidate.current_price),
         "runup_excluded": candidate.runup_excluded,

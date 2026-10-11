@@ -1107,6 +1107,8 @@
 // v1.19 (2026-10-05) 업비트 공개 API 참고 정보 3가지 추가: 추천 카드의 '체결 매수 N%'(실제 체결 중 사는 쪽 비중, 추천 순간 -> 지금), 업비트 공식 시장 경고 배지(거래량 급증·해외 가격 차이 등), 비트코인 분석 화면의 BTC 김치 프리미엄 타일. 모두 참고용
 // v1.20 (2026-10-07) '주식' 탭 추가(실험): 코스피·코스닥 지수 상태, 마감 주봉 RSI(14) 30 이하 신규 후보(시장별), 추천 기록·4주 성과 통계. 알림 없이 기록만
 // v1.21 (2026-10-07) 주식 카드의 거래대금 칩에 마우스를 올리거나 탭하면 최근 26주 종가·일평균 거래대금 흐름 팝업
+// v1.30 (2026-10-11) 개선판 추천·후보에 '일봉·4시간 RSI 저점 확인' 표시(스토RSI 골든크로스 = 확인, 최초 도달만 = 미확인) + 텔레그램 추천 알림에 한 줄. 표시만, 추천 규칙은 그대로
+//   (2.7년 사전 등록 백테스트에서 확인된 것만 추천해도 손절이 줄지 않아 규칙 적용은 보류)
 // v1.29 (2026-10-11) MA20 아래에서 나간 추천을 더 눈에 띄게 표시: 추천 카드의 경고 줄, 오늘 화면 진행 중 개수 옆 '⚠ MA20 아래 진입 N건', 최근 종료 목록 ⚠, 스캔 기록의 BTC 필터 칸 '경고'
 // v1.28 (2026-10-11) BTC 일봉이 MA20 아래여도 개선판은 경고와 함께 추천을 계속한다(BTC_FILTER_MODE=warn, 대조군은 처음 규칙 그대로): 오늘 화면 경고 배너·BTC 필터 타일 '경고',
 //   MA20 아래에서 나간 추천에 '⚠ MA20 아래 진입' 표식(detail.btc_below_ma20, BTC 이탈 정리 제외), 라이브 검증 현황에 'MA20 아래 진입 추천' 카드
@@ -1117,7 +1119,7 @@
 // v1.24 (2026-10-09) 오늘 화면에 공포·탐욕 지수 타일(참고) + 라이브 검증 현황에 '탐욕 구간 손절' 카드. 추천 순간 지수는 detail.fng로 기록
 // v1.23 (2026-10-07) 팝업을 주봉 캔들+거래대금(상승·하락 색)+RSI(30선)로 바꾸고, 주식 공시·뉴스 / 코인 업비트 공지·뉴스 칩 추가(표시 전용)
 // v1.22 (2026-10-07) 시가총액 칩(주식: 네이버 증권, 코인: CoinGecko) + 코인 추천 카드에도 지난주 거래대금·시총 칩과 같은 주봉 팝업(종가·주간 거래대금·RSI)
-const APP_VERSION = 'v1.29';
+const APP_VERSION = 'v1.30';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DATA_URL = 'dashboard.json';
@@ -1208,7 +1210,7 @@ function stratPill(r) {
   if (r.strategy === 'original') {
     return h('span', {}, h('span', { class: 'strat', text: '대조군' }), h('span', { class: 'pill', text: '일봉 통과' }), volPill(r));
   }
-  return h('span', {}, h('span', { class: 'strat', text: '개선판' }), gradePill(r.grade), belowPill(r));
+  return h('span', {}, h('span', { class: 'strat', text: '개선판' }), gradePill(r.grade), lowPill(r), belowPill(r));
 }
 const shortName = (m) => m.replace(/^KRW-/, '');
 const marketLabel = (m, cls = 'rec-name') => h('span', { class: cls }, h('small', { text: 'KRW' }), shortName(m));
@@ -1468,6 +1470,20 @@ const belowNote = (r) => (r.detail && r.detail.btc_below_ma20
   ? h('div', { class: 'rec-warn', text: '⚠ BTC 일봉이 MA20 아래일 때 나온 추천이에요 · 하락장이라 위험이 더 크고, BTC 이탈 전량 정리는 적용하지 않아요' }) : null);
 const belowCount = (recs) => recs.filter((r) => r.detail && r.detail.btc_below_ma20).length;
 const WARN_MODE_SINCE = '2026-10-11T14:40:00';  // 이 시각 이후 스캔부터 BTC가 MA20 아래여도 추천을 계속했다 (그 전의 '꺼짐'은 스캔 중단)
+// 일봉·4시간 RSI 저점 확인 여부: 추천 근거(frames)에서 '골든크로스 보너스'를 받았는가 (없으면 최초 도달만으로 통과 = 반등 확인 전)
+const lowOf = (r) => {
+  const fr = (r.detail && r.detail.frames) || [];
+  const day = fr.find((x) => x.frame === 'day'), h4 = fr.find((x) => x.frame === '4h');
+  const gold = (x) => (x.items || []).some((i) => String(i.name).includes('골든'));
+  return day && h4 ? { day: gold(day), h4: gold(h4) } : null;
+};
+const LOW_TIP = '일봉·4시간의 스토캐스틱 RSI가 저점에서 반등했는지예요. 확인 = %K가 %D 위로 올라섬(골든크로스), 미확인 = %K가 막 20 이하로 내려온 최초 도달만으로 통과해서 아직 반등 확인 전이에요. 표시만 하고 추천 규칙에는 안 써요.';
+const lowPill = (r) => {
+  const lc = r.strategy === 'original' ? null : lowOf(r);
+  if (!lc) return null;
+  const miss = [lc.day ? null : '일봉', lc.h4 ? null : '4H'].filter(Boolean);
+  return h('span', { class: 'pill', title: LOW_TIP, text: miss.length ? `⏳ RSI 저점 미확인 · ${miss.join('·')}` : '✓ RSI 저점 확인 · 일봉·4H' });
+};
 const gateOf = (d) => { const g = d.btc_wave_gate; return g && g.mode !== 'off' && g.known && g.small ? g : null; };
 const sgn = (v) => (v == null ? '—' : signed(v));
 const upDown = (v) => (v > 0 ? 'up' : v < 0 ? 'down' : '');
@@ -1565,7 +1581,7 @@ function recCard(r, d) {
   const slPrice = r.entry_price * (1 - sl / 100), tpPrice = r.entry_price * (1 + tp / 100);
   const meta = r.strategy === 'original'
     ? [volPill(r), r.score == null ? null : h('span', { class: 'pill', text: `점수 ${r.score}` }), priorBadge(r, d), obPill(r, d), flowPill(r, d), flagPill(r, d), ...coinChips(r, d), unlockChip(r, d), ...sectorPills(r, d)]
-    : [h('span', { class: 'strat', text: '개선판' }), gradePill(r.grade), belowPill(r), ...coinChips(r, d), unlockChip(r, d), ...sectorPills(r, d)];
+    : [h('span', { class: 'strat', text: '개선판' }), gradePill(r.grade), lowPill(r), belowPill(r), ...coinChips(r, d), unlockChip(r, d), ...sectorPills(r, d)];
   const gauge = gaugeBar(ret, tp, sl);
   gauge.querySelector('.gauge-labels').replaceChildren(h('span', { text: `손절 ${fmtKRW(slPrice)}` }), h('span', { text: `익절 ${fmtKRW(tpPrice)}` }));
   return h('article', { class: 'rec' },
@@ -1773,7 +1789,7 @@ function renderCandidates(d) {
     return;
   }
   host.replaceChildren(buildTable(
-    ['종목', '상태', '등급', '점수', '통과 프레임', '5분 저점', '현재가', 'MA20', '가까운 지지'],
+    ['종목', '상태', '등급', '점수', '통과 프레임', 'RSI 저점 확인', '5분 저점', '현재가', 'MA20', '가까운 지지'],
     cands.map((c) => [
       c.market,
       h('span', { class: c.recommendable ? '' : 'muted', text: c.recommendable ? '추천 대상'
@@ -1783,6 +1799,9 @@ function renderCandidates(d) {
         : '대기 · 5분 저점을 기다려요' }),
       gradePill(c.grade), c.score == null ? '—' : c.score.toFixed(1),
       c.frames.map((f) => FRAME_LABEL[f] || f).join(' › '),
+      (c.low_confirmed && 'day' in c.low_confirmed && '4h' in c.low_confirmed)
+        ? h('span', { class: c.low_confirmed.day && c.low_confirmed['4h'] ? '' : 'muted', title: LOW_TIP, text: `일봉 ${c.low_confirmed.day ? '✓' : '⏳'} · 4H ${c.low_confirmed['4h'] ? '✓' : '⏳'}` })
+        : h('span', { class: 'muted', text: '—' }),
       c.low_15m ? h('span', { class: 'flag', text: c.entry_ready ? '✓ 저점 · 타점' : '✓ 저점' }) : h('span', { class: 'muted', text: '대기' }),
       fmtKRW(c.current_price),
       ma20Cell(c.ma20, c.current_price, c.above_ma20),
