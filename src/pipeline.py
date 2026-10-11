@@ -1,6 +1,7 @@
 """한 번의 스캔 사이클: BTC 추세 확인 -> (유리하면) 전체 스캔 -> 상태 비교 -> 알림.
 scripts/run_scan.py(1회 실행)와 scripts/run_loop.py(계속 실행)가 공유해서 쓴다."""
 
+import asyncio
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
@@ -21,6 +22,30 @@ async def _send_heartbeat(session: aiohttp.ClientSession, text: str) -> None:
             await telegram_client.send_message(session, text)
         except Exception as exc:
             print(f"[하트비트] 전송 실패(무시): {exc!r}")
+
+
+CYCLE_IDLE_REFRESH_MIN = 55  # BTC 필터가 꺼져 스캔이 일찍 끝나는 동안에도 사이클·섹터 탭 데이터는 이 시간이 지나면 새로 만든다
+
+
+async def _refresh_cycle_when_idle(session: aiohttp.ClientSession) -> None:
+    """BTC 추세가 불리하면 스캔이 일찍 끝나 사이클 갱신까지 못 간다(2026-10-07 이후 4일간 사이클 탭이 멈춰 있었다).
+    사이클·섹터 탭이 낡지 않게, 이럴 때는 일봉만 받아서 CYCLE_IDLE_REFRESH_MIN분에 한 번 갱신한다."""
+    cached = cycle.load_cached()
+    if cached and (datetime.now(timezone.utc) - datetime.fromisoformat(cached["generated_at"])).total_seconds() < CYCLE_IDLE_REFRESH_MIN * 60:
+        return
+    markets = await upbit_client.fetch_markets(session)
+    cache: dict = {}
+    sem = asyncio.Semaphore(6)
+
+    async def one(m: str) -> None:
+        async with sem:
+            try:
+                cache[(m, "day")] = await upbit_client.fetch_candles(session, m, "day", count=200)
+            except Exception as exc:
+                print(f"[사이클] {m} 일봉 조회 실패(건너뜀): {exc!r}")
+
+    await asyncio.gather(*(one(m) for m in markets))
+    await cycle.refresh(session, cache, markets)
 
 
 async def run_once(session: aiohttp.ClientSession) -> None:
@@ -50,6 +75,10 @@ async def run_once(session: aiohttp.ClientSession) -> None:
         await _update_paper(session, False)
         await report.maybe_send_report(session, prices, [], btc_filter_on=False)
         scan_log.record_scan(btc_favorable=False, candidates=0, alerts=0)
+        try:  # 추천이 멈춘 동안에도 사이클·섹터 화면은 계속 갱신한다 (실패해도 스캔은 정상 종료)
+            await _refresh_cycle_when_idle(session)
+        except Exception as exc:
+            print(f"[사이클] 유휴 갱신 실패(이번 사이클은 건너뜀): {exc!r}")
         await _send_heartbeat(session, f"💓 {now} 스캔 완료 — BTC 추세 불리, 스캔 건너뜀")
         return
 

@@ -2904,7 +2904,7 @@ function renderSector(d) {
     const cardEl = gridEl.querySelector(`[data-s="${sel.id}"]`);
     if (cardEl) cardEl.after(node);  // 선택한 카드 바로 아래에 펼친다
   }
-  note.textContent = `평균은 종목 동일 비중이에요. 오늘 등락은 오전 9시(일봉 시작) 기준이고, 상장 ${C.new_listing_min_days}일 미만 신규 상장은 뺐어요. 분류 ${S.built_at ? kst(S.built_at) : ''} 생성 · 미분류 ${(S.unclassified || []).length}종목(새 상장 등, data/sector_overrides.json에서 직접 지정할 수 있어요).`;
+  note.textContent = `등락 ${C.generated_at ? kst(C.generated_at) : ''} 기준(BTC 필터가 꺼져 있어도 1시간마다 갱신) · 평균은 종목 동일 비중이에요. 오늘 등락은 오전 9시(일봉 시작) 기준이고, 상장 ${C.new_listing_min_days}일 미만 신규 상장은 뺐어요. 분류 ${S.built_at ? kst(S.built_at) : ''} 생성 · 미분류 ${(S.unclassified || []).length}종목(새 상장 등, data/sector_overrides.json에서 직접 지정할 수 있어요).`;
 }
 
 function renderAll() {
