@@ -162,7 +162,8 @@ def build_candidates(latest_by_market: dict[str, dict]) -> tuple[list[dict], str
             "low_15m": bool(state.get("low_15m")),
             "recommendable": bool(state.get("recommendable")),
             "gated": bool(state.get("gated")),
-            "low_confirmed": state.get("low_confirmed") or {},  # 일봉·4시간 RSI 저점 확인(골든크로스) 여부, 표시용
+            "low_confirmed": state.get("low_confirmed") or {},  # 일봉·4시간 RSI 저점 확인(골든크로스) 여부
+            "low_excluded": bool(state.get("low_excluded")),  # 저점 미확인이라 추천에서 빠진 후보(config.LOW_CONFIRM_REQUIRED)
             "support_price": state.get("support_price"),
             "runup_excluded": bool(state.get("runup_excluded")),
             "recent_runup_pct": state.get("recent_runup_pct"),

@@ -17,7 +17,7 @@ _EMPTY_STATE = {
     "cleared_frames": [], "entry_ready": False, "grade": "-", "current_price": 0.0, "score": None,
     "recommendable": False, "low_15m": False, "runup_excluded": False, "recent_runup_pct": 0.0, "support_price": None,
     "ma20": 0.0, "above_ma20": False, "ma_confluence_excluded": False, "ma_confluence_gap_pct": None,
-    "alerted_frames": [], "alerted_entry": False, "gated": False, "low_confirmed": {},
+    "alerted_frames": [], "alerted_entry": False, "gated": False, "low_confirmed": {}, "low_excluded": False,
 }
 
 
@@ -68,7 +68,7 @@ def _since_recommended(market: str, cur: dict) -> str:
 
 def _low_confirmed(candidate: CandidateResult) -> dict:
     """일봉·4시간 프레임의 'RSI 저점 확인' 여부: 스토캐스틱 RSI 골든크로스(저점권에서 %K가 %D 위로 올라섬)가 있었는가.
-    False = 최초 도달(%K가 막 20 이하로 내려옴)만으로 통과한 프레임 — 아직 반등 확인 전이다. 표시용이고 추천 규칙에는 안 쓴다."""
+    False = 최초 도달(%K가 막 20 이하로 내려옴)만으로 통과한 프레임 — 아직 반등 확인 전이다. config.LOW_CONFIRM_REQUIRED가 켜져 있으면 하나라도 False인 종목은 추천하지 않는다."""
     return {f.frame: bool(f.detail.get("golden_cross")) for f in candidate.frames if f.frame in ("day", "4h") and f.passed_gate}
 
 
@@ -93,6 +93,7 @@ def _snapshot(candidate: CandidateResult, gated: bool = False) -> dict:
         "recommendable": recommendable and not gated,
         "gated": bool(gated and recommendable),
         "low_confirmed": _low_confirmed(candidate),
+        "low_excluded": candidate.low_confirm_excluded,
         "low_15m": candidate.low_15m,
         "support_price": nearest_support(candidate.support_lows, candidate.current_price),
         "runup_excluded": candidate.runup_excluded,

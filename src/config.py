@@ -217,6 +217,12 @@ VOL_MARK_PCT = 7.1
 # 개선판('legacy')을 중심으로 되돌렸다. 대조군으로 보내려면 저장소 변수 ALERT_STRATEGY=original.
 ALERT_STRATEGY = "original" if (os.environ.get("ALERT_STRATEGY") or "legacy").strip().lower() == "original" else "legacy"
 
+# 일봉·4시간 RSI 저점 확인 필수 (2026-10-11 사용자 결정): 개선판 일봉·4시간 게이트가 스토캐스틱 RSI '최초 도달'(%K가 막 20 이하로 내려옴)만으로 통과한 경우는
+# 아직 반등 확인 전이라 추천하지 않고, 두 프레임 모두 저점권 골든크로스(%K가 %D 위로 올라섬)가 있을 때만 추천한다. 대조군에는 적용하지 않는다.
+# 2.7년 사전 등록 백테스트(일봉·4시간 게이트 재생 10,081건)에서는 손절이 줄지 않았고(손절 차이 -1.5%p [-10.5,+7.1]) 추천이 약 88% 줄어든다 — 근거 없이 쓰는 규칙이다.
+# 끄려면 저장소 변수 LOW_CONFIRM_REQUIRED=false.
+LOW_CONFIRM_REQUIRED = os.environ.get("LOW_CONFIRM_REQUIRED", "true").strip().lower() != "false"
+
 # BTC 일봉 종가가 MA20 아래일 때 개선판이 하는 일 (2026-10-11 사용자 결정): warn(기본) = 경고만 달고 추천은 계속, block = 예전처럼 스캔·추천 중단.
 # 대조군(original)은 원래 규칙(MA20 위 2일 이상일 때만 추천)을 그대로 지킨다. warn에서 MA20 아래일 때 나온 추천은 detail.btc_below_ma20=True로 기록하고
 # 'BTC 이탈 전량 정리'(BTC_EXIT_ENABLED)는 그 추천에는 적용하지 않는다(들어오자마자 정리되는 모순 방지). 저장소 변수 BTC_FILTER_MODE=block으로 되돌린다.

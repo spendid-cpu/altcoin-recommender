@@ -239,6 +239,16 @@ class CandidateResult:
         return config.RUNUP_FILTER_ENABLED and self.recent_runup_pct > config.RUNUP_MAX_PCT
 
     @property
+    def low_unconfirmed(self) -> list[str]:
+        """통과한 일봉/4시간 프레임 중 RSI 저점이 확인되지 않은(골든크로스 없이 '최초 도달'만으로 통과한) 프레임들."""
+        return [f.frame for f in self.frames if f.frame in ("day", "4h") and f.passed_gate and not f.detail.get("golden_cross")]
+
+    @property
+    def low_confirm_excluded(self) -> bool:
+        """일봉·4시간 RSI 저점이 둘 다 확인돼야 추천하는 규칙(config.LOW_CONFIRM_REQUIRED)에 걸려 빠지는 종목인지."""
+        return config.LOW_CONFIRM_REQUIRED and bool(self.low_unconfirmed)
+
+    @property
     def ma_confluence_excluded(self) -> bool:
         """4시간봉 주요 이동평균(20/50/100/200) 중 어느 것과도 가깝지 않아 추천에서 빼는 종목인지 (config.MA_CONFLUENCE_*).
         계산 자체가 안 됐으면(이력 부족) 보수적으로 제외한다."""
@@ -300,8 +310,8 @@ class CandidateResult:
     def recommendable(self) -> bool:
         """추천 대상인지. 기본은 일봉/4시간/1시간/15분을 모두 통과하고 5분봉이 저점일 때만 True.
         최근 급등 이력이 있는 종목(runup_excluded)이거나 4시간봉 주요 이평선 근처가 아닌 종목
-        (ma_confluence_excluded)은 조건을 통과해도 추천하지 않는다."""
-        if self.runup_excluded or self.ma_confluence_excluded:
+        (ma_confluence_excluded)은 조건을 통과해도 추천하지 않는다. 일봉·4시간 중 RSI 저점 확인(골든크로스)이 없는 종목(low_confirm_excluded)도 마찬가지다."""
+        if self.runup_excluded or self.ma_confluence_excluded or self.low_confirm_excluded:
             return False
         if config.RECOMMEND_ONLY_AT_15M_LOW:
             return self.cleared_frames == [*config.FRAME_ORDER, config.LOW_FRAME]
