@@ -163,7 +163,7 @@ def build_candidates(latest_by_market: dict[str, dict]) -> tuple[list[dict], str
             "recommendable": bool(state.get("recommendable")),
             "gated": bool(state.get("gated")),
             "low_confirmed": state.get("low_confirmed") or {},  # 일봉·4시간 RSI 저점 확인(골든크로스) 여부
-            "low_excluded": bool(state.get("low_excluded")),  # 저점 미확인이라 추천에서 빠진 후보(config.LOW_CONFIRM_REQUIRED)
+            "low_excluded": bool(state.get("low_excluded")),  # 저점 미확인이라 추천에서 빠진 후보(config.LOW_CONFIRM_MODE)
             "support_price": state.get("support_price"),
             "runup_excluded": bool(state.get("runup_excluded")),
             "recent_runup_pct": state.get("recent_runup_pct"),
@@ -219,6 +219,7 @@ async def main(out_path: Path) -> None:
         "liquidations": liquidations.export((macro_job.load_cached() or {}).get("price")),  # 비트코인 탭 청산 화면(OKX 실제 청산 기록, 참고용)
         "stock": stock_scan.export(),  # 주식 탭(코스피·코스닥 주봉 RSI 과매도 후보 기록, 실험)
         "btc_wave_gate": btc_wave_gate.export(),  # 개선판 신규 추천 보류 게이트(BTC 작은 파동 하락) 상태
+        "low_confirm_mode": config.LOW_CONFIRM_MODE,  # RSI 저점 확인 규칙: day(일봉만) / both(일봉·4시간) / off
         "btc_filter_mode": config.BTC_FILTER_MODE,  # warn = BTC가 MA20 아래여도 개선판 추천 계속(경고만), block = 추천 중단
         "alert_strategy": config.ALERT_STRATEGY,  # 텔레그램 알림을 보내는 전략(화면의 중심 전략)
         "fear_greed": fear_greed.export(),  # 오늘 화면의 공포·탐욕 지수 타일 (참고용)

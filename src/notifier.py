@@ -68,7 +68,7 @@ def _since_recommended(market: str, cur: dict) -> str:
 
 def _low_confirmed(candidate: CandidateResult) -> dict:
     """일봉·4시간 프레임의 'RSI 저점 확인' 여부: 스토캐스틱 RSI 골든크로스(저점권에서 %K가 %D 위로 올라섬)가 있었는가.
-    False = 최초 도달(%K가 막 20 이하로 내려옴)만으로 통과한 프레임 — 아직 반등 확인 전이다. config.LOW_CONFIRM_REQUIRED가 켜져 있으면 하나라도 False인 종목은 추천하지 않는다."""
+    False = 최초 도달(%K가 막 20 이하로 내려옴)만으로 통과한 프레임 — 아직 반등 확인 전이다. config.LOW_CONFIRM_MODE가 day면 일봉이, both면 일봉·4시간 중 하나라도 False인 종목은 추천하지 않는다."""
     return {f.frame: bool(f.detail.get("golden_cross")) for f in candidate.frames if f.frame in ("day", "4h") and f.passed_gate}
 
 
