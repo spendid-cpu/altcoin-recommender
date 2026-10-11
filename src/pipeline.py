@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 
 import aiohttp
 
-from src import btc_context, btc_wave_gate, config, cycle, exits, fear_greed, macro_job, market_cap, orderbook, original_alerts, original_scanner, paper_limit, price_tracker, report, scan_log, state_store, telegram_client, upbit_extra
+from src import btc_context, btc_wave_gate, config, cycle, exits, fear_greed, funnel, macro_job, market_cap, orderbook, original_alerts, original_scanner, paper_limit, price_tracker, report, scan_log, shadow, state_store, telegram_client, upbit_extra
 from src.scoring import find_support_lows
 from src.exchanges import upbit_client
 from src.notifier import diff_alerts
@@ -122,7 +122,8 @@ async def run_once(session: aiohttp.ClientSession) -> None:
     print("업비트 KRW 마켓 스캔 중...")
     markets = await upbit_client.fetch_markets(session)
     candle_cache: dict = {}  # 개선판이 받은 일봉 캔들을 기준선·사이클 탭이 재사용한다
-    candidates = await scan_all(session, markets, candle_cache)
+    scan_stats: dict = {}  # 추천 퍼널용: 일봉에서 빠진 이유별 종목 수
+    candidates = await scan_all(session, markets, candle_cache, scan_stats)
 
     try:
         await cycle.refresh(session, candle_cache, markets)
@@ -140,13 +141,13 @@ async def run_once(session: aiohttp.ClientSession) -> None:
             entry += " →추천" if c.recommendable else ""
             print(f"  {c.market:12s} [{c.grade}] 점수={c.total_score:5.1f}  통과 프레임=[{frames_str}]{vol}{entry}")
 
-    if gate["blocked"]:
-        try:  # 보류된 후보는 나중에 같은 잣대로 평가하려고 따로 남긴다 (추천 기록에는 넣지 않는다)
-            held = btc_wave_gate.log_skipped(candidates, state_store.load_all(), set(price_tracker.recent_recommendation_markets()))
-            if held:
-                print(f"[BTC 작은 파동 게이트] 신규 추천 {held}건 보류 기록")
-        except Exception as exc:
-            print(f"[BTC 작은 파동 게이트] 보류 기록 실패(무시): {exc!r}")
+    tracked_now = set(price_tracker.recent_recommendation_markets())
+    try:  # 규칙(작은 파동 게이트·일봉 저점 확인) 때문에 막힌 새 추천은 그림자 진입으로 따로 남겨 이후 성과를 비교한다 (추천 기록·알림에는 섞지 않는다)
+        held = shadow.record(candidates, tracked_now, gate["blocked"])
+        if held:
+            print(f"[그림자 기록] 규칙에 막힌 새 추천 {held}건 기록")
+    except Exception as exc:
+        print(f"[그림자 기록] 실패(무시): {exc!r}")
 
     # candidates가 비어 있어도 diff_alerts/save_all은 실행한다 — 이번에 후보에서 빠진 종목의 상태를
     # 정리해야 하기 때문이다 (추적이 끝난 종목은 초기화, 추적 중인 종목은 알린 단계 유지).
@@ -159,6 +160,10 @@ async def run_once(session: aiohttp.ClientSession) -> None:
             await telegram_client.send_message(session, btc_wave_gate.transition_message(gate))
         except Exception as exc:
             print(f"[BTC 작은 파동 게이트] 상태 변경 알림 전송 실패(무시): {exc!r}")
+    try:  # 추천 퍼널: 이번 스캔에서 단계마다 몇 개가 남았고 5분 저점까지 온 종목이 왜 추천이 안 됐는지 (표시 전용)
+        funnel.record(funnel.build(len(markets), scan_stats, candidates, tracked_now, {a.market for a in alerts if a.kind == "new_candidate"}, gate["blocked"]))
+    except Exception as exc:
+        print(f"[퍼널] 기록 실패(무시): {exc!r}")
     print(f"\n알림 대상 {len(alerts)}건 (상태가 바뀐 종목만)" + ("" if legacy_alerts_on else " — 개선판은 알림 없이 기록만(ALERT_STRATEGY=original)"))
     if not telegram_client.is_configured():
         print("(텔레그램 미설정 -> 콘솔에만 출력, .env에 TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID를 넣으면 전송됨)")
@@ -197,6 +202,10 @@ async def run_once(session: aiohttp.ClientSession) -> None:
     # BTC가 MA20 위일 때 들어간 추천은 BTC 이탈 규칙대로 정리하고, 경고를 달고 나간 추천은 exits.check_exit가 뺀다.
     await exits.process_exits(session, prices, candidates, btc_filter_on=favorable)
     await _update_paper(session, True)
+    try:  # 그림자 진입(막힌 추천)의 가격 확인·종료
+        await shadow.update(session)
+    except Exception as exc:
+        print(f"[그림자 기록] 가격 확인 실패(사이클은 계속): {exc!r}")
     await report.maybe_send_report(session, prices, candidates, btc_filter_on=True)
     scan_log.record_scan(btc_favorable=favorable, candidates=len(candidates), alerts=len(alerts))
 

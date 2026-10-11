@@ -13,7 +13,7 @@
 
 import aiohttp
 
-from src import exits, gap_replay, macro_job, pipeline, report
+from src import exits, gap_replay, macro_job, pipeline, report, shadow
 from src.scanner import check_btc_trend
 
 
@@ -30,6 +30,10 @@ async def run_once(session: aiohttp.ClientSession) -> None:
     # 종료 알림의 BTC 필터 표기, BTC 이탈 정리, 모의 지정가 취소 판단에 모두 쓰이는 실제 추세.
     # (여기서는 새 후보를 스캔하지 않으므로 candidates=[]는 항상 빈 목록이다.)
     favorable = await check_btc_trend(session)
+    try:  # 규칙에 막힌 추천의 그림자 진입도 5분마다 가격을 확인한다 (실제 추천과 같은 간격)
+        await shadow.update(session)
+    except Exception as exc:
+        print(f"[그림자 기록] 가격 확인 실패(추적은 계속): {exc!r}")
     prices = await pipeline.track_prices(session)
     if not prices:
         print("추적 중인 추천이 없습니다.")

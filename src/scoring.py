@@ -311,15 +311,20 @@ class CandidateResult:
         return config.LOW_FRAME in self.cleared_frames
 
     @property
-    def recommendable(self) -> bool:
-        """추천 대상인지. 기본은 일봉/4시간/1시간/15분을 모두 통과하고 5분봉이 저점일 때만 True.
-        최근 급등 이력이 있는 종목(runup_excluded)이거나 4시간봉 주요 이평선 근처가 아닌 종목
-        (ma_confluence_excluded)은 조건을 통과해도 추천하지 않는다. RSI 저점 확인(골든크로스)이 필요한 프레임에서 확인이 없는 종목(low_confirm_excluded)도 마찬가지다."""
-        if self.runup_excluded or self.ma_confluence_excluded or self.low_confirm_excluded:
+    def recommendable_ignoring_low(self) -> bool:
+        """RSI 저점 확인 규칙(low_confirm_excluded)만 빼고 본 추천 대상 여부 — 이 규칙이 없었다면 추천이 됐을 종목인지 가리는 그림자 기록(src/shadow.py)에 쓴다."""
+        if self.runup_excluded or self.ma_confluence_excluded:
             return False
         if config.RECOMMEND_ONLY_AT_15M_LOW:
             return self.cleared_frames == [*config.FRAME_ORDER, config.LOW_FRAME]
         return bool(self.cleared_frames)
+
+    @property
+    def recommendable(self) -> bool:
+        """추천 대상인지. 기본은 일봉/4시간/1시간/15분을 모두 통과하고 5분봉이 저점일 때만 True.
+        최근 급등 이력이 있는 종목(runup_excluded)이거나 4시간봉 주요 이평선 근처가 아닌 종목
+        (ma_confluence_excluded)은 조건을 통과해도 추천하지 않는다. RSI 저점 확인(골든크로스)이 필요한 프레임에서 확인이 없는 종목(low_confirm_excluded)도 마찬가지다."""
+        return self.recommendable_ignoring_low and not self.low_confirm_excluded
 
     @property
     def grade(self) -> str:

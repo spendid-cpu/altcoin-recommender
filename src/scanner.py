@@ -35,6 +35,7 @@ async def scan_market(
     limiter: AsyncLimiter,
     semaphore: asyncio.Semaphore,
     cache: dict | None = None,
+    stats: dict | None = None,
 ) -> CandidateResult | None:
     """일봉 게이트 통과 못하면 4시간/1시간은 아예 조회하지 않는다 (호출량 절감).
     cache를 주면 받은 캔들을 (종목, 프레임) 키로 넣어 둔다 — 같은 스캔에서 사이클 전략이 재사용한다."""
@@ -79,6 +80,9 @@ async def scan_market(
             one_hour_df = candles
 
     if not frames or not frames[0].passed_gate:
+        if stats is not None:  # 추천 퍼널(src/funnel.py)용: 일봉에서 왜 빠졌는지 센다
+            why = "no_data" if not frames else (frames[0].detail.get("reason") or "day_fail")
+            stats[why] = stats.get(why, 0) + 1
         return None  # 일봉부터 탈락한 종목은 후보에서 제외
 
     volume_bonus = False
@@ -114,25 +118,27 @@ async def scan_market(
 
 async def _scan_market_safe(
     market: str, session: aiohttp.ClientSession, limiter: AsyncLimiter, semaphore: asyncio.Semaphore,
-    cache: dict | None = None,
+    cache: dict | None = None, stats: dict | None = None,
 ) -> CandidateResult | None:
     """한 종목의 조회 실패(429 재시도 초과, 일시적 네트워크 오류 등) 때문에 스캔 전체가 죽지 않게 한다."""
     try:
-        return await scan_market(market, session, limiter, semaphore, cache)
+        return await scan_market(market, session, limiter, semaphore, cache, stats)
     except Exception as exc:
+        if stats is not None:
+            stats["error"] = stats.get("error", 0) + 1
         print(f"  {market} 스캔 실패(이번 사이클은 건너뜀): {exc}")
         return None
 
 
 async def scan_all(
-    session: aiohttp.ClientSession, markets: list[str] | None = None, cache: dict | None = None
+    session: aiohttp.ClientSession, markets: list[str] | None = None, cache: dict | None = None, stats: dict | None = None
 ) -> list[CandidateResult]:
     if markets is None:
         markets = await upbit_client.fetch_markets(session)
     limiter = AsyncLimiter(config.UPBIT_RATE_LIMIT_PER_SEC, 1)
     semaphore = asyncio.Semaphore(config.UPBIT_CONCURRENCY)
 
-    tasks = [_scan_market_safe(m, session, limiter, semaphore, cache) for m in markets]
+    tasks = [_scan_market_safe(m, session, limiter, semaphore, cache, stats) for m in markets]
     results = await asyncio.gather(*tasks)
     candidates = [r for r in results if r is not None and r.market not in config.NO_RECOMMEND_MARKETS]
     candidates.sort(key=lambda c: c.total_score, reverse=True)

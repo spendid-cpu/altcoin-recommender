@@ -5,7 +5,7 @@
   하락 무마까지는 가지 않은 상태'에서 진입한 신호가 -5%를 먼저 건드린 비율이 +21.8%p 높았고(구간 +5.1~+38.7, 99.17%) 3일 수익률도 낮았다
   (-2.47%p). 앞/뒤 절반 모두 같은 방향. 다만 분기별로는 11개 중 8개만 같은 방향이었고, 백테스트 밖 라이브 구간(2026-09-20~10-07,
   종료 141건, 진입일 15일)에서는 오히려 반대였다(W2 해당 구간 손절 13.6% vs 나머지 45.1%). 그래서 규칙이 아니라 '시험 중인 보류'로 다루고,
-  보류한 종목은 detail 대신 meta의 보류 기록에 남겨 나중에 같은 잣대로 다시 평가한다. 대조군(original)은 이 게이트를 받지 않는다(기준점 고정).
+  막은 새 추천은 src/shadow.py의 그림자 진입으로 남겨 이후 성과를 실제 추천과 같은 규칙으로 따라간다. 대조군(original)은 이 게이트를 받지 않는다(기준점 고정).
 - 하락 '시작'을 예측하지는 않는다. 작은 파동(좌우 4캔들·최소 3%)에서 직전 고점으로부터 3% 이상 내려오고, 마지막으로 마감된 4시간봉 종가가
   그 하락 파동의 0.618 되돌림 아래에 있으면 '하락 파동'으로 본다. 더 일찍 잡는 변형(2%·1.5% 파동, 조정 구간 포함)은 같은 방식으로 시험했지만
   기준을 더 잘 통과하지 못했다(2%는 통과했으나 W2보다 약함, 1.5%·조정 구간 포함은 근거 없음).
@@ -19,11 +19,8 @@ from datetime import datetime, timezone
 from src import config, jsonutil, macro_job, state_store
 
 META_KEY = "btc_wave_gate_json"
-SKIPPED_KEY = "btc_wave_gate_skipped_json"
-SKIPPED_KEEP = 400  # 보류 기록 최대 보관 수
 NOTICE_KEY = "btc_wave_gate_notice_at"
 NOTICE_GAP_HOURS = 4  # 상태가 4시간봉 경계에서 오락가락해도 변경 알림은 이 간격 안에 두 번 보내지 않는다
-SKIPPED_DEDUP_HOURS = 24  # 같은 종목은 이 시간 안에 다시 쌓지 않는다
 STALE_MINUTES = 90  # 매크로 분석이 이보다 낡으면 상태를 모른다고 보고 막지 않는다
 MODES = ("off", "down", "bear")
 
@@ -109,35 +106,6 @@ def notice_due(now: datetime | None = None) -> bool:
     return True
 
 
-def load_skipped() -> list[dict]:
-    raw = state_store.get_meta(SKIPPED_KEY)
-    return json.loads(raw) if raw else []
-
-
-def log_skipped(candidates, previous_states: dict, tracked: set, now: datetime | None = None) -> int:
-    """게이트 때문에 추천이 보류된 후보(게이트가 없었다면 신규 추천이 됐을 종목)를 기록해 둔다.
-    나중에 '보류한 종목이 실제로 어땠는지'를 같은 잣대로 평가하려는 용도 — 추천 기록(리더보드)에는 넣지 않는다."""
-    now = now or datetime.now(timezone.utc)
-    rows = load_skipped()
-    recent = {r["market"] for r in rows if (now - datetime.fromisoformat(r["at"])).total_seconds() < SKIPPED_DEDUP_HOURS * 3600}
-    added = 0
-    for c in candidates:
-        if not c.recommendable or (c.total_score or 0) < config.MIN_RECOMMEND_SCORE:
-            continue
-        if c.market in tracked or c.market in recent or (previous_states.get(c.market) or {}).get("alerted_frames"):
-            continue  # 이미 추천 중이거나 이번에 처음 보류된 게 아니면 건너뜀
-        rows.append({"market": c.market, "at": now.isoformat(), "price": c.current_price, "score": round(c.total_score, 1)})
-        recent.add(c.market)
-        added += 1
-    if added:
-        state_store.set_meta(SKIPPED_KEY, jsonutil.dumps(rows[-SKIPPED_KEEP:], ensure_ascii=False, separators=(",", ":")))
-    return added
-
-
 def export() -> dict | None:
-    """대시보드용: 현재 상태 + 보류 기록 요약."""
-    gate = load()
-    if gate is None:
-        return None
-    rows = load_skipped()
-    return {**gate, "skipped_recent": rows[-30:], "skipped_total": len(rows)}
+    """대시보드용: 현재 게이트 상태. (막힌 추천의 사후 성과는 src/shadow.py가 따로 기록한다.)"""
+    return load()

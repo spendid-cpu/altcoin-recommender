@@ -349,6 +349,15 @@
   .wall-row .tag { font-size: 11px; color: var(--ink2); white-space: nowrap; }
   .wall-row.wall .tag { font-weight: 650; color: var(--ink); }
   .pill.warn { background: color-mix(in srgb, var(--warn) 24%, transparent); border-color: transparent; color: var(--ink); font-weight: 600; }
+  .chips-fold { display: inline-block; }
+  .chips-fold[open] { flex-basis: 100%; }
+  .chips-fold > summary { display: inline-block; cursor: pointer; list-style: none; font-size: 12px; padding: 1px 9px; border: 1px dashed var(--border); border-radius: 999px; color: var(--ink2); }
+  .chips-fold > summary::-webkit-details-marker { display: none; }
+  .chips-more { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+  .funnel-row { display: grid; grid-template-columns: 82px 1fr 44px; gap: 8px; align-items: center; margin: 4px 0; font-size: 13px; }
+  .funnel-bar { height: 12px; border-radius: 6px; background: color-mix(in srgb, var(--accent, #4f8cff) 70%, transparent); min-width: 3px; }
+  .funnel-track { background: color-mix(in srgb, var(--ink2) 12%, transparent); border-radius: 6px; }
+  .funnel-reasons { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
   .rec-warn { margin: 8px 0 0; padding: 5px 9px; border-radius: 8px; font-size: 12.5px; line-height: 1.4; background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--ink); }
   .below-count { margin-left: 8px; font-size: 12.5px; font-weight: 600; padding: 1px 9px; border-radius: 999px; background: color-mix(in srgb, var(--warn) 24%, transparent); }
   .pill.ob-bid { background: color-mix(in srgb, var(--good) 14%, transparent); border-color: transparent; color: var(--ink); }
@@ -557,6 +566,11 @@
           <button class="link-btn" type="button" data-goto="recs">전체 보기</button>
         </div>
         <div id="home-active" class="rec-grid"></div>
+        <section id="home-funnel" class="card" style="margin-top:16px" aria-labelledby="h-funnel" hidden>
+          <div class="card-head"><h2 id="h-funnel">추천 퍼널</h2><span id="funnel-at" class="muted" style="font-size:12px"></span></div>
+          <p class="sub" style="margin:0 0 8px">스캔한 종목이 단계마다 몇 개 남는지, 5분 저점까지 온 종목이 왜 추천이 안 됐는지 보여요 (표시 전용)</p>
+          <div id="funnel-body"></div>
+        </section>
       </section>
 
       <aside class="home-side">
@@ -1108,6 +1122,8 @@
 // v1.19 (2026-10-05) 업비트 공개 API 참고 정보 3가지 추가: 추천 카드의 '체결 매수 N%'(실제 체결 중 사는 쪽 비중, 추천 순간 -> 지금), 업비트 공식 시장 경고 배지(거래량 급증·해외 가격 차이 등), 비트코인 분석 화면의 BTC 김치 프리미엄 타일. 모두 참고용
 // v1.20 (2026-10-07) '주식' 탭 추가(실험): 코스피·코스닥 지수 상태, 마감 주봉 RSI(14) 30 이하 신규 후보(시장별), 추천 기록·4주 성과 통계. 알림 없이 기록만
 // v1.21 (2026-10-07) 주식 카드의 거래대금 칩에 마우스를 올리거나 탭하면 최근 26주 종가·일평균 거래대금 흐름 팝업
+// v1.33 (2026-10-12) ① 오늘 화면 '추천 퍼널'(스캔 -> 일봉 -> 4시간 -> 1시간 -> 15분 -> 5분 저점, 5분 저점까지 온 종목이 추천 안 된 사유, 최근 24시간) ② 성과 탭 '막은 추천의 사후 성과'(규칙에 막힌 추천을 가상 진입으로 따라간 결과, 실제 추천과 비교)
+//   ③ 추천 카드의 참고 칩(시총·거래대금·뉴스·섹터·언락·변동폭·재추천·호가·체결)을 '참고 N'으로 접음(경고·저점 확인 표식은 그대로 보임). 표시만, 추천 규칙은 그대로
 // v1.32 (2026-10-11) RSI 저점 확인 규칙을 '일봉만'으로 완화(기본, LOW_CONFIRM_MODE=day): 일봉은 골든크로스 확인 필요, 4시간은 최초 도달도 허용, 1시간·15분·5분은 그대로. 추천 약 44% 남음(둘 다 확인은 12%), 백테스트 손절 감소 근거는 둘 다 없음
 // v1.31 (2026-10-11) 개선판은 일봉·4시간 RSI 저점이 둘 다 확인된(스토RSI 골든크로스) 종목만 추천한다(사용자 결정, LOW_CONFIRM_REQUIRED=false로 끔). 사전 등록 백테스트는 손절 감소 근거 없음(추천 약 88% 감소). 후보 표에 '제외 · RSI 저점 미확인'
 // v1.30 (2026-10-11) 개선판 추천·후보에 '일봉·4시간 RSI 저점 확인' 표시(스토RSI 골든크로스 = 확인, 최초 도달만 = 미확인) + 텔레그램 추천 알림에 한 줄. 표시만, 추천 규칙은 그대로
@@ -1122,7 +1138,7 @@
 // v1.24 (2026-10-09) 오늘 화면에 공포·탐욕 지수 타일(참고) + 라이브 검증 현황에 '탐욕 구간 손절' 카드. 추천 순간 지수는 detail.fng로 기록
 // v1.23 (2026-10-07) 팝업을 주봉 캔들+거래대금(상승·하락 색)+RSI(30선)로 바꾸고, 주식 공시·뉴스 / 코인 업비트 공지·뉴스 칩 추가(표시 전용)
 // v1.22 (2026-10-07) 시가총액 칩(주식: 네이버 증권, 코인: CoinGecko) + 코인 추천 카드에도 지난주 거래대금·시총 칩과 같은 주봉 팝업(종가·주간 거래대금·RSI)
-const APP_VERSION = 'v1.32';
+const APP_VERSION = 'v1.33';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DATA_URL = 'dashboard.json';
@@ -1471,6 +1487,17 @@ const belowPill = (r) => (r.detail && r.detail.btc_below_ma20
   ? h('span', { class: 'pill warn', title: '비트코인 일봉 종가가 MA20 아래일 때 경고를 달고 나온 추천이에요. BTC 이탈 전량 정리는 적용하지 않아요.', text: '⚠ MA20 아래 진입' }) : null);
 const belowNote = (r) => (r.detail && r.detail.btc_below_ma20
   ? h('div', { class: 'rec-warn', text: '⚠ BTC 일봉이 MA20 아래일 때 나온 추천이에요 · 하락장이라 위험이 더 크고, BTC 이탈 전량 정리는 적용하지 않아요' }) : null);
+// 추천 카드의 참고 칩을 '참고 N'으로 접는다. 열어 둔 카드는 화면이 새로 그려져도 열린 채로 둔다
+const chipOpen = new Set();
+function chipFold(r, extras) {
+  const list = extras.flat().filter(Boolean);
+  if (!list.length) return null;
+  const key = `${r.market}|${r.entered_at}`;
+  const det = h('details', { class: 'chips-fold' }, h('summary', { text: `참고 ${list.length}` }), h('div', { class: 'chips-more' }, ...list));
+  if (chipOpen.has(key)) det.open = true;
+  det.addEventListener('toggle', () => { if (det.open) chipOpen.add(key); else chipOpen.delete(key); });
+  return det;
+}
 const belowCount = (recs) => recs.filter((r) => r.detail && r.detail.btc_below_ma20).length;
 const WARN_MODE_SINCE = '2026-10-11T14:40:00';  // 이 시각 이후 스캔부터 BTC가 MA20 아래여도 추천을 계속했다 (그 전의 '꺼짐'은 스캔 중단)
 // 일봉·4시간 RSI 저점 확인 여부: 추천 근거(frames)에서 '골든크로스 보너스'를 받았는가 (없으면 최초 도달만으로 통과 = 반등 확인 전)
@@ -1557,6 +1584,38 @@ function renderScanChip(d) {
   $('#scan-chip-text').textContent = stale ? `스캔 지연 · ${ago(d.last_scan_at)}` : `스캔 정상 · ${ago(d.last_scan_at)}`;
 }
 
+/* ---------- 추천 퍼널 ---------- */
+const FUNNEL_STAGES = [['scanned', '스캔'], ['day', '일봉 통과'], ['4h', '4시간'], ['1h', '1시간'], ['15m', '15분'], ['5m', '5분 저점']];
+const FUNNEL_REASON = { recommended: '✅ 신규 추천', low_confirm: '일봉 RSI 저점 미확인', runup: '최근 급등 이력', ma_confluence: '4시간 이평선과 멀어요', score: '최소 점수 미달',
+  wave_gate: 'BTC 작은 파동 하락 보류', recent: '최근 3일 안 이미 추천', other: '기타' };
+const FUNNEL_SCAN = { new_listing: '신규 상장', low_liquidity: '거래대금 부족', day_fail: '일봉 저점 아님', error: '조회 실패', no_data: '데이터 없음' };
+function renderFunnel(d) {
+  const sec = $('#home-funnel'), f = d.funnel;
+  if (!f || !f.latest) { sec.hidden = true; return; }
+  sec.hidden = false;
+  const L = f.latest, st = L.stages, total = Math.max(1, st.scanned || 1);
+  $('#funnel-at').textContent = `${ago(L.at)} 스캔`;
+  const rows = FUNNEL_STAGES.map(([k, name]) => {
+    const n = st[k] || 0;
+    return h('div', { class: 'funnel-row' }, h('span', { text: name }),
+      h('div', { class: 'funnel-track' }, h('div', { class: 'funnel-bar', style: `width:${Math.max(n ? 1.5 : 0, n / total * 100)}%` })),
+      h('span', { class: 'num', text: String(n) }));
+  });
+  const reasonChips = (obj) => Object.entries(obj || {}).sort((a, b) => b[1] - a[1]).map(([k, n]) =>
+    h('span', { class: k === 'recommended' ? 'pill' : 'pill warn', text: `${k === 'low_confirm' && L.rules && L.rules.low_confirm === 'both' ? '일봉·4시간 RSI 저점 미확인' : (FUNNEL_REASON[k] || k)} ${n}` }));
+  const scanTxt = Object.entries(L.scan || {}).map(([k, n]) => `${FUNNEL_SCAN[k] || k} ${n}`).join(' · ');
+  const nFull = st['5m'] || 0;
+  const d24 = f.day24 || { reasons: {}, markets: 0, scans: 0 };
+  host_replace($('#funnel-body'), [
+    ...rows,
+    h('p', { class: 'sub', style: 'margin:8px 0 2px', text: nFull ? `5분 저점까지 온 종목 ${nFull}개의 결과` : '이번 스캔에서는 5분 저점까지 온 종목이 없어요' }),
+    nFull ? h('div', { class: 'funnel-reasons' }, ...reasonChips(L.reasons)) : null,
+    scanTxt ? h('p', { class: 'card-note', text: `일봉에서 빠진 이유: ${scanTxt}` }) : null,
+    h('p', { class: 'card-note', text: `최근 24시간(스캔 ${d24.scans}번): 5분 저점까지 온 서로 다른 종목 ${d24.markets}개 — ${Object.keys(d24.reasons).length ? Object.entries(d24.reasons).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k === 'low_confirm' && L.rules && L.rules.low_confirm === 'both' ? '일봉·4시간 RSI 저점 미확인' : (FUNNEL_REASON[k] || k)} ${n}`).join(' · ') : '없음'}` }),
+  ]);
+}
+function host_replace(el, nodes) { el.replaceChildren(...nodes.filter(Boolean)); }
+
 function renderNotice(d) {
   const el = $('#home-notice'), w = d.macro && d.macro.watch;
   const rows = [];
@@ -1584,8 +1643,8 @@ function recCard(r, d) {
   const left = days * 86400e3 - elapsed;
   const slPrice = r.entry_price * (1 - sl / 100), tpPrice = r.entry_price * (1 + tp / 100);
   const meta = r.strategy === 'original'
-    ? [volPill(r), r.score == null ? null : h('span', { class: 'pill', text: `점수 ${r.score}` }), priorBadge(r, d), obPill(r, d), flowPill(r, d), flagPill(r, d), ...coinChips(r, d), unlockChip(r, d), ...sectorPills(r, d)]
-    : [h('span', { class: 'strat', text: '개선판' }), gradePill(r.grade), lowPill(r), belowPill(r), ...coinChips(r, d), unlockChip(r, d), ...sectorPills(r, d)];
+    ? [r.score == null ? null : h('span', { class: 'pill', text: `점수 ${r.score}` }), flagPill(r, d), chipFold(r, [volPill(r), priorBadge(r, d), obPill(r, d), flowPill(r, d), ...coinChips(r, d), unlockChip(r, d), ...sectorPills(r, d)])]
+    : [h('span', { class: 'strat', text: '개선판' }), gradePill(r.grade), lowPill(r), belowPill(r), flagPill(r, d), chipFold(r, [...coinChips(r, d), unlockChip(r, d), ...sectorPills(r, d)])];
   const gauge = gaugeBar(ret, tp, sl);
   gauge.querySelector('.gauge-labels').replaceChildren(h('span', { text: `손절 ${fmtKRW(slPrice)}` }), h('span', { text: `익절 ${fmtKRW(tpPrice)}` }));
   return h('article', { class: 'rec' },
@@ -2182,6 +2241,37 @@ function renderExperiments(d) {
       reading: [line('⚠ MA20 아래 진입', F), line('그 외 개선판', B)],
       criteria: `MA20 아래 진입 추천이 종료 ${TARGET}건·서로 다른 5일 이상 모였을 때 손절률이 그 외 개선판보다 10%p 이상 높으면 필터를 다시 켜는 것을 검토해요. 그 전에는 결론을 내리지 않아요. 표식은 2026-10-11 이후 추천부터 붙어요.`,
       verdict,
+    }));
+  }
+
+  // ①-4 막은 추천의 사후 성과 (그림자 진입: 일봉 저점 확인 규칙·작은 파동 게이트에 막힌 새 추천을 가상으로 따라간 결과)
+  {
+    const sh = d.shadow || [];
+    const leg = (d.recommendations || []).filter((r) => stratOf(r) === 'legacy');
+    const real = realClosed(leg);
+    const st = (a) => ({ n: a.length, mean: a.length ? avg(a.map((x) => x.ret)) : null, stop: a.length ? a.filter((x) => x.exit === 'stop_loss').length / a.length * 100 : null,
+      days: new Set(a.map((x) => kstDayStart(new Date(x.at).getTime()))).size });
+    const closedOf = (name) => sh.filter((x) => x.status === 'closed' && x.reasons.includes(name));
+    const openN = sh.filter((x) => x.status === 'open').length;
+    const R = { n: real.length, mean: avg(real.map((r) => r.exit.return_pct)), stop: real.length ? real.filter((r) => r.exit.reason === 'stop_loss').length / real.length * 100 : null };
+    const groups = [['low_confirm', '일봉 저점 미확인으로 막음'], ['wave_gate', '작은 파동 하락으로 보류']].map(([k, name]) => ({ k, name, v: st(closedOf(k)) }));
+    const line = (name, v) => (v.n ? `${name} ${v.n}건 · 평균 ${sgn(v.mean)} · 손절 ${v.stop.toFixed(0)}%` : `${name} 아직 종료된 건이 없어요`);
+    const verdicts = [];
+    for (const g of groups) {
+      if (g.v.n >= TARGET && g.v.days >= 10) {
+        const worse = g.v.stop - R.stop >= 5 && R.mean - g.v.mean >= 0.5, better = R.stop - g.v.stop >= 5 && g.v.mean - R.mean >= 0.5;
+        verdicts.push(`${g.name}: ${worse ? '막은 쪽이 손절이 더 많고 평균이 낮았어요 — 규칙이 도움이 된 것으로 보여요' : better ? '막은 쪽이 오히려 손절이 적고 평균이 높았어요 — 규칙을 다시 검토할 만해요' : '실제 추천과 구분이 안 돼요 — 결론을 내리지 않아요'}`);
+      }
+    }
+    const ready = groups.some((g) => g.v.n >= TARGET && g.v.days >= 10);
+    cards.push(expCard({
+      title: '막은 추천의 사후 성과',
+      what: '규칙(일봉 저점 확인, 작은 파동 하락 게이트) 때문에 추천하지 못한 종목을 막지 않았다면 추천이 됐을 시점에 가상으로 진입한 걸로 치고, 실제 추천과 같은 규칙(-5%·+5%·3일)으로 따라가요. 두 규칙은 백테스트로 이득이 입증되지 않았어서, 막은 쪽이 정말 더 나빴는지를 라이브로 확인해요.',
+      state: ready ? { text: '판단 가능', cls: 'ready' } : { text: '수집 중 · 결론 보류', cls: '' },
+      bars: groups.map((g) => expProg(`${g.name} 종료`, g.v.n, TARGET)),
+      reading: [...groups.map((g) => line(g.name, g.v)), line('실제 개선판 추천(전체)', R), `아직 진행 중인 가상 진입 ${openN}건 · 가상 진입은 막힌 순간부터 쌓여요(2026-10-12~)`],
+      criteria: `막은 쪽이 종료 ${TARGET}건·서로 다른 10일 이상일 때, 실제 추천보다 손절률이 5%p 이상 높고 평균 손익이 0.5%p 이상 낮으면 '규칙이 도움'으로, 반대로 손절률이 5%p 이상 낮고 평균이 0.5%p 이상 높으면 '규칙 재검토'로 봐요. 그 전에는 결론을 내지 않아요. 실제 추천(전체)에는 규칙이 없던 시기의 추천이 섞여 있어요.`,
+      verdict: verdicts.length ? verdicts.join(' / ') : null,
     }));
   }
 
@@ -3080,6 +3170,7 @@ function renderAll() {
   renderScanChip(d);
   renderNotice(d);
   renderHomeKpis(d);
+  renderFunnel(d);
   renderHomeActive(d);
   renderHomeRounds(d);
   renderHomeClosed(d);
