@@ -228,6 +228,7 @@
   .delta.up { color: var(--good); }
   .delta.down { color: var(--bad); }
   .pill { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 12px; border: 1px solid var(--border); color: var(--ink2); white-space: nowrap; }
+  .pill.S { background: color-mix(in srgb, var(--warn) 34%, transparent); color: var(--ink); border-color: transparent; font-weight: 750; }
   .pill.A { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--ink); border-color: transparent; font-weight: 650; }
   .pill.B { background: color-mix(in srgb, var(--accent) 8%, transparent); color: var(--ink); border-color: transparent; }
   .pill.rep { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--ink); border-color: transparent; }
@@ -708,6 +709,7 @@
           <li>승률은 익절 수 ÷ (익절 수 + 손절 수)예요. 기간 만료는 승패에 넣지 않고 따로 세요.</li>
           <li>추천된 종목은 5분마다 가격을 확인해서 선을 넘은 직후의 가격으로 기록돼요. 실제로 선에 닿은 가격과 조금 다를 수 있지만, 그 차이는 보통 0.1% 안팎이에요.</li>
           <li>익절선과 손절선을 같은 폭으로 두면 아무 종목이나 골랐을 때도 승률이 50% 안팎으로 나와요. 그래서 실제 승률이 그보다 뚜렷하게 높은지가 프로그램의 쓸모를 보는 기준이에요. 종료된 추천이 30건쯤 쌓이기 전에는 우연일 수 있어요.</li>
+          <li>점수·등급(2026-10-12 개편): 각 프레임 통과 점수(일봉 3·4시간 2·1시간 1·15분 0.5·5분 0.25)에 저점 확인(골든크로스) 점수(일봉 4·4시간 3·1시간 2·15분 1·5분 1), 장기 스토RSI 상승 전환(일봉·4시간·1시간 각 1.5)을 더하고, 보조 조건으로 4시간 이평선 합류 근접도(1% 이내 2·2% 이내 1)·최근 3일 급등 이력 적음(5% 미만 1·10% 미만 0.5)·1시간 거래량 급증(1)·BTC 환경(일봉 MA20 위 2·작은 파동 상승 1·큰 파동 상승 1)을 더해요. S 25점·A 21점·B 16점 이상이에요. 조건을 얼마나 충족했는지의 표시일 뿐 성과를 보장하지 않아요 — 점수가 높을수록 결과가 좋아지는지는 라이브로 지켜봐야 해요. 이전 추천의 등급은 옛 기준이에요.</li>
           <li>비트코인 일봉 종가가 MA20 아래여도 알트매크로 추천은 경고와 함께 추천을 계속해요(2026-10-11부터). 이때 나온 추천에는 '⚠ MA20 아래 진입' 표시가 붙고 BTC 이탈 전량 정리는 적용하지 않아요.</li>
           <li>알트매크로 추천은 2026-10-11부터 일봉 스토캐스틱 RSI 저점이 확인된(저점권에서 %K가 %D 위로 올라선 골든크로스) 종목만 추천해요. 4시간은 막 20 이하로 내려온 최초 도달도 허용하고, 1시간·15분·5분 저점 조건은 그대로예요. 백테스트에서는 손절이 줄어드는 근거가 없었고 추천 수만 줄어요(일봉만 확인하면 약 44% 남음) — 라이브에서 지켜보는 규칙이에요.</li>
           <li>투자 권유가 아니에요. 정해 둔 기준에 도달했는지를 기록하는 화면이에요.</li>
@@ -1080,6 +1082,8 @@
 // v1.19 (2026-10-05) 업비트 공개 API 참고 정보 3가지 추가: 추천 카드의 '체결 매수 N%'(실제 체결 중 사는 쪽 비중, 추천 순간 -> 지금), 업비트 공식 시장 경고 배지(거래량 급증·해외 가격 차이 등), 비트코인 분석 화면의 BTC 김치 프리미엄 타일. 모두 참고용
 // v1.20 (2026-10-07) '주식' 탭 추가(실험): 코스피·코스닥 지수 상태, 마감 주봉 RSI(14) 30 이하 신규 후보(시장별), 추천 기록·4주 성과 통계. 알림 없이 기록만
 // v1.21 (2026-10-07) 주식 카드의 거래대금 칩에 마우스를 올리거나 탭하면 최근 26주 종가·일평균 거래대금 흐름 팝업
+// v1.35 (2026-10-12) 점수·등급 개편: S/A/B 등급(S 25점·A 21점·B 16점 이상). 저점 확인(골든크로스) 점수를 프레임별로 차등(일봉 4·4시간 3·1시간 2·15분 1·5분 1), 장기 전환은 상위 3개 프레임 1.5점,
+//   보조 조건(4시간 이평선 합류 근접도·최근 급등 이력·거래량·BTC 일봉 MA20 위/작은·큰 파동 상승)을 '보조' 항목으로 가산. 등급은 조건 충족도 표시이고 성과 보장이 아님
 // v1.34 (2026-10-12) 대조군 삭제(화면·알림·기록): 전략 필터·회차별·대조군 참고 카드·전략 비교표·대조군 전용 검증 카드 제거, '개선판'은 '알트매크로 추천'으로 이름 변경. 예전 대조군 기록은 data/archive/에 보관
 // v1.33 (2026-10-12) ① 오늘 화면 '추천 퍼널'(스캔 -> 일봉 -> 4시간 -> 1시간 -> 15분 -> 5분 저점, 5분 저점까지 온 종목이 추천 안 된 사유, 최근 24시간) ② 성과 탭 '막은 추천의 사후 성과'(규칙에 막힌 추천을 가상 진입으로 따라간 결과, 실제 추천과 비교)
 //   ③ 추천 카드의 참고 칩(시총·거래대금·뉴스·섹터·언락·변동폭·재추천·호가·체결)을 '참고 N'으로 접음(경고·저점 확인 표식은 그대로 보임). 표시만, 추천 규칙은 그대로
@@ -1097,13 +1101,13 @@
 // v1.24 (2026-10-09) 오늘 화면에 공포·탐욕 지수 타일(참고) + 라이브 검증 현황에 '탐욕 구간 손절' 카드. 추천 순간 지수는 detail.fng로 기록
 // v1.23 (2026-10-07) 팝업을 주봉 캔들+거래대금(상승·하락 색)+RSI(30선)로 바꾸고, 주식 공시·뉴스 / 코인 업비트 공지·뉴스 칩 추가(표시 전용)
 // v1.22 (2026-10-07) 시가총액 칩(주식: 네이버 증권, 코인: CoinGecko) + 코인 추천 카드에도 지난주 거래대금·시총 칩과 같은 주봉 팝업(종가·주간 거래대금·RSI)
-const APP_VERSION = 'v1.34';
+const APP_VERSION = 'v1.35';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DATA_URL = 'dashboard.json';
 const STALE_MINUTES = 45;
 const EXPECTED_GAP_MINUTES = 15;
-const FRAME_LABEL = { day: '일봉', '4h': '4시간', '1h': '1시간', '15m': '15분', '5m': '5분' };
+const FRAME_LABEL = { day: '일봉', '4h': '4시간', '1h': '1시간', '15m': '15분', '5m': '5분', extra: '보조' };
 const EXIT_LABEL = { take_profit: '익절', stop_loss: '손절', trailing: '되돌림', expired: '기간 만료', excluded: '제외 정리', btc_exit: 'BTC 이탈 정리' };
 const $ = (sel, root = document) => root.querySelector(sel);
 
@@ -1161,7 +1165,7 @@ function pct(v) {
   const sign = v > 0 ? '+' : '';
   return h('span', { class: 'delta ' + (v > 0 ? 'up' : v < 0 ? 'down' : ''), text: `${arrow}${sign}${v.toFixed(2)}%` });
 }
-function gradePill(g) { return h('span', { class: 'pill ' + (g === 'A' || g === 'B' ? g : ''), text: g && g !== '-' ? `${g}등급` : '등급 없음' }); }
+function gradePill(g) { return h('span', { class: 'pill ' + (g === 'S' || g === 'A' || g === 'B' ? g : ''), title: '조건을 얼마나 충족했는지의 표시예요(S 25점·A 21점·B 16점 이상). 성과를 보장하지 않아요.', text: g && g !== '-' ? `${g}등급` : '등급 없음' }); }
 function ma20Cell(ma20, current, above) {
   // 비트코인 추천 필터와 같은 기준(일봉 종가 20일 이동평균)을 알트코인에도 참고용으로 보여준다 — 추천 여부에는 안 씀
   if (!ma20 || !current) return h('span', { class: 'muted', text: '—' });
@@ -1960,6 +1964,31 @@ function renderExperiments(d) {
       bars: [expProg('MA20 아래 진입 종료', F.n, TARGET), expProg('서로 다른 진입 일수', dayN, 5)],
       reading: [line('⚠ MA20 아래 진입', F), line('그 외 알트매크로 추천', B)],
       criteria: `MA20 아래 진입 추천이 종료 ${TARGET}건·서로 다른 5일 이상 모였을 때 손절률이 그 외 알트매크로 추천보다 10%p 이상 높으면 필터를 다시 켜는 것을 검토해요. 그 전에는 결론을 내리지 않아요. 표식은 2026-10-11 이후 추천부터 붙어요.`,
+      verdict,
+    }));
+  }
+
+  // ①-5 등급별 성과 (새 점수 체계 S/A/B, 2026-10-12~): 등급이 높을수록 정말 결과가 나은지 라이브로 확인
+  {
+    const v2 = realClosed((d.recommendations || []).filter((r) => stratOf(r) === 'legacy' && r.detail && r.detail.score_v === 2));
+    const st = (a) => ({ n: a.length, mean: a.length ? avg(a.map((r) => r.exit.return_pct)) : null, stop: a.length ? a.filter((r) => r.exit.reason === 'stop_loss').length / a.length * 100 : null,
+      days: new Set(a.map((r) => kstDayStart(new Date(r.entered_at).getTime()))).size });
+    const G = { S: st(v2.filter((r) => r.grade === 'S')), A: st(v2.filter((r) => r.grade === 'A')), B: st(v2.filter((r) => r.grade === 'B')), none: st(v2.filter((r) => !['S', 'A', 'B'].includes(r.grade))) };
+    const line = (name, v) => (v.n ? `${name} ${v.n}건 · 평균 ${sgn(v.mean)} · 손절 ${v.stop.toFixed(0)}%` : `${name} 아직 종료된 추천이 없어요`);
+    const top = G.S.n >= TARGET ? G.S : null, rest = st(v2.filter((r) => r.grade !== 'S'));
+    const ready = !!top && rest.n >= TARGET;
+    let verdict = null;
+    if (ready) {
+      verdict = rest.stop - top.stop >= 5 && top.mean - rest.mean >= 0.5 ? 'S 등급이 나머지보다 손절이 5%p 이상 적고 평균이 0.5%p 이상 높아요 — 등급이 성과와 이어지는 것으로 보여요'
+        : 'S 등급과 나머지가 기준만큼 구분되지 않아요 — 등급은 조건 충족도 표시로만 봐 주세요';
+    }
+    cards.push(expCard({
+      title: '등급별 성과 (새 점수 S/A/B)',
+      what: '2026-10-12에 점수를 개편해 S/A/B 등급을 나눴어요. 옛 백테스트에서는 점수가 높을수록 성과가 좋아지는 관계가 확인되지 않았어서, 새 등급이 정말 성과와 이어지는지 라이브로 지켜봐요. 새 점수로 나간 추천만 세요.',
+      state: ready ? { text: '판단 가능', cls: 'ready' } : { text: '수집 중 · 결론 보류', cls: '' },
+      bars: [expProg('S 등급 종료', G.S.n, TARGET), expProg('S 외 종료', rest.n, TARGET), expProg('A 등급 종료', G.A.n, TARGET)],
+      reading: [line('S', G.S), line('A', G.A), line('B', G.B), ...(G.none.n ? [line('등급 없음', G.none)] : [])],
+      criteria: `S 등급이 종료 ${TARGET}건 이상, S 외도 ${TARGET}건 이상 모였을 때 S의 손절률이 나머지보다 5%p 이상 낮고 평균 손익이 0.5%p 이상 높으면 '등급이 성과와 이어짐'으로 봐요. 그 전에는 결론을 내리지 않아요. (백테스트 근사에서는 상위 10%의 손절터치가 나머지보다 약 9%p 낮았지만 신뢰구간이 0 근처였어요.)`,
       verdict,
     }));
   }

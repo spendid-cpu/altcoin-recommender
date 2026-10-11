@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 
 import aiohttp
 
-from src import btc_context, btc_wave_gate, config, cycle, exits, fear_greed, funnel, macro_job, market_cap, migrations, paper_limit, price_tracker, report, scan_log, shadow, state_store, telegram_client
+from src import btc_context, scoring, btc_wave_gate, config, cycle, exits, fear_greed, funnel, macro_job, market_cap, migrations, paper_limit, price_tracker, report, scan_log, shadow, state_store, telegram_client
 from src.exchanges import upbit_client
 from src.notifier import diff_alerts
 from src.scanner import check_btc_trend, scan_all
@@ -131,6 +131,14 @@ async def run_once(session: aiohttp.ClientSession) -> None:
     scan_stats: dict = {}  # 추천 퍼널용: 일봉에서 빠진 이유별 종목 수
     candidates = await scan_all(session, markets, candle_cache, scan_stats)
 
+    try:  # 프레임 밖 보조 조건(MA 합류·급등 이력·거래량·BTC 환경)을 점수에 더하고 점수순으로 다시 줄 세운다 (추천 대상 판정에는 쓰지 않는다)
+        ctx_now = btc_context.snapshot()
+        scoring.apply_extras(candidates, btc_context.score_env(ctx_now))
+        candidates.sort(key=lambda c: c.total_score, reverse=True)
+    except Exception as exc:
+        print(f"[점수] 보조 조건 계산 실패(프레임 점수만 사용): {exc!r}")
+        ctx_now = None
+
     try:
         await cycle.refresh(session, candle_cache, markets)
     except Exception as exc:  # 사이클 탭 계산 실패로 알트코인 추천 자체가 막히면 안 된다
@@ -174,7 +182,7 @@ async def run_once(session: aiohttp.ClientSession) -> None:
         print("(텔레그램 미설정 -> 콘솔에만 출력, .env에 TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID를 넣으면 전송됨)")
     candidate_by_market = {c.market: c for c in candidates}
     try:
-        btc_ctx = btc_context.snapshot() if any(a.kind == "new_candidate" for a in alerts) else None
+        btc_ctx = ctx_now if any(a.kind == "new_candidate" for a in alerts) else None
     except Exception as exc:
         print(f"[BTC 컨텍스트] 기록값 준비 실패(기록만 생략): {exc!r}")
         btc_ctx = None

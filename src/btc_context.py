@@ -88,6 +88,14 @@ def build(day: pd.DataFrame, h4: pd.DataFrame, waves: dict | None) -> dict:
     return ctx
 
 
+def score_env(ctx: dict | None) -> dict | None:
+    """snapshot()의 컨텍스트에서 점수(scoring.apply_extras)에 쓰는 BTC 환경만 뽑는다. 컨텍스트가 없으면 None."""
+    if not ctx:
+        return None
+    small, large, ma20 = ctx.get("small") or {}, ctx.get("large") or {}, ctx.get("ma20") or {}
+    return {"ma20_above": bool(ma20.get("above")), "small_up": small.get("dir") == "up", "large_up": large.get("dir") == "up"}
+
+
 def snapshot(now: datetime | None = None) -> dict | None:
     """추천 순간에 진입 기록에 붙일 BTC 컨텍스트: 저장된 매크로 분석의 ctx + MVRV Z-score. 분석이 없거나 낡았으면 None (기록만 생략)."""
     from src import macro_job  # 순환 import 방지

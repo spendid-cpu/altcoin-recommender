@@ -81,8 +81,7 @@ async def scan_market(
 
     volume_bonus = False
     if one_hour_df is not None and has_volume_spike(one_hour_df):
-        total_score += config.VOLUME_BONUS
-        volume_bonus = True
+        volume_bonus = True  # 점수는 scoring.apply_extras가 보조 조건으로 더한다
 
     # 진입 직전 급등 이력: 1시간 마감 종가로 최근 RUNUP_LOOKBACK_HOURS시간의 최대 상승폭을 잰다
     runup = max_runup_pct(one_hour_df["close"].tail(config.RUNUP_LOOKBACK_HOURS)) if one_hour_df is not None else 0.0

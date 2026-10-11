@@ -138,13 +138,13 @@ def score_frame(
 
     score = config.FRAME_WEIGHTS[frame]
     if is_golden_cross:
-        score += config.GOLDEN_CROSS_BONUS
+        score += config.GOLDEN_CROSS_BONUS_BY_FRAME.get(frame, config.GOLDEN_CROSS_BONUS)
 
     period_state = {}
     for name in ("mid", "long"):
         turned_up = bool(turned_up_series(periods[name]["k"], periods[name]["d"]).iloc[-1])
         period_state[name] = turned_up
-        if turned_up:
+        if turned_up and (name != "long" or frame in config.LONG_BONUS_FRAMES):
             score += config.PERIOD_BONUS_WEIGHTS[name]
 
     return FrameResult(
@@ -197,6 +197,35 @@ def nearest_support(lows: list[float], price: float) -> float | None:
     return max(below) if below else None
 
 
+def apply_extras(candidates: list, btc_env: dict | None) -> None:
+    """프레임 점수 밖의 보조 조건을 점수에 더한다 (2026-10-12 점수 개편). 추천 대상 판정에는 쓰지 않고 점수·등급 표시에만 쓴다.
+    MA 합류 근접도(4시간 이평선과의 최소 갭), 최근 급등 이력의 크기, 1시간 거래량 급증, BTC 환경(일봉 MA20 위·작은/큰 파동 상승).
+    btc_env는 {"ma20_above": bool, "small_up": bool, "large_up": bool}이고 BTC 분석을 못 구했으면 None(BTC 점수 없음). 두 번 불러도 한 번만 더한다."""
+    for c in candidates:
+        if c.extras_applied:
+            continue
+        items = []
+        gap = c.ma_confluence_gap_pct
+        if gap is not None:
+            for limit, pts in config.SCORE_MA_GAP_POINTS:
+                if gap <= limit:
+                    items.append({"name": f"4시간 이평선 합류 {limit:g}% 이내", "points": pts})
+                    break
+        for limit, pts in config.SCORE_RUNUP_POINTS:
+            if c.recent_runup_pct < limit:
+                items.append({"name": f"최근 3일 급등 {limit:g}% 미만", "points": pts})
+                break
+        if c.volume_bonus and config.VOLUME_BONUS:
+            items.append({"name": "1시간 거래량 급증", "points": config.VOLUME_BONUS})
+        labels = {"ma20_above": "BTC 일봉 MA20 위", "small_up": "BTC 작은 파동 상승", "large_up": "BTC 큰 파동 상승"}
+        for key, pts in config.SCORE_BTC_ENV_POINTS.items():
+            if btc_env and btc_env.get(key):
+                items.append({"name": labels[key], "points": pts})
+        c.extra_items = items
+        c.total_score += sum(i["points"] for i in items)
+        c.extras_applied = True
+
+
 def check_entry(close: pd.Series) -> bool:
     """저점 프레임(LOW_FRAME, 5분봉) 종가 시리즈로부터 매수 타점(단기 스토 골든크로스) 여부를 판단한다."""
     short = stoch_rsi_all_periods(close)["short"]
@@ -224,6 +253,8 @@ class CandidateResult:
     support_lows: list = field(default_factory=list)  # 지지선 후보(1시간봉 스윙 저점), 모의 지정가용
     ma20: float = 0.0  # 일봉 종가 20일 이동평균(비트코인 필터와 같은 기준을 알트코인에도 참고용으로 보여준다)
     ma_confluence_gap_pct: float | None = None  # 4시간봉 MA20/50/100/200 중 가장 가까운 것까지의 거리(%)
+    extra_items: list = field(default_factory=list)  # 보조 조건 점수 항목 (apply_extras가 채운다)
+    extras_applied: bool = False
 
     @property
     def above_ma20(self) -> bool:
@@ -286,18 +317,22 @@ class CandidateResult:
                 reason = f"{FRAME_LABEL.get(f.frame, f.frame)} %K가 저점권" if d.get("at_low") else "조건 통과"
             items = [{"name": "프레임 통과", "points": config.FRAME_WEIGHTS[f.frame]}]
             if d.get("golden_cross"):
-                items.append({"name": "골든크로스 보너스", "points": config.GOLDEN_CROSS_BONUS})
+                items.append({"name": "골든크로스 보너스", "points": config.GOLDEN_CROSS_BONUS_BY_FRAME.get(f.frame, config.GOLDEN_CROSS_BONUS)})
             if d.get("mid_turned_up") and config.PERIOD_BONUS_WEIGHTS["mid"]:
                 items.append({"name": "중기 상승 전환", "points": config.PERIOD_BONUS_WEIGHTS["mid"]})
-            if d.get("long_turned_up") and config.PERIOD_BONUS_WEIGHTS["long"]:
+            if d.get("long_turned_up") and config.PERIOD_BONUS_WEIGHTS["long"] and f.frame in config.LONG_BONUS_FRAMES:
                 items.append({"name": "장기 상승 전환", "points": config.PERIOD_BONUS_WEIGHTS["long"]})
             frames.append({
                 "frame": f.frame, "reason": reason,
                 "short_k": d.get("short_k") if d.get("short_k") == d.get("short_k") else None,  # NaN(계산 불가)은 None
                 "points": round(f.score, 1), "items": items,
             })
+        if self.extra_items:  # 프레임 밖의 보조 조건(MA 합류·급등 이력·거래량·BTC 환경)
+            frames.append({"frame": "extra", "reason": "보조 조건", "short_k": None,
+                           "points": round(sum(i["points"] for i in self.extra_items), 1), "items": self.extra_items})
         return {
             "frames": frames,
+            "score_v": 2,  # 점수 체계 버전(2026-10-12 개편): 대시보드가 새 점수로 나간 추천만 등급별로 센다
             "total": round(self.total_score, 1),
             "grade": self.grade,
             "rule": ("일봉·4시간·1시간·15분봉 조건을 모두 통과하고 5분봉이 저점일 때 추천" if config.RECOMMEND_ONLY_AT_15M_LOW
