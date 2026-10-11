@@ -551,7 +551,7 @@
     <div class="home-grid">
       <section class="home-main" aria-labelledby="h-home-active">
         <div class="sec-head">
-          <h2 id="h-home-active">진행 중인 대조군 추천<span id="home-active-count" class="count"></span></h2>
+          <h2 id="h-home-active">진행 중인 개선판 추천<span id="home-active-count" class="count"></span></h2>
           <button class="link-btn" type="button" data-goto="recs">전체 보기</button>
         </div>
         <div id="home-active" class="rec-grid"></div>
@@ -559,7 +559,7 @@
 
       <aside class="home-side">
         <section class="card" aria-labelledby="h-home-rounds">
-          <div class="card-head"><h2 id="h-home-rounds">최근 회차</h2><button class="link-btn" type="button" data-goto="recs/rounds">회차별 보기</button></div>
+          <div class="card-head"><h2 id="h-home-rounds">대조군 최근 회차</h2><button class="link-btn" type="button" data-goto="recs/rounds">회차별 보기</button></div>
           <div id="home-rounds" class="mini-rows"></div>
         </section>
 
@@ -639,6 +639,7 @@
             <p class="sub">일봉 조건을 통과한 관찰 대상이에요. 4시간·1시간·15분을 지나 5분봉이 저점에 오면 추천돼요. 이미 추천한 종목은 빼고 보여줘요 (점수 높은 순)</p>
           </div>
         </div>
+        <p id="cand-gate" class="card-note" hidden></p>
         <div id="cand" class="table-wrap"></div>
       </div>
     </section>
@@ -731,7 +732,7 @@
           <li>승률은 익절 수 ÷ (익절 수 + 손절 수)예요. 기간 만료는 승패에 넣지 않고 따로 세요.</li>
           <li>추천된 종목은 5분마다 가격을 확인해서 선을 넘은 직후의 가격으로 기록돼요. 실제로 선에 닿은 가격과 조금 다를 수 있지만, 그 차이는 보통 0.1% 안팎이에요.</li>
           <li>익절선과 손절선을 같은 폭으로 두면 아무 종목이나 골랐을 때도 승률이 50% 안팎으로 나와요. 그래서 실제 승률이 그보다 뚜렷하게 높은지가 프로그램의 쓸모를 보는 기준이에요. 종료된 추천이 30건쯤 쌓이기 전에는 우연일 수 있어요.</li>
-          <li>대조군과 개선판은 매도 규칙이 같아서(익절 +5%·손절 -5%·3일 만료) 종료 손익을 그대로 비교할 수 있어요. 다만 대조군은 규칙(진입 조건·BTC 필터 일수)이 처음부터 다르니, 결국 비교하는 건 '진입을 어떻게 잡느냐'의 차이예요. 지금은 대조군이 텔레그램 알림을 보내는 메인이고, 개선판은 알림 없이 기록만 해요.</li>
+          <li>대조군과 개선판은 매도 규칙이 같아서(익절 +5%·손절 -5%·3일 만료) 종료 손익을 그대로 비교할 수 있어요. 다만 대조군은 규칙(진입 조건·BTC 필터 일수)이 처음부터 다르니, 결국 비교하는 건 '진입을 어떻게 잡느냐'의 차이예요. 지금은 개선판이 텔레그램 알림을 보내는 메인이고(BTC 작은 파동이 하락 중이면 신규 추천을 보류하는 시험 규칙 적용), 대조군은 규칙을 그대로 둔 채 알림 없이 기록만 해요.</li>
           <li>변동폭 표식(🔹낮음 / 🔸높음)은 대조군 추천을 최근 14일 평균 일중 등락폭 7.1%로 나눈 표시예요. 추천 대상은 그대로이고, 표식별 성과를 쌓아서 비교하려는 용도예요.</li>
           <li>투자 권유가 아니에요. 정해 둔 기준에 도달했는지를 기록하는 화면이에요.</li>
         </ul>
@@ -1103,12 +1104,14 @@
 // v1.19 (2026-10-05) 업비트 공개 API 참고 정보 3가지 추가: 추천 카드의 '체결 매수 N%'(실제 체결 중 사는 쪽 비중, 추천 순간 -> 지금), 업비트 공식 시장 경고 배지(거래량 급증·해외 가격 차이 등), 비트코인 분석 화면의 BTC 김치 프리미엄 타일. 모두 참고용
 // v1.20 (2026-10-07) '주식' 탭 추가(실험): 코스피·코스닥 지수 상태, 마감 주봉 RSI(14) 30 이하 신규 후보(시장별), 추천 기록·4주 성과 통계. 알림 없이 기록만
 // v1.21 (2026-10-07) 주식 카드의 거래대금 칩에 마우스를 올리거나 탭하면 최근 26주 종가·일평균 거래대금 흐름 팝업
+// v1.27 (2026-10-11) 알림·화면 중심을 개선판으로 되돌림(대조군은 규칙 그대로 기록만, 저장소 변수 ALERT_STRATEGY=original로 복귀 가능) + 'BTC 작은 파동 게이트':
+//   작은 파동이 하락 파동이면 개선판 신규 추천을 보류(후보 표에 '보류' 표시, 오늘 화면 타일). 사전 등록 백테스트는 통과했지만 라이브 3주는 반대라 '시험 중인 보류'
 // v1.26 (2026-10-11) 토큰 언락(유통량이 늘어나는 시점) 열: 사이클·섹터 표의 '다음 언락'(날짜·유통량 대비 %, 30일 합계)과 추천 카드의 '언락 D-n' 칩. DefiLlama 일정+CoinGecko 유통량, 업비트 114종목, 표시 전용
 // v1.25 (2026-10-11) '섹터' 탭 추가(업비트 원화 종목을 테마별로 묶은 오늘·7일·30일 평균 등락, 같이 오르는 섹터, 종목표). 사이클 데이터에 기간별 수익률(chg_1d/7d/30d) 추가
 // v1.24 (2026-10-09) 오늘 화면에 공포·탐욕 지수 타일(참고) + 라이브 검증 현황에 '탐욕 구간 손절' 카드. 추천 순간 지수는 detail.fng로 기록
 // v1.23 (2026-10-07) 팝업을 주봉 캔들+거래대금(상승·하락 색)+RSI(30선)로 바꾸고, 주식 공시·뉴스 / 코인 업비트 공지·뉴스 칩 추가(표시 전용)
 // v1.22 (2026-10-07) 시가총액 칩(주식: 네이버 증권, 코인: CoinGecko) + 코인 추천 카드에도 지난주 거래대금·시총 칩과 같은 주봉 팝업(종가·주간 거래대금·RSI)
-const APP_VERSION = 'v1.26';
+const APP_VERSION = 'v1.27';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DATA_URL = 'dashboard.json';
@@ -1444,26 +1447,35 @@ function tile(label, valueNodes, note, extra, cls) {
 
 /* ---------- 오늘(홈) ---------- */
 const originalRecs = (d) => (d.recommendations || []).filter((r) => stratOf(r) === 'original');
+// 텔레그램 알림을 보내는 전략 = 오늘 화면의 중심 전략 (서버가 alert_strategy로 내려준다, 없으면 개선판)
+const mainStrat = (d) => (d.alert_strategy === 'original' ? 'original' : 'legacy');
+const mainRecs = (d) => (d.recommendations || []).filter((r) => stratOf(r) === mainStrat(d));
+const mainName = (d) => STRAT_LABEL[mainStrat(d)];
+const otherStrat = (d) => (mainStrat(d) === 'original' ? 'legacy' : 'original');
+// BTC 작은 파동 게이트(개선판 신규 추천 보류): 상태를 알 때만 돌려준다
+const gateOf = (d) => { const g = d.btc_wave_gate; return g && g.mode !== 'off' && g.known && g.small ? g : null; };
 const sgn = (v) => (v == null ? '—' : signed(v));
 const upDown = (v) => (v > 0 ? 'up' : v < 0 ? 'down' : '');
 
 const FNG_KO = { 'Extreme Fear': '극단적 공포', Fear: '공포', Neutral: '중립', Greed: '탐욕', 'Extreme Greed': '극단적 탐욕' };
 function renderHomeKpis(d) {
   const host = $('#tiles');
-  const orig = originalRecs(d);
+  const orig = mainRecs(d);
   const active = orig.filter((r) => !isDone(r));
   const activeAvg = avg(active.map((r) => r.return_pct).filter((v) => v != null));
   const activePlus = active.filter((r) => (r.return_pct || 0) > 0).length;
   const tiles = [];
 
-  tiles.push(tile('진행 중 (대조군)', [String(active.length), h('span', { class: 'unit', text: '건' })],
+  tiles.push(tile(`진행 중 (${mainName(d)})`, [String(active.length), h('span', { class: 'unit', text: '건' })],
     active.length ? `평균 ${sgn(activeAvg)} · 플러스 ${activePlus}건 · 마이너스 ${active.length - activePlus}건` : '진행 중인 추천이 없어요', null, 'hero'));
 
   const todayStart = kstDayStart(Date.now());
   const fresh = orig.filter((r) => !(r.exit && r.exit.reason === 'excluded'));
   const todayN = fresh.filter((r) => new Date(r.entered_at).getTime() >= todayStart).length;
   const last = fresh.length ? fresh.reduce((a, b) => (a.entered_at > b.entered_at ? a : b)) : null;
-  const offNote = d.btc && d.btc.favorable === false ? 'BTC 필터가 꺼져 있어 새 추천이 없어요' : null;
+  const gate = gateOf(d);
+  const offNote = d.btc && d.btc.favorable === false ? 'BTC 필터가 꺼져 있어 새 추천이 없어요'
+    : (mainStrat(d) === 'legacy' && gate && gate.blocked ? 'BTC 작은 파동이 하락 중이라 신규 추천을 보류하고 있어요' : null);
   tiles.push(tile('오늘 새 추천', [String(todayN), h('span', { class: 'unit', text: '종목' })],
     offNote || (last ? `마지막 추천 ${kst(last.entered_at)} · ${ago(last.entered_at)}` : '추천 기록이 아직 없어요')));
 
@@ -1481,6 +1493,12 @@ function renderHomeKpis(d) {
     tiles.push(tile('BTC 필터', [statusIcon(btc.favorable ? 'on' : 'off'), btc.favorable ? '켜짐' : '꺼짐'],
       `${btc.hold_days_required > 1 ? `MA20 위 ${btc.days_above}일째 (${btc.hold_days_required}일 이상이면 켜짐)` : (btc.favorable ? `MA20 위 ${btc.days_above}일째` : '일봉 종가가 MA20 아래')} · ${nf0.format(btc.close)} (${change >= 0 ? '+' : ''}${change.toFixed(2)}%)`,
       closes.length > 1 ? sparkline(closes) : null));
+  }
+  if (gateOf(d)) {
+    const g = d.btc_wave_gate, sm = g.small;
+    const dir = sm.direction === 'down' ? '하락 파동' : '상승 파동';
+    tiles.push(tile('BTC 작은 파동', [statusIcon(g.blocked ? 'off' : 'on'), g.blocked ? '신규 추천 보류' : '신규 추천 가능'],
+      `${dir} · ${sm.label} · ${ago(g.since || g.at)}부터 · 4시간봉 기준, 개선판에만 적용(시험 중)`));
   }
   const fg = d.fear_greed;
   if (fg && fg.latest && fg.hist && fg.hist.length > 1) {
@@ -1538,12 +1556,16 @@ function recCard(r, d) {
 const homeMax = () => (window.matchMedia('(max-width: 760px)').matches ? 6 : 12);  // 모바일은 짧게 보여주고 나머지는 추천 탭으로
 function renderHomeActive(d) {
   const host = $('#home-active'), max = homeMax();
-  const active = originalRecs(d).filter((r) => !isDone(r)).sort((a, b) => b.entered_at.localeCompare(a.entered_at));
+  const active = mainRecs(d).filter((r) => !isDone(r)).sort((a, b) => b.entered_at.localeCompare(a.entered_at));
+  $('#h-home-active').firstChild.nodeValue = `진행 중인 ${mainName(d)} 추천`;
+  const gate = gateOf(d);
   $('#home-active-count').textContent = active.length ? `${active.length}건` : '';
   if (!active.length) {
     host.replaceChildren(h('div', { style: 'grid-column:1/-1' }, empty(d.btc && d.btc.favorable === false
       ? 'BTC 필터가 꺼져 있어 새 추천이 없어요. 이미 진행 중인 추천은 끝까지 따라가요.'
-      : '지금 진행 중인 대조군 추천이 없어요. 새 추천은 매일 오전 9시 일봉이 마감된 직후에 나와요.')));
+      : mainStrat(d) === 'original' ? '지금 진행 중인 대조군 추천이 없어요. 새 추천은 매일 오전 9시 일봉이 마감된 직후에 나와요.'
+        : (gate && gate.blocked ? 'BTC 작은 파동이 하락 중이라 신규 추천을 보류하고 있어요. 이미 진행 중인 추천은 끝까지 따라가요.'
+          : '지금 진행 중인 개선판 추천이 없어요. 일봉 조건을 통과한 종목이 5분봉 저점에 오면 바로 추천돼요.'))));
     return;
   }
   host.replaceChildren(
@@ -1555,7 +1577,7 @@ function renderHomeActive(d) {
 
 function renderHomeClosed(d) {
   const host = $('#home-closed');
-  const closed = originalRecs(d).filter((r) => r.exit && r.exit.reason !== 'excluded')
+  const closed = mainRecs(d).filter((r) => r.exit && r.exit.reason !== 'excluded')
     .sort((a, b) => new Date(b.exit.ended_at) - new Date(a.exit.ended_at)).slice(0, 8);
   if (!closed.length) { host.replaceChildren(empty('아직 끝난 추천이 없어요.')); return; }
   host.replaceChildren(...closed.map((r) => {
@@ -1569,14 +1591,16 @@ function renderHomeClosed(d) {
 
 function renderHomeLegacy(d) {
   const host = $('#home-legacy-body');
-  const leg = (d.recommendations || []).filter((r) => stratOf(r) === 'legacy');
-  if (!leg.length) { host.replaceChildren(empty('개선판 추천 기록이 없어요.')); return; }
+  const other = otherStrat(d), otherLabel = STRAT_LABEL[other];
+  $('#h-home-legacy').textContent = `${otherLabel} (참고)`;
+  const leg = (d.recommendations || []).filter((r) => stratOf(r) === other);
+  if (!leg.length) { host.replaceChildren(empty(`${otherLabel} 추천 기록이 없어요.`)); return; }
   const s = perfSummary(leg);
   const activeN = leg.filter((r) => !isDone(r)).length;
   const avgClosed = avg(s.closedRets);
   const stat = (label, value) => h('div', { class: 'mini-row', style: 'grid-template-columns:1fr auto' }, h('span', { class: 'muted', text: label }), h('span', { class: 'r', text: value }));
   host.replaceChildren(
-    h('p', { class: 'sub', style: 'margin:0 0 6px', text: '지금은 알림 없이 기록만 해요. 대조군과 같은 규칙으로 성과를 비교하고 있어요.' }),
+    h('p', { class: 'sub', style: 'margin:0 0 6px', text: other === 'original' ? '지금은 알림 없이 기록만 해요. 규칙은 처음 그대로 고정하고 BTC 작은 파동 게이트도 받지 않아서, 개선판의 비교 기준이에요.' : '지금은 알림 없이 기록만 해요. 대조군과 같은 규칙으로 성과를 비교하고 있어요.' }),
     h('div', { class: 'mini-rows' },
       stat('진행 중', `${activeN}건`),
       stat('종료', `${s.closed}건 · 익절 ${s.take_profit} : 손절 ${s.stop_loss}`),
@@ -1702,6 +1726,14 @@ function renderCandidates(d) {
   const host = $('#cand');
   const all = d.candidates || [];
   const cands = freshCandidates(d);
+  const gate = gateOf(d), gateEl = $('#cand-gate');
+  gateEl.hidden = !gate;
+  if (gate) {
+    const nHeld = cands.filter((c) => c.gated).length;
+    gateEl.textContent = gate.blocked
+      ? `🚦 BTC 작은 파동이 하락 중(${gate.small.label})이라 개선판 신규 추천을 보류하고 있어요${nHeld ? ` — 추천 조건을 채운 ${nHeld}개 종목이 '보류'로 표시돼요` : ''}. ${ago(gate.since || gate.at)}부터 · 이미 추천한 종목은 그대로 추적해요.`
+      : `🟢 BTC 작은 파동 ${gate.small.label} — 보류 없이 추천이 나와요 (하락 파동이 되면 신규 추천을 잠시 보류해요).`;
+  }
   $('#n-cand').textContent = String(cands.length);
   if (!cands.length) {
     host.replaceChildren(empty(all.length
@@ -1716,6 +1748,7 @@ function renderCandidates(d) {
     cands.map((c) => [
       c.market,
       h('span', { class: c.recommendable ? '' : 'muted', text: c.recommendable ? '추천 대상'
+        : c.gated ? '보류 · BTC 작은 파동 하락 중'
         : c.runup_excluded ? `제외 · 최근 3일 +${(c.recent_runup_pct ?? 0).toFixed(0)}% 급등 이력`
         : c.ma_confluence_excluded ? `제외 · 4시간봉 주요 이평선과 ${c.ma_confluence_gap_pct == null ? '거리 확인 불가' : `${c.ma_confluence_gap_pct.toFixed(1)}% 이상 떨어짐`}`
         : '대기 · 5분 저점을 기다려요' }),
@@ -3727,6 +3760,7 @@ function cycleStatus(market, candByMarket) {
   const c = candByMarket.get(market);
   if (!c) return { text: '조건 대기', cls: 'muted' };
   if (c.recommendable) return { text: '지금 추천 대상', cls: '' };
+  if (c.gated) return { text: '보류 · BTC 작은 파동 하락', cls: 'muted' };
   if ((c.frames || []).length) return { text: `통과: ${c.frames.map((f) => FRAME_LABEL[f] || f).join(' › ')}`, cls: 'muted' };
   return { text: '조건 대기', cls: 'muted' };
 }

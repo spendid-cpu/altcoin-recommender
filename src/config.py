@@ -213,9 +213,16 @@ VOL_MARK_DAYS = 14
 VOL_MARK_PCT = 7.1
 
 # 텔레그램 알림(신규 추천·종료·현황 리포트)을 보내는 쪽. 다른 전략은 알림 없이 기록만 하고 성과 비교는 계속된다.
-# 규칙은 바꾸지 않고 알림 주체만 바꾼다 — 2026-09-30부터 대조군('original')이 메인 알림, 원래대로 되돌리려면 저장소 변수
-# ALERT_STRATEGY=legacy.
-ALERT_STRATEGY = "legacy" if (os.environ.get("ALERT_STRATEGY") or "original").strip().lower() == "legacy" else "original"
+# 규칙은 바꾸지 않고 알림 주체만 바꾼다 — 2026-09-30~10-11은 대조군('original')이 메인 알림이었고, 2026-10-11 사용자 결정으로
+# 개선판('legacy')을 중심으로 되돌렸다. 대조군으로 보내려면 저장소 변수 ALERT_STRATEGY=original.
+ALERT_STRATEGY = "original" if (os.environ.get("ALERT_STRATEGY") or "legacy").strip().lower() == "original" else "legacy"
+
+# BTC 작은 파동이 하락 중이면 개선판 신규 추천을 보류하는 게이트(src/btc_wave_gate.py, 2026-10-11 사용자 결정으로 알림에 바로 적용).
+# 사전 등록 백테스트는 통과했지만 라이브 3주는 반대였다 — '시험 중인 보류'이며 대조군에는 적용하지 않는다.
+# down = 작은 파동이 하락 파동(기본), bear = 하락 우세만, off = 끔 (저장소 변수 BTC_WAVE_GATE).
+BTC_WAVE_GATE = (os.environ.get("BTC_WAVE_GATE") or "down").strip().lower()
+if BTC_WAVE_GATE not in ("off", "down", "bear"):
+    BTC_WAVE_GATE = "down"
 
 UPBIT_MARKET = "KRW-BTC"
 BINANCE_SYMBOL = "BTCUSDT"

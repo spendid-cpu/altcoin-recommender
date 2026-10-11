@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 
 import aiohttp
 
-from src import config, cycle, exits, fear_greed, macro_job, market_cap, orderbook, original_alerts, original_scanner, paper_limit, price_tracker, report, scan_log, state_store, telegram_client, upbit_extra
+from src import btc_wave_gate, config, cycle, exits, fear_greed, macro_job, market_cap, orderbook, original_alerts, original_scanner, paper_limit, price_tracker, report, scan_log, state_store, telegram_client, upbit_extra
 from src.scoring import find_support_lows
 from src.exchanges import upbit_client
 from src.notifier import diff_alerts
@@ -63,6 +63,13 @@ async def run_once(session: aiohttp.ClientSession) -> None:
 
     favorable = await check_btc_trend(session)
     print(f"[BTC 추세] 일봉 종가 MA20 위 {config.BTC_HOLD_DAYS}일 이상 유지: {favorable}")
+    try:  # 작은 파동 게이트: 막혀 있으면 개선판 신규 추천만 보류 (대조군·추적·종료는 그대로). 계산이 실패하면 막지 않는다
+        gate, gate_changed = btc_wave_gate.evaluate()
+    except Exception as exc:
+        print(f"[BTC 작은 파동 게이트] 상태 계산 실패(보류하지 않음): {exc!r}")
+        gate, gate_changed = {"blocked": False, "known": False, "small": None, "note": "계산 실패"}, False
+    small = gate.get("small") or {}
+    print(f"[BTC 작은 파동 게이트] {config.BTC_WAVE_GATE}: " + ("보류 중" if gate["blocked"] else "통과") + f" — 작은 파동 {small.get('label', gate.get('note') or '-')}")
     if not favorable:
         print("BTC 추세 불리 -> 알트코인 추천 중지 (설계 문서: BTC 추세 필터)")
         # BTC 추세가 꺾이면 현재 후보는 모두 없는 것으로 본다. 추적 기간이 끝난 종목은 상태를 비워 다음에
@@ -103,12 +110,25 @@ async def run_once(session: aiohttp.ClientSession) -> None:
             entry += " →추천" if c.recommendable else ""
             print(f"  {c.market:12s} [{c.grade}] 점수={c.total_score:5.1f}  통과 프레임=[{frames_str}]{vol}{entry}")
 
+    if gate["blocked"]:
+        try:  # 보류된 후보는 나중에 같은 잣대로 평가하려고 따로 남긴다 (추천 기록에는 넣지 않는다)
+            held = btc_wave_gate.log_skipped(candidates, state_store.load_all(), set(price_tracker.recent_recommendation_markets()))
+            if held:
+                print(f"[BTC 작은 파동 게이트] 신규 추천 {held}건 보류 기록")
+        except Exception as exc:
+            print(f"[BTC 작은 파동 게이트] 보류 기록 실패(무시): {exc!r}")
+
     # candidates가 비어 있어도 diff_alerts/save_all은 실행한다 — 이번에 후보에서 빠진 종목의 상태를
     # 정리해야 하기 때문이다 (추적이 끝난 종목은 초기화, 추적 중인 종목은 알린 단계 유지).
-    alerts, new_states = diff_alerts(candidates)
+    alerts, new_states = diff_alerts(candidates, gate_blocked=gate["blocked"])
     state_store.save_all(new_states)
 
     legacy_alerts_on = config.ALERT_STRATEGY == "legacy"
+    if gate_changed and legacy_alerts_on and telegram_client.is_configured() and btc_wave_gate.notice_due():
+        try:
+            await telegram_client.send_message(session, btc_wave_gate.transition_message(gate))
+        except Exception as exc:
+            print(f"[BTC 작은 파동 게이트] 상태 변경 알림 전송 실패(무시): {exc!r}")
     print(f"\n알림 대상 {len(alerts)}건 (상태가 바뀐 종목만)" + ("" if legacy_alerts_on else " — 개선판은 알림 없이 기록만(ALERT_STRATEGY=original)"))
     if not telegram_client.is_configured():
         print("(텔레그램 미설정 -> 콘솔에만 출력, .env에 TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID를 넣으면 전송됨)")

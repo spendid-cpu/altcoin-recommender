@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import aiohttp
 import pandas as pd
 
-from src import coin_info, config, cycle, fear_greed, jsonutil, liquidations, macro_calendar, macro_job, orderbook, paper_limit, price_tracker, scan_log, stock_scan, upbit_extra
+from src import btc_wave_gate, coin_info, config, cycle, fear_greed, jsonutil, liquidations, macro_calendar, macro_job, orderbook, paper_limit, price_tracker, scan_log, stock_scan, upbit_extra
 from src.btc_trend import days_above_ma, is_trend_favorable
 from src.exchanges import binance_client
 
@@ -161,6 +161,7 @@ def build_candidates(latest_by_market: dict[str, dict]) -> tuple[list[dict], str
             "entry_ready": bool(state.get("entry_ready")),
             "low_15m": bool(state.get("low_15m")),
             "recommendable": bool(state.get("recommendable")),
+            "gated": bool(state.get("gated")),
             "support_price": state.get("support_price"),
             "runup_excluded": bool(state.get("runup_excluded")),
             "recent_runup_pct": state.get("recent_runup_pct"),
@@ -215,6 +216,8 @@ async def main(out_path: Path) -> None:
         "macro": macro_job.load_cached(),  # 비트코인 분석 탭 (스캔이 시간당 한 번 갱신해 둔 저장본)
         "liquidations": liquidations.export((macro_job.load_cached() or {}).get("price")),  # 비트코인 탭 청산 화면(OKX 실제 청산 기록, 참고용)
         "stock": stock_scan.export(),  # 주식 탭(코스피·코스닥 주봉 RSI 과매도 후보 기록, 실험)
+        "btc_wave_gate": btc_wave_gate.export(),  # 개선판 신규 추천 보류 게이트(BTC 작은 파동 하락) 상태
+        "alert_strategy": config.ALERT_STRATEGY,  # 텔레그램 알림을 보내는 전략(화면의 중심 전략)
         "fear_greed": fear_greed.export(),  # 오늘 화면의 공포·탐욕 지수 타일 (참고용)
         "coin_info": coin_info.export(),  # 코인 카드 팝업(주봉 종가·거래대금·RSI)과 시가총액 (참고용)
         "upbit_extra": upbit_extra.export(),  # 체결강도·시장 경고 신호·BTC 김프 (업비트 공개 API, 참고용)

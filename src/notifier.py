@@ -17,7 +17,7 @@ _EMPTY_STATE = {
     "cleared_frames": [], "entry_ready": False, "grade": "-", "current_price": 0.0, "score": None,
     "recommendable": False, "low_15m": False, "runup_excluded": False, "recent_runup_pct": 0.0, "support_price": None,
     "ma20": 0.0, "above_ma20": False, "ma_confluence_excluded": False, "ma_confluence_gap_pct": None,
-    "alerted_frames": [], "alerted_entry": False,
+    "alerted_frames": [], "alerted_entry": False, "gated": False,
 }
 
 
@@ -61,14 +61,18 @@ def _since_recommended(market: str, cur: dict) -> str:
         return ""
 
 
-def _snapshot(candidate: CandidateResult) -> dict:
+def _snapshot(candidate: CandidateResult, gated: bool = False) -> dict:
+    """gated=True면 BTC 작은 파동 게이트(src/btc_wave_gate.py)가 신규 추천을 보류 중이라는 뜻 —
+    추천 대상이던 후보도 '추천 대상 아님'으로 저장하고 gated 표식만 남긴다 (후보 목록에는 계속 보인다)."""
+    recommendable = candidate.recommendable
     return {
         "cleared_frames": candidate.cleared_frames,
         "entry_ready": candidate.entry_ready,
         "grade": candidate.grade,
         "current_price": candidate.current_price,
         "score": round(candidate.total_score, 1),
-        "recommendable": candidate.recommendable,
+        "recommendable": recommendable and not gated,
+        "gated": bool(gated and recommendable),
         "low_15m": candidate.low_15m,
         "support_price": nearest_support(candidate.support_lows, candidate.current_price),
         "runup_excluded": candidate.runup_excluded,
@@ -92,7 +96,7 @@ def _normalize(state: dict | None) -> dict:
     return normalized
 
 
-def diff_alerts(candidates: list[CandidateResult]) -> tuple[list[Alert], dict[str, dict]]:
+def diff_alerts(candidates: list[CandidateResult], gate_blocked: bool = False) -> tuple[list[Alert], dict[str, dict]]:
     """이번 스캔 결과 vs 저장된 이전 상태를 비교해 (알림 목록, 다음에 저장할 전체 상태)를 반환한다.
 
     - 추천 대상(CandidateResult.recommendable: 기본은 일봉/4시간/1시간/15분 통과 + 5분 저점)이 아닌 후보는 대시보드에만
@@ -100,10 +104,11 @@ def diff_alerts(candidates: list[CandidateResult]) -> tuple[list[Alert], dict[st
     - 신규 추천: 아직 아무것도 알리지 않은 종목이고, 최근 추천한 적이 없고, 점수가 MIN_RECOMMEND_SCORE 이상일 때만 알린다.
     - 프레임 확장 / 5분 타점: 이미 알린 단계보다 더 진행됐을 때만 알린다 (후보에서 빠졌다 돌아와도 반복 안 함).
     - 후보에서 빠졌을 때: 최근 추천한 종목이면 알린 단계를 유지하고, 아니면 초기화해서 다음 재진입을 새 추천으로 본다.
+    - gate_blocked: BTC 작은 파동 게이트가 막고 있으면 모든 후보를 '추천 대상 아님'으로 취급한다(알림·진입 기록 없음, 후보 목록에는 표시).
     """
     previous = state_store.load_all()
     tracked = set(price_tracker.recent_recommendation_markets())
-    current_by_market = {c.market: _snapshot(c) for c in candidates}
+    current_by_market = {c.market: _snapshot(c, gate_blocked) for c in candidates}
 
     alerts: list[Alert] = []
     new_states: dict[str, dict] = {}
