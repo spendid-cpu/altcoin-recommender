@@ -1,21 +1,60 @@
 {
   "_설명": "섹터 분류를 직접 고치는 파일이에요. add = 이 테마에 이 종목을 넣기, remove = 빼기(종목은 KRW-XXX 형식). 새 테마는 add에 새 id를 쓰고 names/descs에 이름·설명을 적으면 돼요. 고친 뒤 python scripts/build_sectors.py 를 다시 돌려 data/sectors.json을 만들고 커밋하면 대시보드 '섹터' 탭에 반영돼요(카테고리 멤버는 .sector_cache.json에 저장돼 있어서 다시 돌리는 건 몇 초예요). 업비트에 없는 종목은 무시돼요.",
-  "_메모": "2026-10-11 첫 분류를 눈으로 점검해 고친 것: CoinGecko 레이어1 분류에서 빠진 고전 L1 추가, 인프라 성격인 LINK·XLM 등을 RWA에서 제외, 티커가 겹쳐 잘못 들어간 PUMP·BABY 정리. STRK(스타크넷)는 업비트 원화 시장에 없어서 넣을 수 없어요.",
+  "_메모": "2026-10-11 첫 분류를 눈으로 점검해 고친 것: CoinGecko 레이어1 분류에서 빠진 고전 L1 추가, 인프라 성격인 LINK·XLM 등을 RWA에서 제외, 티커가 겹쳐 잘못 들어간 PUMP·BABY 정리. STRK(스타크넷)는 업비트 원화 시장에 없어서 넣을 수 없어요. 2026-10-11 사용자 지정: NEAR를 양자내성에 추가(CoinGecko 양자내성 카테고리에는 없고, AI·레이어1에도 그대로 속해요).",
   "names": {},
   "descs": {},
   "add": {
-    "l1": ["KRW-DOT", "KRW-NEO", "KRW-ONT", "KRW-QTUM", "KRW-BSV", "KRW-IOST", "KRW-WAVES", "KRW-STRAX", "KRW-CFX"],
-    "interop": ["KRW-ZRO"],
-    "ai": ["KRW-WLD"],
-    "defi": ["KRW-WLFI"]
+    "l1": [
+      "KRW-DOT",
+      "KRW-NEO",
+      "KRW-ONT",
+      "KRW-QTUM",
+      "KRW-BSV",
+      "KRW-IOST",
+      "KRW-WAVES",
+      "KRW-STRAX",
+      "KRW-CFX"
+    ],
+    "interop": [
+      "KRW-ZRO"
+    ],
+    "ai": [
+      "KRW-WLD"
+    ],
+    "defi": [
+      "KRW-WLFI"
+    ],
+    "quantum": [
+      "KRW-NEAR"
+    ]
   },
   "remove": {
-    "privacy": ["KRW-INJ", "KRW-XTZ"],
-    "rwa": ["KRW-LINK", "KRW-ALGO", "KRW-XLM", "KRW-INJ", "KRW-TRAC", "KRW-KERNEL"],
-    "meme": ["KRW-BABY"],
-    "defi": ["KRW-PUMP"],
-    "staking": ["KRW-PUMP"],
-    "social": ["KRW-PUMP"],
-    "exchange": ["KRW-ARKM"]
+    "privacy": [
+      "KRW-INJ",
+      "KRW-XTZ"
+    ],
+    "rwa": [
+      "KRW-LINK",
+      "KRW-ALGO",
+      "KRW-XLM",
+      "KRW-INJ",
+      "KRW-TRAC",
+      "KRW-KERNEL"
+    ],
+    "meme": [
+      "KRW-BABY"
+    ],
+    "defi": [
+      "KRW-PUMP"
+    ],
+    "staking": [
+      "KRW-PUMP"
+    ],
+    "social": [
+      "KRW-PUMP"
+    ],
+    "exchange": [
+      "KRW-ARKM"
+    ]
   }
 }

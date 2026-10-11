@@ -1,5 +1,5 @@
 {
- "built_at": "2026-10-11T05:16:35.300785+00:00",
+ "built_at": "2026-10-11T05:43:59.099477+00:00",
  "source": "CoinGecko 카테고리 + data/sector_overrides.json",
  "themes": {
   "ai": {
@@ -98,10 +98,14 @@
    "desc": "양자컴퓨터에 안전한 서명·구조 서사",
    "markets": [
     "KRW-ALGO",
-    "KRW-CKB"
+    "KRW-CKB",
+    "KRW-NEAR"
    ],
    "source": [
     "quantum-resistant"
+   ],
+   "manual_add": [
+    "KRW-NEAR"
    ]
   },
   "zk": {
