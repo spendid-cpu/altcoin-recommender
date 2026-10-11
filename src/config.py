@@ -60,13 +60,13 @@ EXIT_STOP_LOSS_PCT = _env_float("EXIT_STOP_LOSS_PCT", 5.0)  # 추천가 대비 -
 EXIT_TRAIL_ARM_PCT = _env_float("EXIT_TRAIL_ARM_PCT", None)  # 최고 수익이 +X%를 넘으면 되돌림 감시 시작
 EXIT_TRAIL_DD_PCT = _env_float("EXIT_TRAIL_DD_PCT", None)  # 고점 대비 -Y% 되돌리면 종료 (ARM과 함께 지정)
 
-# BTC 이탈 정리(개선판만): BTC 추세 필터(일봉 종가 MA20 위)가 꺼지면 열려 있는 추천을 전부 종료한다.
+# BTC 이탈 정리(알트매크로 추천만): BTC 추세 필터(일봉 종가 MA20 위)가 꺼지면 열려 있는 추천을 전부 종료한다.
 # 120일 백테스트(익절+5/손절-5/3일 기준)에서 짝지은 평균 손익 +0.06% -> +0.26%(차이 +0.20%, 95% [+0.06,+0.40],
 # 앞/뒤 절반 모두 양수)였고 손실 꼬리는 나빠지지 않았다. 무작위 진입에서도 같은 개선(+0.16%)이 나와서 알트 신호가 아니라
-# 시장 위험을 줄이는 규칙의 효과다. 끄려면 저장소 변수 BTC_EXIT_ENABLED=false (대조군은 원래부터 적용하지 않는다).
+# 시장 위험을 줄이는 규칙의 효과다. 끄려면 저장소 변수 BTC_EXIT_ENABLED=false.
 BTC_EXIT_ENABLED = os.environ.get("BTC_EXIT_ENABLED", "true").strip().lower() != "false"
 
-# 급등 이력 제외(개선판만): 진입 직전 RUNUP_LOOKBACK_HOURS 시간 안에 (저점 -> 그 뒤 고점) 최대 상승폭이 RUNUP_MAX_PCT%를
+# 급등 이력 제외(알트매크로 추천만): 진입 직전 RUNUP_LOOKBACK_HOURS 시간 안에 (저점 -> 그 뒤 고점) 최대 상승폭이 RUNUP_MAX_PCT%를
 # 넘은 종목은 추천 대상에서 뺀다(대시보드에는 후보로 남는다). 120일 백테스트 9개 조합(2/3/5일 x 10/15/20%) 모두 사전 기준
 # (99.4% 신뢰구간)에는 못 미쳐 통계적 우위는 확인되지 않았다. 다만 어느 조합에서나 제외된 쪽이 남긴 쪽보다 나빴고
 # (제외 진입 초과수익 -0.2 ~ -1.9%) 남기는 쪽 평균은 깎이지 않아서, 사용자 요청으로 비용 없는 보수적 필터로 넣었다.
@@ -182,16 +182,16 @@ MIN_DAILY_TRADE_VALUE_KRW = 300_000_000  # 일봉 거래대금 3억원 미만은
 
 # 신규 상장 종목 추천 금지: 업비트가 상장일을 안 줘서, 받아 둔 일봉 캔들 개수로 상장 후 며칠째인지 추정한다
 # (일봉이 30개면 상장 후 30일째). 상장 직후 며칠~몇 주는 수급이 쏠리고 급등락이 심한 데다, 장기 스토캐스틱
-# RSI(20일 주기)도 그만큼 데이터가 쌓이기 전엔 값이 안정되지 않는다. 개선판·대조군 둘 다에 적용한다.
+# RSI(20일 주기)도 그만큼 데이터가 쌓이기 전엔 값이 안정되지 않는다.
 NEW_LISTING_MIN_DAYS = int(os.environ.get("NEW_LISTING_MIN_DAYS") or "30")
 
 # 스테이블코인은 가격이 거의 안 움직여 스토캐스틱이 미세한 잡음만으로 극단값(저점권/고점권)을 찍는다 —
-# '바닥에서 반등' 신호가 실제로는 의미 없는 노이즈라 대조군·개선판 둘 다에서 제외한다 (지금 업비트 KRW 마켓 기준).
+# '바닥에서 반등' 신호가 실제로는 의미 없는 노이즈라 제외한다 (지금 업비트 KRW 마켓 기준).
 EXCLUDED_MARKETS = {
     "KRW-USDT", "KRW-USDC", "KRW-USD1", "KRW-USDE", "KRW-USDG", "KRW-USDS", "KRW-RLUSD", "KRW-PYUSD",  # 스테이블코인
     "KRW-XAUT",  # 테더골드(금 연동 토큰) — 알트코인 추천 대상이 아니다
 }
-# 개선판 종목 추천에서만 뺀다(스캔은 하고 캔들 캐시는 채워서 대조군에는 영향이 없다). BTC는 종목 추천 대신
+# 종목 추천에서만 뺀다(스캔은 하고 캔들 캐시는 채운다). BTC는 종목 추천 대신
 # '관찰 알림'(src/btc_watch.py, 대시보드 비트코인 분석 탭)으로 다룬다.
 NO_RECOMMEND_MARKETS = {"KRW-BTC"}
 
@@ -199,27 +199,9 @@ NO_RECOMMEND_MARKETS = {"KRW-BTC"}
 # 점수가 높을수록 성과가 좋아지는 관계는 확인되지 않았다 (추천 후 3일 평균: 3+ +2.00%, 13+ +1.62%, 16+ +1.51%).
 SCORE_GRADE_THRESHOLDS = {"A": 16, "B": 13}  # 이 값 이상이면 해당 등급, 미만이면 등급 없음("-")
 
-# 대조군(최초 커밋의 첫 버전 규칙)을 개선판과 나란히 돌려 성과를 비교한다. 끄려면 저장소 변수 ORIGINAL_ENABLED=false.
-# 규칙: 일봉 게이트만 통과하면 추천 + 최초 스토RSI 설정(트레이딩뷰와 순서가 반대인 오독) + BTC 일봉 종가 MA20 위
-# 2일 유지. 절대 안 바꾼다 — 비교의 기준점이라 바꾸면 지금까지의 비교가 무의미해진다. 알림 여부는 ALERT_STRATEGY가 정한다.
-# 종료 규칙은 최초에는 없었지만 성과를 재려고 개선판과 같은 익절 +5% / 손절 -5% / 3일을 쓴다. 마감된 캔들만 쓰는 것도
-# 개선판과 같다 (최초 버전의 진행 중 캔들 사용은 신호가 스캔마다 바뀌는 오류였다).
-ORIGINAL_ENABLED = os.environ.get("ORIGINAL_ENABLED", "true").strip().lower() != "false"
-ORIGINAL_BTC_HOLD_DAYS = 2
-# 대조군 알림의 '변동폭' 표식(추천 대상은 안 바꾸는 참고 표시): 마감 일봉 VOL_MARK_DAYS개의 평균 일중 등락폭((고가-저가)/종가).
-# 기준 7.1%는 120일 대조군 진입 378건의 중앙값(2026-10-02). 낮은 쪽은 -5% 터치가 적지만 +5% 터치(익절)도 같이 적어 우위가
-# 아니라 위험 크기의 차이였다(사전 등록 요인 스크린). 표식별 라이브 성과를 쌓아 보려고 붙인다.
-VOL_MARK_DAYS = 14
-VOL_MARK_PCT = 7.1
-
-# 텔레그램 알림(신규 추천·종료·현황 리포트)을 보내는 쪽. 다른 전략은 알림 없이 기록만 하고 성과 비교는 계속된다.
-# 규칙은 바꾸지 않고 알림 주체만 바꾼다 — 2026-09-30~10-11은 대조군('original')이 메인 알림이었고, 2026-10-11 사용자 결정으로
-# 개선판('legacy')을 중심으로 되돌렸다. 대조군으로 보내려면 저장소 변수 ALERT_STRATEGY=original.
-ALERT_STRATEGY = "original" if (os.environ.get("ALERT_STRATEGY") or "legacy").strip().lower() == "original" else "legacy"
-
-# RSI 저점 확인 규칙 (2026-10-11 사용자 결정): 개선판 일봉·4시간 게이트는 스토캐스틱 RSI '최초 도달'(%K가 막 20 이하로 내려옴)만으로도 통과하는데, 이는 아직 반등 확인 전이다.
+# RSI 저점 확인 규칙 (2026-10-11 사용자 결정): 알트매크로 추천 일봉·4시간 게이트는 스토캐스틱 RSI '최초 도달'(%K가 막 20 이하로 내려옴)만으로도 통과하는데, 이는 아직 반등 확인 전이다.
 # 저장소 변수 LOW_CONFIRM_MODE: day(기본) = 일봉은 저점권 골든크로스(%K가 %D 위로 올라섬)가 있어야 추천, 4시간은 최초 도달도 허용(1시간·15분·5분은 지금 기준 그대로),
-# both = 일봉·4시간 모두 골든크로스 필요(처음 적용했던 규칙), off = 끔. 대조군에는 적용하지 않는다.
+# both = 일봉·4시간 모두 골든크로스 필요(처음 적용했던 규칙), off = 끔.
 # 2.7년 사전 등록 백테스트(일봉·4시간 게이트 재생 10,081건)에서는 어느 방식도 손절이 줄지 않았다(일봉만 -0.5%p [-7.8,+7.0], 둘 다 +1.5%p [-5.7,+8.9]) — 근거 없이 쓰는 규칙이다.
 # 추천 수는 일봉만 확인하면 약 44%, 둘 다 확인하면 약 12%로 줄어든다. (옛 변수 LOW_CONFIRM_REQUIRED=false도 off로 받는다.)
 LOW_CONFIRM_MODE = (os.environ.get("LOW_CONFIRM_MODE") or "").strip().lower()
@@ -227,12 +209,12 @@ if LOW_CONFIRM_MODE not in ("day", "both", "off"):
     LOW_CONFIRM_MODE = "off" if os.environ.get("LOW_CONFIRM_REQUIRED", "").strip().lower() == "false" else "day"
 LOW_CONFIRM_REQUIRED = LOW_CONFIRM_MODE != "off"
 
-# BTC 일봉 종가가 MA20 아래일 때 개선판이 하는 일 (2026-10-11 사용자 결정): warn(기본) = 경고만 달고 추천은 계속, block = 예전처럼 스캔·추천 중단.
+# BTC 일봉 종가가 MA20 아래일 때 알트매크로 추천이 하는 일 (2026-10-11 사용자 결정): warn(기본) = 경고만 달고 추천은 계속, block = 예전처럼 스캔·추천 중단.
 # 대조군(original)은 원래 규칙(MA20 위 2일 이상일 때만 추천)을 그대로 지킨다. warn에서 MA20 아래일 때 나온 추천은 detail.btc_below_ma20=True로 기록하고
 # 'BTC 이탈 전량 정리'(BTC_EXIT_ENABLED)는 그 추천에는 적용하지 않는다(들어오자마자 정리되는 모순 방지). 저장소 변수 BTC_FILTER_MODE=block으로 되돌린다.
 BTC_FILTER_MODE = "block" if (os.environ.get("BTC_FILTER_MODE") or "warn").strip().lower() == "block" else "warn"
 
-# BTC 작은 파동이 하락 중이면 개선판 신규 추천을 보류하는 게이트(src/btc_wave_gate.py, 2026-10-11 사용자 결정으로 알림에 바로 적용).
+# BTC 작은 파동이 하락 중이면 알트매크로 신규 추천을 보류하는 게이트(src/btc_wave_gate.py, 2026-10-11 사용자 결정으로 알림에 바로 적용).
 # 사전 등록 백테스트는 통과했지만 라이브 3주는 반대였다 — '시험 중인 보류'이며 대조군에는 적용하지 않는다.
 # down = 작은 파동이 하락 파동(기본), bear = 하락 우세만, off = 끔 (저장소 변수 BTC_WAVE_GATE).
 BTC_WAVE_GATE = (os.environ.get("BTC_WAVE_GATE") or "down").strip().lower()

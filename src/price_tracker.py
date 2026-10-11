@@ -2,9 +2,8 @@
 설계 문서(대시보드 및 텔레그램 알림 섹션): '발굴 시점의 가격을 기록해두고 이후 일정 기간의
 가격 움직임을 계속 추적 — 이 추적 데이터가 곧 백테스트 검증의 원본 데이터가 된다'를 구현한 것.
 
-전략이 둘이다: 'original'(대조군: 일봉 게이트만, 최초 스토RSI 설정, 알림 없이 기록만, 규칙 고정)와 'legacy'(개선판: 스토RSI 게이트 +
-5분 저점, 익절/손절 ±5%, 계속 다듬는 실제 운영 전략).
-두 전략은 같은 종목을 각자 추천할 수 있고 서로 독립적으로 추적·중복 방지·종료한다 (가격 스냅샷은 종목별로 공유).
+추천 전략은 하나다: 'legacy'(내부 코드값, 화면·알림에는 '알트매크로 추천': 스토RSI 게이트 + 5분 저점, 익절/손절 ±5%).
+(2026-10-12 대조군 'original' 전략을 삭제했다. 예전 기록은 data/archive/original_strategy_20261012.json.gz에 보관.)
 
 같은 SQLite 파일(state_store.DB_PATH)에 price_history 테이블을 둔다. 신규 후보 알림이 뜬
 시점을 '진입가'로 한 번 기록하고(그때의 등급/점수도 함께), 이후 매 스캔 사이클마다
@@ -40,7 +39,7 @@ def connect() -> sqlite3.Connection:
         conn.execute("ALTER TABLE price_history ADD COLUMN score REAL")
     if "detail" not in columns:  # 추천 근거(점수 구성) JSON. 이전 버전에서 만든 추천은 비어 있다
         conn.execute("ALTER TABLE price_history ADD COLUMN detail TEXT")
-    if "strategy" not in columns:  # 추천한 전략('original' 대조군 / 'legacy' 개선판). 이전 버전에서 만든 추천은 비어 있고 legacy로 본다
+    if "strategy" not in columns:  # 추천한 전략(지금은 'legacy'뿐). 이전 버전에서 만든 추천은 비어 있고 legacy로 본다
         conn.execute("ALTER TABLE price_history ADD COLUMN strategy TEXT")
     if "tier" not in columns:  # 예전 사이클 전략이 쓰던 등급 컬럼. 지금은 아무 전략도 값을 안 채운다 (항상 NULL)
         conn.execute("ALTER TABLE price_history ADD COLUMN tier TEXT")
@@ -157,7 +156,7 @@ def record_exit(
 
 def load_recommendations() -> list[dict]:
     """진입 기록(is_entry=1) 하나가 추천 하나. 이후 스냅샷을 붙여 시간순(오래된 것 먼저)으로 반환한다.
-    각 항목: market, entered_at(datetime), entry_price, grade, score, detail(추천 근거 dict 또는 None), strategy('original'/'legacy'),
+    각 항목: market, entered_at(datetime), entry_price, grade, score, detail(추천 근거 dict 또는 None), strategy('legacy'),
     snaps[(datetime, price)], exit(종료된 추천이면 {ended_at, exit_price, return_pct, reason}, 아니면 None)
     가격 스냅샷은 종목별로 공유해서 기록하므로, 각 추천에는 진입 이후 ~ 종료(없으면 추적 기간 끝)까지의 스냅샷만 붙인다."""
     conn = connect()

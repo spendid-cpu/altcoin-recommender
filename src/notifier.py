@@ -54,7 +54,7 @@ def _message(title: str, market: str, cur: dict, btc_warning: bool = False) -> s
 def _since_recommended(market: str, cur: dict) -> str:
     """이미 추천한 종목의 추가 알림에 붙이는 '언제 얼마에 추천했고 지금 얼마인지' 줄. 기록을 못 찾으면 빈 문자열."""
     try:
-        recs = [r for r in price_tracker.load_recommendations() if r["market"] == market and r["strategy"] != "original"]
+        recs = [r for r in price_tracker.load_recommendations() if r["market"] == market]
         if not recs:
             return ""
         rec = recs[-1]
@@ -168,22 +168,22 @@ def diff_alerts(candidates: list[CandidateResult], gate_blocked: bool = False, b
                 new_states[market] = {**cur, "alerted_frames": [], "alerted_entry": False}
                 continue
             if market not in tracked:
-                alerts.append(Alert(market, "new_candidate", _message("🆕 [개선판] 신규 추천", market, cur, btc_warning)))
+                alerts.append(Alert(market, "new_candidate", _message("🆕 [알트매크로] 신규 추천", market, cur, btc_warning)))
                 new_alert_index = len(alerts) - 1
             alerted_frames = cur["cleared_frames"]  # 알림을 생략해도 기준선은 갱신한다
         elif len(cur["cleared_frames"]) > len(alerted_frames):
-            alerts.append(Alert(market, "frame_advance", _message("📈 [개선판] 단계 상승", market, cur, btc_warning)))
+            alerts.append(Alert(market, "frame_advance", _message("📈 [알트매크로] 단계 상승", market, cur, btc_warning)))
             alerted_frames = cur["cleared_frames"]
 
         if cur["entry_ready"] and not alerted_entry:
             if new_alert_index is not None:
                 # 같은 스캔에서 신규 추천과 5분 타점이 함께 나오면 한 통으로 합친다 (같은 종목 알림이 연달아 두 번 가지 않게)
                 alerts[new_alert_index] = Alert(
-                    market, "new_candidate", _message("🆕🎯 [개선판] 신규 추천 · 5분 매수 타점 동시 발생", market, cur, btc_warning))
+                    market, "new_candidate", _message("🆕🎯 [알트매크로] 신규 추천 · 5분 매수 타점 동시 발생", market, cur, btc_warning))
             else:
                 alerts.append(Alert(
                     market, "entry_ready",
-                    _message("🎯 [개선판] 5분 매수 타점 · 이미 추천한 종목의 추가 알림", market, cur, btc_warning) + _since_recommended(market, cur)))
+                    _message("🎯 [알트매크로] 5분 매수 타점 · 이미 추천한 종목의 추가 알림", market, cur, btc_warning) + _since_recommended(market, cur)))
             alerted_entry = True
 
         new_states[market] = {**cur, "alerted_frames": alerted_frames, "alerted_entry": alerted_entry}

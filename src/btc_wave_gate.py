@@ -1,4 +1,4 @@
-"""BTC 작은 파동이 하락 중이면 개선판의 '신규 추천'을 보류한다 (2026-10-11 사용자 결정으로 알림에 바로 적용).
+"""BTC 작은 파동이 하락 중이면 알트매크로 추천의 '신규 추천'을 보류한다 (2026-10-11 사용자 결정으로 알림에 바로 적용).
 
 근거와 한계:
 - 사전 등록 백테스트(대조군 신호 3,112건, 2024-03~2026-09, 7일 블록 부트스트랩): 'W2 = 작은 파동이 하락 파동이고 반등이
@@ -91,9 +91,9 @@ def evaluate(now: datetime | None = None) -> tuple[dict, bool]:
 def transition_message(gate: dict) -> str:
     small = gate.get("small") or {}
     if gate["blocked"]:
-        return (f"🚦 BTC 작은 파동 {small.get('label', '하락')} — 개선판 신규 추천을 잠시 보류해요\n"
+        return (f"🚦 BTC 작은 파동 {small.get('label', '하락')} — 알트매크로 신규 추천을 잠시 보류해요\n"
                 f"기준: {MODE_TEXT.get(gate['mode'], gate['mode'])}. 이미 추천한 종목의 추적·종료 알림은 그대로예요. (시험 중인 보류 규칙)")
-    return (f"🟢 BTC 작은 파동이 하락 구간을 벗어났어요({small.get('label', '-')}) — 개선판 신규 추천을 다시 시작해요")
+    return (f"🟢 BTC 작은 파동이 하락 구간을 벗어났어요({small.get('label', '-')}) — 알트매크로 신규 추천을 다시 시작해요")
 
 
 def notice_due(now: datetime | None = None) -> bool:

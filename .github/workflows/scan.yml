@@ -46,8 +46,6 @@ jobs:
           EXIT_TRAIL_ARM_PCT: ${{ vars.EXIT_TRAIL_ARM_PCT }}
           EXIT_TRAIL_DD_PCT: ${{ vars.EXIT_TRAIL_DD_PCT }}
           BTC_HOLD_DAYS: ${{ vars.BTC_HOLD_DAYS }}
-          ORIGINAL_ENABLED: ${{ vars.ORIGINAL_ENABLED }}
-          ALERT_STRATEGY: ${{ vars.ALERT_STRATEGY }}
           BTC_WAVE_GATE: ${{ vars.BTC_WAVE_GATE }}
           LOW_CONFIRM_REQUIRED: ${{ vars.LOW_CONFIRM_REQUIRED }}
           LOW_CONFIRM_MODE: ${{ vars.LOW_CONFIRM_MODE }}

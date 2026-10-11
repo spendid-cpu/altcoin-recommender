@@ -1,4 +1,4 @@
-"""기존 전략 추천의 종료 판단과 알림. 종료 규칙(익절, 손절, 고점 대비 되돌림, 기간 만료)에 걸린 추천은 최종 결과를
+"""알트매크로 추천의 종료 판단과 알림. 종료 규칙(익절, 손절, 고점 대비 되돌림, 기간 만료)에 걸린 추천은 최종 결과를
 텔레그램으로 알리고 추적을 끝낸다. 규칙의 값은 config.EXIT_* (저장소 변수)로 바꾼다.
 매도 권유가 아니라 정해둔 기준에 도달했다는 알림이다."""
 
@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 
 import aiohttp
 
-from src import config, gap_replay, original_alerts, price_tracker, telegram_client
+from src import config, gap_replay, price_tracker, telegram_client
 from src.exchanges import upbit_client
 from src.formatting import fmt_pct, fmt_price, strategy_tag
 from src.report import elapsed_text, score_line
@@ -26,17 +26,16 @@ EXPIRY_NOTICE_WINDOW = timedelta(days=1)
 
 
 def _is_excluded(rec: dict, warned: set[str]) -> bool:
-    """지금 추천 대상이 아닌 종목의 진행 중 추천인지. EXCLUDED_MARKETS와 '투자유의' 지정(warned)은 세 전략 공통,
-    NO_RECOMMEND_MARKETS(BTC)는 개선판만."""
+    """지금 추천 대상이 아닌 종목의 진행 중 추천인지: EXCLUDED_MARKETS, '투자유의' 지정(warned), NO_RECOMMEND_MARKETS(BTC)."""
     market = rec["market"]
     if market in config.EXCLUDED_MARKETS or market in warned:
         return True
-    return market in config.NO_RECOMMEND_MARKETS and rec["strategy"] != "original"
+    return market in config.NO_RECOMMEND_MARKETS
 
 
 def check_exit(rec: dict, current: float, now: datetime, btc_filter_on: bool = True) -> str | None:
     """종료 사유(REASONS의 키) 또는 None. 같은 시점에 여러 개가 걸리면 손절 > BTC 이탈 > 되돌림 > 익절 > 만료 순.
-    BTC 이탈은 개선판 추천에만 적용한다(대조군은 원래 규칙 그대로) — btc_filter_on이 False면 BTC 일봉 종가가 MA20 아래다.
+    btc_filter_on이 False면 BTC 일봉 종가가 MA20 아래다(BTC 이탈 전량 정리 대상).
     다만 MA20 아래에서 경고를 달고 나간 추천(detail.btc_below_ma20, config.BTC_FILTER_MODE=warn)은 BTC 이탈로 정리하지 않는다."""
     entry = rec["entry_price"]
     if not entry:
@@ -48,7 +47,7 @@ def check_exit(rec: dict, current: float, now: datetime, btc_filter_on: bool = T
     if config.EXIT_STOP_LOSS_PCT is not None and ret <= -config.EXIT_STOP_LOSS_PCT:
         return "stop_loss"
     below_at_entry = bool((rec.get("detail") or {}).get("btc_below_ma20"))  # BTC가 MA20 아래일 때 경고를 달고 낸 추천은 BTC 이탈 정리를 받지 않는다
-    if (config.BTC_EXIT_ENABLED and not btc_filter_on and rec["strategy"] != "original" and not below_at_entry
+    if (config.BTC_EXIT_ENABLED and not btc_filter_on and not below_at_entry
             and now - rec["entered_at"] < timedelta(days=price_tracker.TRACK_DAYS)):
         return "btc_exit"
     if config.EXIT_TRAIL_ARM_PCT is not None and config.EXIT_TRAIL_DD_PCT is not None:
@@ -95,7 +94,6 @@ async def process_exits(
         print(f"  투자유의 종목 조회 실패(이번 사이클은 그 판단만 건너뜀): {exc!r}")
         warned = set()
     closed = 0
-    original_lines: list[str] = []
     for rec in price_tracker.load_recommendations():
         if rec["exit"] is not None:
             continue
@@ -134,23 +132,13 @@ async def process_exits(
             closed += 1
 
             text = build_exit_message(rec, reason, current, at, candidate_by_market.get(rec["market"]), btc_filter_on, restored=bool(hit))
-            # 알림 주체(config.ALERT_STRATEGY)가 아닌 전략의 추천은 기록만 한다 (텔레그램에 알리지 않음)
-            silent = rec["strategy"] != config.ALERT_STRATEGY or (
-                reason == "expired" and age >= timedelta(days=price_tracker.TRACK_DAYS) + EXPIRY_NOTICE_WINDOW)
+            silent = reason == "expired" and age >= timedelta(days=price_tracker.TRACK_DAYS) + EXPIRY_NOTICE_WINDOW  # 한참 전에 만료된 기록은 조용히 정리
             print(text if not silent else f"(조용히 종료) {rec['market']} {reason}")
             if silent:
                 continue
-            if rec["strategy"] == "original":
-                # 대조군은 만료·익절·손절이 한꺼번에 몰리므로 종목마다 보내지 않고 사이클 끝에 한 통으로 묶는다
-                original_lines.append(original_alerts.exit_line(rec, reason, current, at, restored=bool(hit)))
-            elif telegram_client.is_configured():
+            if telegram_client.is_configured():
                 await telegram_client.send_message(session, text)
         except Exception as exc:
             # 종목 하나(알림 전송 실패 등)에서 난 오류로 나머지 종목의 종료 판단이 막히면 안 된다
             print(f"  {rec['market']} 종료 처리 실패(이번 사이클은 건너뜀): {exc!r}")
-    if original_lines:
-        try:
-            await original_alerts.send_all(session, original_alerts.exit_header(len(original_lines), now), original_lines)
-        except Exception as exc:
-            print(f"  대조군 종료 묶음 알림 전송 실패(기록은 완료): {exc!r}")
     return closed

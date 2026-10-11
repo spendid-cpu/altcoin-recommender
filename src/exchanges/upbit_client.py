@@ -117,8 +117,8 @@ async def _fetch_market_details(session: aiohttp.ClientSession) -> list[dict]:
 
 async def fetch_markets(session: aiohttp.ClientSession) -> list[str]:
     """KRW 마켓 코드 목록만 반환한다 (예: KRW-BTC, KRW-ETH ...). 스테이블코인(config.EXCLUDED_MARKETS)과
-    업비트가 '투자유의' 지정한 종목(market_event.warning)은 뺀다 — 이 목록을 두 전략(scan_all/original_scanner)이
-    공유하므로 여기서 한 번만 걸러내면 전체(추천·알트 사이클 탭 포함)에 적용된다. 이미 상장폐지된 종목은
+    업비트가 '투자유의' 지정한 종목(market_event.warning)은 뺀다 — 여기서 한 번만 걸러내면
+    전체(추천·알트 사이클 탭 포함)에 적용된다. 이미 상장폐지된 종목은
     업비트 목록 자체에서 사라지므로 따로 거를 필요가 없다."""
     data = await _fetch_market_details(session)
     return [

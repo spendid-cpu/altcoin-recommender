@@ -129,7 +129,7 @@ def build_recommendations(now: datetime) -> list[dict]:
 
 
 def build_summary(recs: list[dict]) -> dict:
-    """개선판 추천의 요약 (대조군과의 비교는 화면이 추천 목록에서 전략별로 계산한다)."""
+    """알트매크로 추천의 요약."""
     recs = [r for r in recs if r["strategy"] == "legacy"]
     summary = {"total": len(recs)}
     for key, label in (("24h", "1d"), ("72h", "3d")):
@@ -205,7 +205,7 @@ async def main(out_path: Path) -> None:
 
     recs = build_recommendations(now)
     latest_by_market: dict[str, dict] = {}
-    for rec in recs:  # recs는 최신순이라 종목별 첫 항목이 가장 최근 추천 (후보 목록은 개선판 기준)
+    for rec in recs:  # recs는 최신순이라 종목별 첫 항목이 가장 최근 추천 (후보 목록은 알트매크로 추천 기준)
         if rec["strategy"] == "legacy":
             latest_by_market.setdefault(rec["market"], rec)
     candidates, state_updated_at = build_candidates(latest_by_market)
@@ -218,12 +218,11 @@ async def main(out_path: Path) -> None:
         "macro": macro_job.load_cached(),  # 비트코인 분석 탭 (스캔이 시간당 한 번 갱신해 둔 저장본)
         "liquidations": liquidations.export((macro_job.load_cached() or {}).get("price")),  # 비트코인 탭 청산 화면(OKX 실제 청산 기록, 참고용)
         "stock": stock_scan.export(),  # 주식 탭(코스피·코스닥 주봉 RSI 과매도 후보 기록, 실험)
-        "btc_wave_gate": btc_wave_gate.export(),  # 개선판 신규 추천 보류 게이트(BTC 작은 파동 하락) 상태
+        "btc_wave_gate": btc_wave_gate.export(),  # 알트매크로 신규 추천 보류 게이트(BTC 작은 파동 하락) 상태
         "low_confirm_mode": config.LOW_CONFIRM_MODE,  # RSI 저점 확인 규칙: day(일봉만) / both(일봉·4시간) / off
-        "btc_filter_mode": config.BTC_FILTER_MODE,  # warn = BTC가 MA20 아래여도 개선판 추천 계속(경고만), block = 추천 중단
+        "btc_filter_mode": config.BTC_FILTER_MODE,  # warn = BTC가 MA20 아래여도 알트매크로 추천 계속(경고만), block = 추천 중단
         "funnel": funnel.export(),  # 추천 퍼널(단계별 통과 수·제외 사유), 표시 전용
         "shadow": shadow.export(),  # 규칙에 막힌 추천의 그림자 진입과 이후 성과
-        "alert_strategy": config.ALERT_STRATEGY,  # 텔레그램 알림을 보내는 전략(화면의 중심 전략)
         "fear_greed": fear_greed.export(),  # 오늘 화면의 공포·탐욕 지수 타일 (참고용)
         "coin_info": coin_info.export(),  # 코인 카드 팝업(주봉 종가·거래대금·RSI)과 시가총액 (참고용)
         "upbit_extra": upbit_extra.export(),  # 체결강도·시장 경고 신호·BTC 김프 (업비트 공개 API, 참고용)

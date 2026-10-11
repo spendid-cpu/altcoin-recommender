@@ -13,11 +13,17 @@
 
 import aiohttp
 
-from src import exits, gap_replay, macro_job, pipeline, report, shadow
+from src import exits, gap_replay, macro_job, migrations, pipeline, report, shadow
 from src.scanner import check_btc_trend
 
 
 async def run_once(session: aiohttp.ClientSession) -> None:
+    try:  # 2026-10-12 대조군 삭제: 쌓여 있던 대조군 기록을 한 번만 지운다 (이미 했으면 바로 끝)
+        purged = migrations.purge_original_once()
+        if purged:
+            print(f"[정리] 대조군 기록 삭제: 추천 {purged['entries']}건, 가격 스냅샷 {purged['snapshots']}건")
+    except Exception as exc:
+        print(f"[정리] 대조군 기록 삭제 실패(다음 사이클에 다시 시도): {exc!r}")
     await macro_job.run(session)
 
     try:  # 2026-09-28 스캔 중단(43시간) 때 잘못 기록된 종료를 한 번 정정한다. 실패해도 추적은 계속한다

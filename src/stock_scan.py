@@ -22,7 +22,7 @@ import aiohttp
 import numpy as np
 import pandas as pd
 
-from src import jsonutil, original_alerts, state_store, stock_news, telegram_client
+from src import jsonutil, state_store, stock_news, telegram_batch, telegram_client
 from src.indicators.stoch_rsi import rsi, stoch_rsi
 
 KST = ZoneInfo("Asia/Seoul")
@@ -525,7 +525,7 @@ async def run(session: aiohttp.ClientSession, now: datetime | None = None, force
                     if sigs:
                         first_run = conn.execute("SELECT COUNT(DISTINCT signal_week) FROM stock_recs").fetchone()[0] <= 1
                         header, lines = build_messages(week, now, sigs, idx, matured, _stats(conn)["all"], first_run)
-                        await original_alerts.send_all(session, header, lines)  # 실패하면 예외 -> 처리 표시를 안 남겨 다음 실행에서 다시 보낸다
+                        await telegram_batch.send_all(session, header, lines)  # 실패하면 예외 -> 처리 표시를 안 남겨 다음 실행에서 다시 보낸다
                 state_store.set_meta(LAST_WEEK_KEY, week.date().isoformat())
         if conn is not None:
             result["hist_filled"] = await backfill_history(session, conn, week)

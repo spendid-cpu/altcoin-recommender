@@ -6,16 +6,14 @@ GRADE_BADGE = {"A": "🟢 A등급", "B": "🔵 B등급"}
 NO_GRADE_BADGE = "⚪ 등급 없음"
 
 
-# 'original'(첫 커밋 규칙, 절대 안 바꾸는 비교 기준점) / 'legacy'(계속 다듬는 실제 운영 전략). 내부 코드값(DB에
-# 저장되는 strategy 컬럼)은 그대로 두고 화면·알림에 보이는 이름만 용도에 맞게 붙인다.
-STRATEGY_LABEL = {"original": "대조군", "legacy": "개선판"}
+# 내부 코드값(DB의 strategy 컬럼)은 옛 이름 'legacy'를 그대로 두고, 화면·알림에는 '알트매크로 추천'이라고 부른다.
+# (2026-10-12 대조군 전략을 삭제해서 전략은 하나뿐이다.)
+STRATEGY_LABEL = {"legacy": "알트매크로"}
 
 
 def strategy_tag(rec: dict) -> str:
     """추천 항목 앞에 붙이는 전략 표시."""
-    if rec.get("strategy") == "original":
-        return "🏷 대조군"
-    return f"[개선판] {grade_badge(rec.get('grade'))}"
+    return f"[알트매크로] {grade_badge(rec.get('grade'))}"
 
 
 def grade_badge(grade: str | None) -> str:

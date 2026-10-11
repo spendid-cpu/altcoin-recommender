@@ -80,28 +80,6 @@ async def fetch_flags(session: aiohttp.ClientSession) -> dict[str, list[str]]:
     return out
 
 
-async def entry_snapshot(session: aiohttp.ClientSession, markets: list[str]) -> dict[str, dict]:
-    """추천 순간에 남길 값: 종목별 {flow: 체결강도 또는 None, caution: 켜진 경고 신호 목록}. 일부가 실패해도 받은 것만 돌려준다."""
-    flow, flags = {}, None
-    try:
-        flow = await fetch_flow(session, markets)
-    except Exception as exc:
-        print(f"[체결] 진입 시점 체결 조회 실패(기록만 생략): {exc!r}")
-    try:
-        flags = await fetch_flags(session)
-    except Exception as exc:
-        print(f"[경고] 진입 시점 경고 조회 실패(기록만 생략): {exc!r}")
-    out = {}
-    for m in markets:
-        row = {}
-        if m in flow:
-            row["flow"] = flow[m]
-        if flags is not None:
-            row["caution"] = flags.get(m, [])
-        out[m] = row
-    return out
-
-
 async def fetch_kimchi_btc(session: aiohttp.ClientSession) -> dict | None:
     prices = await upbit_client.fetch_ticker_prices(session, ["KRW-BTC", "KRW-USDT"])
     btc_krw, usdt_krw = prices.get("KRW-BTC"), prices.get("KRW-USDT")

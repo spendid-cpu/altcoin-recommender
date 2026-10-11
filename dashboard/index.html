@@ -548,12 +548,6 @@
 
   <div id="error" class="error" role="status" hidden>데이터를 불러오지 못했어요. 잠시 후 다시 시도할게요.</div>
 
-  <div id="strat-filter" class="seg strat-filter" role="group" aria-label="전략별 보기" hidden>
-    <button class="btn" type="button" data-strat="all" aria-pressed="true">전체</button>
-    <button class="btn" type="button" data-strat="original" aria-pressed="false">대조군</button>
-    <button class="btn" type="button" data-strat="legacy" aria-pressed="false">개선판</button>
-  </div>
-
   <!-- ===== 오늘 ===== -->
   <main id="view-home" role="tabpanel" aria-labelledby="tab-home">
     <div id="home-notice" class="notice" hidden></div>
@@ -562,7 +556,7 @@
     <div class="home-grid">
       <section class="home-main" aria-labelledby="h-home-active">
         <div class="sec-head">
-          <h2 id="h-home-active">진행 중인 개선판 추천<span id="home-active-count" class="count"></span></h2>
+          <h2 id="h-home-active">진행 중인 알트매크로 추천<span id="home-active-count" class="count"></span></h2>
           <button class="link-btn" type="button" data-goto="recs">전체 보기</button>
         </div>
         <div id="home-active" class="rec-grid"></div>
@@ -574,11 +568,6 @@
       </section>
 
       <aside class="home-side">
-        <section class="card" aria-labelledby="h-home-rounds">
-          <div class="card-head"><h2 id="h-home-rounds">대조군 최근 회차</h2><button class="link-btn" type="button" data-goto="recs/rounds">회차별 보기</button></div>
-          <div id="home-rounds" class="mini-rows"></div>
-        </section>
-
         <section class="card" aria-labelledby="h-home-closed">
           <div class="card-head"><h2 id="h-home-closed">최근 종료</h2><button class="link-btn" type="button" data-goto="recs/done">더 보기</button></div>
           <div id="home-closed" class="mini-rows"></div>
@@ -588,11 +577,6 @@
           <div class="card-head"><h2 id="h-cal">다가오는 일정</h2><span class="muted" style="font-size:12px">미국 · 한국시간</span></div>
           <div id="cal" class="cal-list"></div>
           <p id="cal-note" class="card-note"></p>
-        </section>
-
-        <section id="home-legacy" class="card" aria-labelledby="h-home-legacy">
-          <div class="card-head"><h2 id="h-home-legacy">개선판 (참고)</h2><button class="link-btn" type="button" data-goto="perf">비교 보기</button></div>
-          <div id="home-legacy-body"></div>
         </section>
 
         <details class="fold">
@@ -612,8 +596,7 @@
       <div id="recs-seg" class="seg" role="group" aria-label="추천 구분">
         <button class="btn" type="button" data-sub="active" aria-pressed="true">진행 중<span class="n" id="n-active"></span></button>
         <button class="btn" type="button" data-sub="done" aria-pressed="false">완료<span class="n" id="n-done"></span></button>
-        <button class="btn" type="button" data-sub="rounds" aria-pressed="false">회차별<span class="n" id="n-rounds"></span></button>
-        <button class="btn" type="button" data-sub="cand" aria-pressed="false">개선판 후보<span class="n" id="n-cand"></span></button>
+        <button class="btn" type="button" data-sub="cand" aria-pressed="false">후보<span class="n" id="n-cand"></span></button>
       </div>
     </div>
 
@@ -636,22 +619,11 @@
       <p id="done-note" class="card-note"></p>
     </section>
 
-    <section id="recs-rounds" hidden>
-      <p class="sub" style="margin:0 0 12px">대조군은 하루 한 번 일봉 마감 직후에 여러 종목이 한꺼번에 나오고 같은 시각에 끝나요. 그래서 종목 하나하나보다 '그날 회차' 전체가 한 번의 판단이에요.</p>
-      <div id="rounds-tiles" class="tiles" aria-label="회차 요약"></div>
-      <div class="card">
-        <div class="card-head"><h2 id="h-rounds">회차별 평균 수익률</h2></div>
-        <div id="rounds-chart"></div>
-        <p id="rounds-note" class="card-note"></p>
-      </div>
-      <div id="rounds-list" class="round-list"></div>
-    </section>
-
     <section id="recs-cand" hidden>
       <div class="card">
         <div class="card-head">
           <div>
-            <h2 id="h-cand">현재 후보 (개선판)</h2>
+            <h2 id="h-cand">현재 후보</h2>
             <p class="sub">일봉 조건을 통과한 관찰 대상이에요. 4시간·1시간·15분을 지나 5분봉이 저점에 오면 추천돼요. 이미 추천한 종목은 빼고 보여줘요 (점수 높은 순)</p>
           </div>
         </div>
@@ -682,18 +654,6 @@
     </div>
     <h2 id="p-sec" class="section-title" style="margin-top:6px">성과</h2>
     <section id="p-tiles" class="tiles" aria-label="성과 요약"></section>
-
-    <section class="card" aria-labelledby="h-pcmp">
-      <div class="card-head">
-        <div>
-          <h2 id="h-pcmp">전략 비교</h2>
-          <p class="sub">같은 시장에서 두 전략을 나란히 돌려 결과를 따로 쌓고 있어요. 매도 규칙이 같아서 종료 손익을 그대로 비교할 수 있어요. 기간 필터와 상관없이 전체 기록이에요</p>
-        </div>
-      </div>
-      <div id="p-compare" class="table-wrap"></div>
-      <p id="p-cmp-note" class="card-note"></p>
-      <div id="p-cmp-ref" class="ref-box"></div>
-    </section>
 
     <section class="card" aria-labelledby="h-pwin">
       <div class="card-head">
@@ -731,7 +691,7 @@
     <details class="fold">
       <summary>지지선 지정가 병행 실험<span class="hint">모의 · 실제 주문 아님</span></summary>
       <div class="fold-body">
-        <p class="sub">개선판이 추천할 때마다 (1) 그 가격에 바로 산 결과와 (2) 아래쪽 지지선(현재가 -1%~-6% 사이 1시간봉 스윙 저점)에 24시간짜리 지정가를 건 결과를 나란히 기록해요. 대조군 추천도 같은 방식으로 기록만 하고 있어요. 지정가는 안 걸리면 취소(수익 0), 걸리면 익절 +5% / 손절 -5% / BTC 이탈 / 3일 만료 규칙을 체결가 기준으로 적용해요. 백테스트에서는 통계적 우위가 확인되지 않아서 라이브로 확인하는 중이에요.</p>
+        <p class="sub">알트매크로 추천이 추천할 때마다 (1) 그 가격에 바로 산 결과와 (2) 아래쪽 지지선(현재가 -1%~-6% 사이 1시간봉 스윙 저점)에 24시간짜리 지정가를 건 결과를 나란히 기록해요. 지정가는 안 걸리면 취소(수익 0), 걸리면 익절 +5% / 손절 -5% / BTC 이탈 / 3일 만료 규칙을 체결가 기준으로 적용해요. 백테스트에서는 통계적 우위가 확인되지 않아서 라이브로 확인하는 중이에요.</p>
         <div id="pp-tiles" class="tiles" aria-label="지정가 병행 실험 요약"></div>
         <div id="pp-compare" class="table-wrap"></div>
         <p id="pp-note" class="card-note"></p>
@@ -748,10 +708,8 @@
           <li>승률은 익절 수 ÷ (익절 수 + 손절 수)예요. 기간 만료는 승패에 넣지 않고 따로 세요.</li>
           <li>추천된 종목은 5분마다 가격을 확인해서 선을 넘은 직후의 가격으로 기록돼요. 실제로 선에 닿은 가격과 조금 다를 수 있지만, 그 차이는 보통 0.1% 안팎이에요.</li>
           <li>익절선과 손절선을 같은 폭으로 두면 아무 종목이나 골랐을 때도 승률이 50% 안팎으로 나와요. 그래서 실제 승률이 그보다 뚜렷하게 높은지가 프로그램의 쓸모를 보는 기준이에요. 종료된 추천이 30건쯤 쌓이기 전에는 우연일 수 있어요.</li>
-          <li>대조군과 개선판은 매도 규칙이 같아서(익절 +5%·손절 -5%·3일 만료) 종료 손익을 그대로 비교할 수 있어요. 다만 대조군은 규칙(진입 조건·BTC 필터 일수)이 처음부터 다르니, 결국 비교하는 건 '진입을 어떻게 잡느냐'의 차이예요. 지금은 개선판이 텔레그램 알림을 보내는 메인이고(BTC 작은 파동이 하락 중이면 신규 추천을 보류하는 시험 규칙 적용), 대조군은 규칙을 그대로 둔 채 알림 없이 기록만 해요.</li>
-          <li>비트코인 일봉 종가가 MA20 아래여도 개선판은 경고와 함께 추천을 계속해요(2026-10-11부터). 이때 나온 추천에는 '⚠ MA20 아래 진입' 표시가 붙고 BTC 이탈 전량 정리는 적용하지 않아요. 대조군은 처음 규칙대로 MA20 위 2일 이상일 때만 추천해요.</li>
-          <li>개선판은 2026-10-11부터 일봉 스토캐스틱 RSI 저점이 확인된(저점권에서 %K가 %D 위로 올라선 골든크로스) 종목만 추천해요. 4시간은 막 20 이하로 내려온 최초 도달도 허용하고, 1시간·15분·5분 저점 조건은 그대로예요. 백테스트에서는 손절이 줄어드는 근거가 없었고 추천 수만 줄어요(일봉만 확인하면 약 44% 남음) — 라이브에서 지켜보는 규칙이에요.</li>
-          <li>변동폭 표식(🔹낮음 / 🔸높음)은 대조군 추천을 최근 14일 평균 일중 등락폭 7.1%로 나눈 표시예요. 추천 대상은 그대로이고, 표식별 성과를 쌓아서 비교하려는 용도예요.</li>
+          <li>비트코인 일봉 종가가 MA20 아래여도 알트매크로 추천은 경고와 함께 추천을 계속해요(2026-10-11부터). 이때 나온 추천에는 '⚠ MA20 아래 진입' 표시가 붙고 BTC 이탈 전량 정리는 적용하지 않아요.</li>
+          <li>알트매크로 추천은 2026-10-11부터 일봉 스토캐스틱 RSI 저점이 확인된(저점권에서 %K가 %D 위로 올라선 골든크로스) 종목만 추천해요. 4시간은 막 20 이하로 내려온 최초 도달도 허용하고, 1시간·15분·5분 저점 조건은 그대로예요. 백테스트에서는 손절이 줄어드는 근거가 없었고 추천 수만 줄어요(일봉만 확인하면 약 44% 남음) — 라이브에서 지켜보는 규칙이에요.</li>
           <li>투자 권유가 아니에요. 정해 둔 기준에 도달했는지를 기록하는 화면이에요.</li>
         </ul>
       </div>
@@ -1122,6 +1080,7 @@
 // v1.19 (2026-10-05) 업비트 공개 API 참고 정보 3가지 추가: 추천 카드의 '체결 매수 N%'(실제 체결 중 사는 쪽 비중, 추천 순간 -> 지금), 업비트 공식 시장 경고 배지(거래량 급증·해외 가격 차이 등), 비트코인 분석 화면의 BTC 김치 프리미엄 타일. 모두 참고용
 // v1.20 (2026-10-07) '주식' 탭 추가(실험): 코스피·코스닥 지수 상태, 마감 주봉 RSI(14) 30 이하 신규 후보(시장별), 추천 기록·4주 성과 통계. 알림 없이 기록만
 // v1.21 (2026-10-07) 주식 카드의 거래대금 칩에 마우스를 올리거나 탭하면 최근 26주 종가·일평균 거래대금 흐름 팝업
+// v1.34 (2026-10-12) 대조군 삭제(화면·알림·기록): 전략 필터·회차별·대조군 참고 카드·전략 비교표·대조군 전용 검증 카드 제거, '개선판'은 '알트매크로 추천'으로 이름 변경. 예전 대조군 기록은 data/archive/에 보관
 // v1.33 (2026-10-12) ① 오늘 화면 '추천 퍼널'(스캔 -> 일봉 -> 4시간 -> 1시간 -> 15분 -> 5분 저점, 5분 저점까지 온 종목이 추천 안 된 사유, 최근 24시간) ② 성과 탭 '막은 추천의 사후 성과'(규칙에 막힌 추천을 가상 진입으로 따라간 결과, 실제 추천과 비교)
 //   ③ 추천 카드의 참고 칩(시총·거래대금·뉴스·섹터·언락·변동폭·재추천·호가·체결)을 '참고 N'으로 접음(경고·저점 확인 표식은 그대로 보임). 표시만, 추천 규칙은 그대로
 // v1.32 (2026-10-11) RSI 저점 확인 규칙을 '일봉만'으로 완화(기본, LOW_CONFIRM_MODE=day): 일봉은 골든크로스 확인 필요, 4시간은 최초 도달도 허용, 1시간·15분·5분은 그대로. 추천 약 44% 남음(둘 다 확인은 12%), 백테스트 손절 감소 근거는 둘 다 없음
@@ -1138,7 +1097,7 @@
 // v1.24 (2026-10-09) 오늘 화면에 공포·탐욕 지수 타일(참고) + 라이브 검증 현황에 '탐욕 구간 손절' 카드. 추천 순간 지수는 detail.fng로 기록
 // v1.23 (2026-10-07) 팝업을 주봉 캔들+거래대금(상승·하락 색)+RSI(30선)로 바꾸고, 주식 공시·뉴스 / 코인 업비트 공지·뉴스 칩 추가(표시 전용)
 // v1.22 (2026-10-07) 시가총액 칩(주식: 네이버 증권, 코인: CoinGecko) + 코인 추천 카드에도 지난주 거래대금·시총 칩과 같은 주봉 팝업(종가·주간 거래대금·RSI)
-const APP_VERSION = 'v1.33';
+const APP_VERSION = 'v1.34';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DATA_URL = 'dashboard.json';
@@ -1210,52 +1169,15 @@ function ma20Cell(ma20, current, above) {
   return h('span', { class: above ? 'delta up' : 'delta down' }, `${above ? '▲ 위' : '▼ 아래'} ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}%`);
 }
 function empty(text) { return h('div', { class: 'empty', text }); }
-// 어느 전략의 추천인지 함께 보여준다. original(대조군)은 첫 버전 규칙 고정, legacy(개선판)는 계속 다듬는 실제 운영 전략
-const STRAT_LABEL = { original: '대조군', legacy: '개선판' };
-let stratFilter = 'all';
-try { const saved = localStorage.getItem('stratFilter'); if (saved && (saved === 'all' || saved in STRAT_LABEL)) stratFilter = saved; } catch (e) { /* 무시 */ }
+// 추천 전략은 하나뿐이다(2026-10-12 대조군 삭제). 내부 코드값 'legacy'는 그대로 두고 화면에는 '알트매크로 추천'이라고 부른다
+const STRAT_LABEL = { legacy: '알트매크로 추천' };
 const stratOf = (r) => r.strategy || 'legacy';
-const inFilter = (r) => stratFilter === 'all' || stratOf(r) === stratFilter;
-const recsOf = (d) => (d.recommendations || []).filter(inFilter);
-// 대조군 변동폭 표식: 14일 평균 일중 등락폭 기준(src/config.py VOL_MARK_PCT와 같은 값). 표시만이고 추천 대상은 그대로다
-const VOL_MARK_PCT = 7.1;
-const volOf = (r) => (r.detail && r.detail.vol14_pct != null ? r.detail.vol14_pct : null);
-function volPill(r) {
-  const v = volOf(r);
-  if (v == null) return null;
-  return h('span', { class: `pill ${v < VOL_MARK_PCT ? 'vol-lo' : 'vol-hi'}`, title: '최근 14일 평균 일중 등락폭', text: `${v < VOL_MARK_PCT ? '🔹 변동폭 낮음' : '🔸 변동폭 높음'} ${v.toFixed(1)}%` });
-}
+const recsOf = (d) => d.recommendations || [];
 function stratPill(r) {
-  if (r.strategy === 'original') {
-    return h('span', {}, h('span', { class: 'strat', text: '대조군' }), h('span', { class: 'pill', text: '일봉 통과' }), volPill(r));
-  }
-  return h('span', {}, h('span', { class: 'strat', text: '개선판' }), gradePill(r.grade), lowPill(r), belowPill(r));
+  return h('span', {}, h('span', { class: 'strat', text: '알트매크로' }), gradePill(r.grade), lowPill(r), belowPill(r));
 }
 const shortName = (m) => m.replace(/^KRW-/, '');
 const marketLabel = (m, cls = 'rec-name') => h('span', { class: cls }, h('small', { text: 'KRW' }), shortName(m));
-// 재추천 표시: 같은 종목을 7일 안에 이미 대조군이 추천했으면 '🔁 N일 전에도 추천 · 결과'. 표시만이고 추천 규칙(3일 제한)은 그대로다
-const REPEAT_MARK_DAYS = 7;
-function priorMap(d) {
-  if (priorMap.cache && priorMap.cache.d === d) return priorMap.cache.map;
-  const map = new Map(), lastBy = new Map();
-  const real = (d.recommendations || []).filter((r) => stratOf(r) === 'original' && !(r.exit && r.exit.reason === 'excluded'))
-    .sort((a, b) => a.entered_at.localeCompare(b.entered_at));
-  for (const r of real) {
-    const prev = lastBy.get(r.market);
-    if (prev) map.set(r, prev);
-    lastBy.set(r.market, r);
-  }
-  priorMap.cache = { d, map };
-  return map;
-}
-function priorBadge(r, d) {
-  const prev = r.strategy === 'original' ? priorMap(d).get(r) : null;
-  if (!prev) return null;
-  const days = (new Date(r.entered_at) - new Date(prev.entered_at)) / 86400e3;
-  if (days > REPEAT_MARK_DAYS) return null;
-  const o = outcomeOf(prev), info = RESULT_INFO[o.key] || RESULT_INFO.expired;
-  return h('span', { class: 'pill rep', title: `이 종목은 ${kst(prev.entered_at)}에도 대조군이 추천했어요`, text: `🔁 ${Math.round(days)}일 전에도 추천 · ${info.label}${o.ret == null ? '' : ` ${signed(o.ret)}`}` });
-}
 function exitRulesOf(d) {
   const x = d.exit_rules || {};
   return { tp: x.take_profit_pct ?? 5, sl: x.stop_loss_pct ?? 5, days: x.track_days || d.track_days || 3 };
@@ -1473,15 +1395,10 @@ function tile(label, valueNodes, note, extra, cls) {
 }
 
 /* ---------- 오늘(홈) ---------- */
-const originalRecs = (d) => (d.recommendations || []).filter((r) => stratOf(r) === 'original');
-// 텔레그램 알림을 보내는 전략 = 오늘 화면의 중심 전략 (서버가 alert_strategy로 내려준다, 없으면 개선판)
-const mainStrat = (d) => (d.alert_strategy === 'original' ? 'original' : 'legacy');
-const mainRecs = (d) => (d.recommendations || []).filter((r) => stratOf(r) === mainStrat(d));
-const mainName = (d) => STRAT_LABEL[mainStrat(d)];
-const otherStrat = (d) => (mainStrat(d) === 'original' ? 'legacy' : 'original');
-// BTC 작은 파동 게이트(개선판 신규 추천 보류): 상태를 알 때만 돌려준다
-// BTC 일봉이 MA20 아래일 때: 대조군이 중심이거나 필터 모드가 block이면 추천이 멈추고, 개선판 중심 + warn이면 경고만 한다
-const btcBlocks = (d) => !!(d.btc && d.btc.favorable === false && (mainStrat(d) === 'original' || d.btc_filter_mode === 'block'));
+const mainRecs = (d) => d.recommendations || [];
+const mainName = () => '알트매크로 추천';
+// BTC 일봉이 MA20 아래일 때: 필터 모드가 block이면 추천이 멈추고, 기본(warn)이면 경고만 한다
+const btcBlocks = (d) => !!(d.btc && d.btc.favorable === false && d.btc_filter_mode === 'block');
 const btcWarn = (d) => !!(d.btc && d.btc.favorable === false && !btcBlocks(d));
 const belowPill = (r) => (r.detail && r.detail.btc_below_ma20
   ? h('span', { class: 'pill warn', title: '비트코인 일봉 종가가 MA20 아래일 때 경고를 달고 나온 추천이에요. BTC 이탈 전량 정리는 적용하지 않아요.', text: '⚠ MA20 아래 진입' }) : null);
@@ -1507,7 +1424,7 @@ const lowOf = (r) => {
   const gold = (x) => (x.items || []).some((i) => String(i.name).includes('골든'));
   return day && h4 ? { day: gold(day), h4: gold(h4) } : null;
 };
-const LOW_TIP = '일봉·4시간의 스토캐스틱 RSI가 저점에서 반등했는지예요. 확인 = %K가 %D 위로 올라섬(골든크로스), 미확인 = %K가 막 20 이하로 내려온 최초 도달만으로 통과해서 아직 반등 확인 전이에요. 2026-10-11부터 개선판은 설정에 따라 일부 프레임의 확인을 요구해요(그 전 추천에는 미확인이 섞여 있어요).';
+const LOW_TIP = '일봉·4시간의 스토캐스틱 RSI가 저점에서 반등했는지예요. 확인 = %K가 %D 위로 올라섬(골든크로스), 미확인 = %K가 막 20 이하로 내려온 최초 도달만으로 통과해서 아직 반등 확인 전이에요. 2026-10-11부터 알트매크로 추천은 설정에 따라 일부 프레임의 확인을 요구해요(그 전 추천에는 미확인이 섞여 있어요).';
 const lowNeed = (d) => (d.low_confirm_mode === 'both' ? ['day', '4h'] : d.low_confirm_mode === 'off' ? [] : ['day']);
 const lowPill = (r) => {
   const lc = r.strategy === 'original' ? null : lowOf(r);
@@ -1537,7 +1454,7 @@ function renderHomeKpis(d) {
   const last = fresh.length ? fresh.reduce((a, b) => (a.entered_at > b.entered_at ? a : b)) : null;
   const gate = gateOf(d);
   const offNote = btcBlocks(d) ? 'BTC 필터가 꺼져 있어 새 추천이 없어요'
-    : (mainStrat(d) === 'legacy' && gate && gate.blocked ? 'BTC 작은 파동이 하락 중이라 신규 추천을 보류하고 있어요' : null);
+    : (gate && gate.blocked ? 'BTC 작은 파동이 하락 중이라 신규 추천을 보류하고 있어요' : null);
   tiles.push(tile('오늘 새 추천', [String(todayN), h('span', { class: 'unit', text: '종목' })],
     offNote || (last ? `마지막 추천 ${kst(last.entered_at)} · ${ago(last.entered_at)}` : '추천 기록이 아직 없어요')));
 
@@ -1554,14 +1471,14 @@ function renderHomeKpis(d) {
     const closes = btc.series.map((p) => p.close).slice(-30);
     const warnMode = btcWarn(d);
     tiles.push(tile('BTC 필터', [statusIcon(btc.favorable ? 'on' : (warnMode ? 'warn' : 'off')), btc.favorable ? '켜짐' : (warnMode ? '경고 · MA20 아래' : '꺼짐')],
-      `${btc.hold_days_required > 1 ? `MA20 위 ${btc.days_above}일째 (${btc.hold_days_required}일 이상이면 켜짐)` : (btc.favorable ? `MA20 위 ${btc.days_above}일째` : (warnMode ? '일봉 종가가 MA20 아래 · 경고만 하고 개선판 추천은 계속해요' : '일봉 종가가 MA20 아래'))} · ${nf0.format(btc.close)} (${change >= 0 ? '+' : ''}${change.toFixed(2)}%)`,
+      `${btc.hold_days_required > 1 ? `MA20 위 ${btc.days_above}일째 (${btc.hold_days_required}일 이상이면 켜짐)` : (btc.favorable ? `MA20 위 ${btc.days_above}일째` : (warnMode ? '일봉 종가가 MA20 아래 · 경고만 하고 알트매크로 추천은 계속해요' : '일봉 종가가 MA20 아래'))} · ${nf0.format(btc.close)} (${change >= 0 ? '+' : ''}${change.toFixed(2)}%)`,
       closes.length > 1 ? sparkline(closes) : null));
   }
   if (gateOf(d)) {
     const g = d.btc_wave_gate, sm = g.small;
     const dir = sm.direction === 'down' ? '하락 파동' : '상승 파동';
     tiles.push(tile('BTC 작은 파동', [statusIcon(g.blocked ? 'off' : 'on'), g.blocked ? '신규 추천 보류' : '신규 추천 가능'],
-      `${dir} · ${sm.label} · ${ago(g.since || g.at)}부터 · 4시간봉 기준, 개선판에만 적용(시험 중)`));
+      `${dir} · ${sm.label} · ${ago(g.since || g.at)}부터 · 4시간봉 기준, 알트매크로 추천에만 적용(시험 중)`));
   }
   const fg = d.fear_greed;
   if (fg && fg.latest && fg.hist && fg.hist.length > 1) {
@@ -1621,7 +1538,7 @@ function renderNotice(d) {
   const rows = [];
   if (btcWarn(d)) {
     rows.push(['⚠️', h('div', {}, h('strong', { text: 'BTC가 일봉 MA20 아래예요' }),
-      ' · 개선판 추천은 계속 나오지만 하락장에서 나온 추천이라 위험이 더 커요. 이때 나온 추천에는 \'⚠ MA20 아래 진입\' 표시가 붙고 BTC 이탈 정리는 적용하지 않아요.')]);
+      ' · 알트매크로 추천은 계속 나오지만 하락장에서 나온 추천이라 위험이 더 커요. 이때 나온 추천에는 \'⚠ MA20 아래 진입\' 표시가 붙고 BTC 이탈 정리는 적용하지 않아요.')]);
   }
   if (w && w.mode !== 'normal') {
     const cap = w.mode === 'capitulation';
@@ -1642,9 +1559,7 @@ function recCard(r, d) {
   const endPrice = r.exit ? r.exit.exit_price : r.last_price;
   const left = days * 86400e3 - elapsed;
   const slPrice = r.entry_price * (1 - sl / 100), tpPrice = r.entry_price * (1 + tp / 100);
-  const meta = r.strategy === 'original'
-    ? [r.score == null ? null : h('span', { class: 'pill', text: `점수 ${r.score}` }), flagPill(r, d), chipFold(r, [volPill(r), priorBadge(r, d), obPill(r, d), flowPill(r, d), ...coinChips(r, d), unlockChip(r, d), ...sectorPills(r, d)])]
-    : [h('span', { class: 'strat', text: '개선판' }), gradePill(r.grade), lowPill(r), belowPill(r), flagPill(r, d), chipFold(r, [...coinChips(r, d), unlockChip(r, d), ...sectorPills(r, d)])];
+  const meta = [h('span', { class: 'strat', text: '알트매크로' }), gradePill(r.grade), lowPill(r), belowPill(r), flagPill(r, d), chipFold(r, [...coinChips(r, d), unlockChip(r, d), ...sectorPills(r, d)])];
   const gauge = gaugeBar(ret, tp, sl);
   gauge.querySelector('.gauge-labels').replaceChildren(h('span', { text: `손절 ${fmtKRW(slPrice)}` }), h('span', { text: `익절 ${fmtKRW(tpPrice)}` }));
   return h('article', { class: 'rec' },
@@ -1661,7 +1576,7 @@ const homeMax = () => (window.matchMedia('(max-width: 760px)').matches ? 6 : 12)
 function renderHomeActive(d) {
   const host = $('#home-active'), max = homeMax();
   const active = mainRecs(d).filter((r) => !isDone(r)).sort((a, b) => b.entered_at.localeCompare(a.entered_at));
-  $('#h-home-active').firstChild.nodeValue = `진행 중인 ${mainName(d)} 추천`;
+  $('#h-home-active').firstChild.nodeValue = `진행 중인 ${mainName(d)}`;
   const gate = gateOf(d);
   const nBelow = belowCount(active);
   $('#home-active-count').replaceChildren(active.length ? `${active.length}건` : '',
@@ -1669,9 +1584,8 @@ function renderHomeActive(d) {
   if (!active.length) {
     host.replaceChildren(h('div', { style: 'grid-column:1/-1' }, empty(btcBlocks(d)
       ? 'BTC 필터가 꺼져 있어 새 추천이 없어요. 이미 진행 중인 추천은 끝까지 따라가요.'
-      : mainStrat(d) === 'original' ? '지금 진행 중인 대조군 추천이 없어요. 새 추천은 매일 오전 9시 일봉이 마감된 직후에 나와요.'
-        : (gate && gate.blocked ? 'BTC 작은 파동이 하락 중이라 신규 추천을 보류하고 있어요. 이미 진행 중인 추천은 끝까지 따라가요.'
-          : '지금 진행 중인 개선판 추천이 없어요. 일봉 조건을 통과한 종목이 5분봉 저점에 오면 바로 추천돼요.'))));
+      : (gate && gate.blocked ? 'BTC 작은 파동이 하락 중이라 신규 추천을 보류하고 있어요. 이미 진행 중인 추천은 끝까지 따라가요.'
+          : '지금 진행 중인 알트매크로 추천이 없어요. 일봉 조건을 통과한 종목이 5분봉 저점에 오면 바로 추천돼요.'))));
     return;
   }
   host.replaceChildren(
@@ -1693,24 +1607,6 @@ function renderHomeClosed(d) {
       h('span', {}, h('span', { class: 'nm' }, h('small', { text: 'KRW' }), shortName(r.market)), r.detail && r.detail.btc_below_ma20 ? h('span', { title: 'BTC 일봉이 MA20 아래일 때 나온 추천', text: ' ⚠' }) : null, h('span', { class: 'when', text: ` · ${kst(r.exit.ended_at)}` })),
       h('span', { class: `r ${upDown(r.exit.return_pct)}`, text: signed(r.exit.return_pct) }));
   }));
-}
-
-function renderHomeLegacy(d) {
-  const host = $('#home-legacy-body');
-  const other = otherStrat(d), otherLabel = STRAT_LABEL[other];
-  $('#h-home-legacy').textContent = `${otherLabel} (참고)`;
-  const leg = (d.recommendations || []).filter((r) => stratOf(r) === other);
-  if (!leg.length) { host.replaceChildren(empty(`${otherLabel} 추천 기록이 없어요.`)); return; }
-  const s = perfSummary(leg);
-  const activeN = leg.filter((r) => !isDone(r)).length;
-  const avgClosed = avg(s.closedRets);
-  const stat = (label, value) => h('div', { class: 'mini-row', style: 'grid-template-columns:1fr auto' }, h('span', { class: 'muted', text: label }), h('span', { class: 'r', text: value }));
-  host.replaceChildren(
-    h('p', { class: 'sub', style: 'margin:0 0 6px', text: other === 'original' ? '지금은 알림 없이 기록만 해요. 규칙은 처음 그대로 고정하고 BTC 작은 파동 게이트도 받지 않아서, 개선판의 비교 기준이에요.' : '지금은 알림 없이 기록만 해요. 대조군과 같은 규칙으로 성과를 비교하고 있어요.' }),
-    h('div', { class: 'mini-rows' },
-      stat('진행 중', `${activeN}건`),
-      stat('종료', `${s.closed}건 · 익절 ${s.take_profit} : 손절 ${s.stop_loss}`),
-      stat('평균 손익 (종료)', avgClosed == null ? '—' : sgn(avgClosed))));
 }
 
 function wireToggle(name, chartEl, tableEl, onShowChart) {
@@ -1839,7 +1735,7 @@ function renderCandidates(d) {
   if (gate) {
     const nHeld = cands.filter((c) => c.gated).length;
     gateEl.textContent = warnTxt + (gate.blocked
-      ? `🚦 BTC 작은 파동이 하락 중(${gate.small.label})이라 개선판 신규 추천을 보류하고 있어요${nHeld ? ` — 추천 조건을 채운 ${nHeld}개 종목이 '보류'로 표시돼요` : ''}. ${ago(gate.since || gate.at)}부터 · 이미 추천한 종목은 그대로 추적해요.`
+      ? `🚦 BTC 작은 파동이 하락 중(${gate.small.label})이라 알트매크로 신규 추천을 보류하고 있어요${nHeld ? ` — 추천 조건을 채운 ${nHeld}개 종목이 '보류'로 표시돼요` : ''}. ${ago(gate.since || gate.at)}부터 · 이미 추천한 종목은 그대로 추적해요.`
       : `🟢 BTC 작은 파동 ${gate.small.label} — 보류 없이 추천이 나와요 (하락 파동이 되면 신규 추천을 잠시 보류해요).`);
   }
   $('#n-cand').textContent = String(cands.length);
@@ -1885,7 +1781,7 @@ function renderTracking(d) {
   const ordered = [...recs].sort((a, b) => a.entered_at.localeCompare(b.entered_at));
   const dupes = new Set(ordered.map((r) => `${r.strategy}|${r.market}`).filter((m, i, arr) => arr.indexOf(m) !== i));
   const series = ordered.map((r, i) => ({
-    name: `${r.strategy === 'original' ? '[대조군] ' : ''}${dupes.has(`${r.strategy}|${r.market}`) ? `${r.market} (${kst(r.entered_at)})` : r.market}`,
+    name: `${dupes.has(`${r.strategy}|${r.market}`) ? `${r.market} (${kst(r.entered_at)})` : r.market}`,
     color: `var(--s${i + 1})`,
     points: r.series.filter((p) => p[1] != null).map((p) => ({ x: p[0], y: p[1] })),
   }));
@@ -1901,7 +1797,7 @@ function renderTracking(d) {
   charts.push(chart);
 
   const rows = [];
-  for (const r of [...ordered].reverse()) for (const p of [...r.series].reverse()) if (p[1] != null) rows.push([`${r.strategy === 'original' ? '[대조군] ' : ''}${r.market}`, p[0].toFixed(1), pct(p[1])]);
+  for (const r of [...ordered].reverse()) for (const p of [...r.series].reverse()) if (p[1] != null) rows.push([`${r.market}`, p[0].toFixed(1), pct(p[1])]);
   tableEl.append(buildTable(['종목', '발굴 후(시간)', '수익률'], rows.slice(0, 300)));
   wireToggle('track', chartEl, tableEl, chart.render);
   return chart;
@@ -1942,7 +1838,7 @@ function doneItem(r, d) {
     h('div', { class: `ret ${upDown(o.ret)}`, text: o.ret == null ? '—' : signed(o.ret) }),
     h('div', { class: 'line', text: `${fmtKRW(r.entry_price)} → ${fmtKRW(endPrice)}` }),
     h('div', { class: 'line r', text: `${holdText(endMs - new Date(r.entered_at).getTime())} 보유` }),
-    h('div', { class: 'line' }, stratPill(r), priorBadge(r, d), h('span', { class: 'muted', text: ` · 추천 ${kst(r.entered_at)}` })),
+    h('div', { class: 'line' }, stratPill(r), h('span', { class: 'muted', text: ` · 추천 ${kst(r.entered_at)}` })),
     h('div', { class: 'line r', text: `${kst(new Date(endMs).toISOString())} 종료` }));
 }
 
@@ -1992,157 +1888,6 @@ function renderScans(d) {
     : '';
 }
 
-let filterWired = false;
-function wireStratFilter() {
-  const bar = $('#strat-filter');
-  const sync = () => bar.querySelectorAll('[data-strat]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.strat === stratFilter)));
-  if (!filterWired) {
-    filterWired = true;
-    bar.querySelectorAll('[data-strat]').forEach((b) => {
-      b.onclick = () => {
-        stratFilter = b.dataset.strat; doneShown = DONE_PAGE;
-        try { localStorage.setItem('stratFilter', stratFilter); } catch (e) { /* 무시 */ }
-        renderAll();
-      };
-    });
-  }
-  sync();
-}
-
-/* ---------- 회차(일일 배치) ---------- */
-// 대조군은 하루 한 번(일봉 마감 직후) 여러 종목이 한꺼번에 나오고 같은 시각에 끝난다. 같은 한국시간 날짜에 나온 추천을 한 '회차'로 묶는다.
-const KST_DATE = (iso) => new Date(new Date(iso).getTime() + KST_MS).toISOString().slice(0, 10);
-const WEEKDAY = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', weekday: 'short' });
-const T975 = { 1: 12.71, 2: 4.30, 3: 3.18, 4: 2.78, 5: 2.57, 6: 2.45, 7: 2.36, 8: 2.31, 9: 2.26, 10: 2.23, 11: 2.20, 12: 2.18, 13: 2.16, 14: 2.14,
-  15: 2.13, 16: 2.12, 17: 2.11, 18: 2.10, 19: 2.09, 20: 2.09, 25: 2.06, 30: 2.04 };
-function tCrit(df) {
-  const k = Math.max(...Object.keys(T975).map(Number).filter((x) => x <= df));
-  return Number.isFinite(k) ? T975[k] : 12.71;
-}
-function meanCI(a) {  // 평균의 95% 구간 (t 분포 근사, 5개 미만이면 보여주지 않는다)
-  if (a.length < 5) return null;
-  const m = avg(a), sd = Math.sqrt(a.reduce((acc, v) => acc + (v - m) ** 2, 0) / (a.length - 1));
-  const half = tCrit(a.length - 1) * sd / Math.sqrt(a.length);
-  return [m - half, m + half];
-}
-
-function buildRounds(d) {
-  const { days } = exitRulesOf(d);
-  const real = originalRecs(d).filter((r) => !(r.exit && r.exit.reason === 'excluded'));  // '제외 정리'는 실제 결과가 아니라 뺀다
-  const byDay = new Map();
-  for (const r of real) {
-    const k = KST_DATE(r.entered_at);
-    if (!byDay.has(k)) byDay.set(k, []);
-    byDay.get(k).push(r);
-  }
-  return [...byDay.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([date, recs]) => {
-    const os = recs.map((r) => ({ r, o: outcomeOf(r) }));
-    const rets = os.map(({ o }) => o.ret ?? 0);
-    const cnt = (...keys) => os.filter(({ o }) => keys.includes(o.key)).length;
-    const active = cnt('active');
-    const firstAt = recs.reduce((a, r) => (a < r.entered_at ? a : r.entered_at), recs[0].entered_at);
-    const byRet = [...os].sort((a, b) => (b.o.ret ?? 0) - (a.o.ret ?? 0));
-    const tpN = cnt('take_profit'), slN = cnt('stop_loss', 'trailing');
-    return {
-      date, recs, os, n: recs.length, avg: avg(rets), tp: tpN, sl: slN, active, exp: recs.length - tpN - slN - active,
-      plus: rets.filter((v) => v > 0).length, best: byRet[0], worst: byRet[byRet.length - 1], complete: active === 0, firstAt,
-      expiresAt: new Date(new Date(firstAt).getTime() + days * 86400e3).toISOString(),
-    };
-  });
-}
-
-function roundsChart(rounds) {
-  const maxAbs = Math.max(1, ...rounds.map((x) => Math.abs(x.avg)));
-  const every = rounds.length > 12 ? Math.ceil(rounds.length / 10) : 1;
-  const dense = rounds.length > (window.matchMedia('(max-width: 760px)').matches ? 9 : 18);
-  return h('div', { class: dense ? 'rbars dense' : 'rbars', role: 'img', 'aria-label': `회차별 평균 수익률, ${rounds.length}개 회차` },
-    rounds.map((x, i) => {
-      const up = x.avg >= 0, hh = Math.abs(x.avg) / maxAbs * 46;
-      return h('div', { class: `rbar ${up ? 'up' : 'down'}${x.complete ? '' : ' wip'}`, title: `${x.date.slice(5)} · ${x.n}종목 · 평균 ${signed(x.avg)}${x.complete ? '' : ' (진행 중, 잠정)'}` },
-        h('span', { class: 'val', style: up ? `bottom:calc(50% + ${hh}%)` : `top:calc(50% + ${hh}%)`, text: x.avg.toFixed(1) }),
-        h('span', { class: 'fill', style: up ? `bottom:50%;height:${hh}%` : `top:50%;height:${hh}%` }),
-        h('span', { class: 'lbl', text: (rounds.length - 1 - i) % every === 0 ? x.date.slice(5) : '' }));
-    }));
-}
-
-const ROUND_COLOR = { tp: 'var(--good)', sl: 'var(--bad)', exp: 'var(--muted)', act: 'var(--s1)' };
-function roundCard(x, d) {
-  const repeatN = x.recs.filter((r) => priorBadge(r, d)).length;
-  const parts = [['tp', x.tp, '익절'], ['sl', x.sl, '손절'], ['exp', x.exp, '만료·기타'], ['act', x.active, '진행 중']].filter(([, n]) => n > 0);
-  const lo = x.recs.filter((r) => volOf(r) != null && volOf(r) < VOL_MARK_PCT), hi = x.recs.filter((r) => volOf(r) != null && volOf(r) >= VOL_MARK_PCT);
-  const avgOf = (rs) => avg(rs.map((r) => outcomeOf(r).ret ?? 0));
-  const markLine = (lo.length || hi.length)
-    ? h('div', { class: 'rec-foot' },
-      h('span', { text: `🔹 낮음 ${lo.length}건${lo.length ? ` · 평균 ${sgn(avgOf(lo))}` : ''}` }),
-      h('span', { text: `🔸 높음 ${hi.length}건${hi.length ? ` · 평균 ${sgn(avgOf(hi))}` : ''}` }))
-    : null;
-  const item = ({ r, o }) => {
-    const info = RESULT_INFO[o.key] || RESULT_INFO.expired;
-    return h('div', { class: 'mini-row' },
-      h('span', { class: `badge ${info.cls}`, text: info.label }),
-      h('span', {}, h('span', { class: 'nm' }, h('small', { text: 'KRW' }), shortName(r.market)), volOf(r) == null ? null : h('span', { class: 'when', text: ` · ${volOf(r) < VOL_MARK_PCT ? '🔹' : '🔸'}${volOf(r).toFixed(1)}%` })),
-      h('span', { class: `r ${upDown(o.ret)}`, text: o.ret == null ? '—' : signed(o.ret) }));
-  };
-  return h('article', { class: 'round' },
-    h('div', { class: 'rec-top' },
-      h('div', {},
-        h('div', { class: 'rec-name', text: `${x.date.slice(5)} (${WEEKDAY.format(new Date(x.firstAt))})` }),
-        h('div', { class: 'rec-meta' },
-          h('span', { class: 'pill', text: `${x.n}종목` }),
-          repeatN ? h('span', { class: 'pill rep', text: `🔁 재추천 ${repeatN}` }) : null,
-          h('span', { class: `pill ${x.complete ? '' : 'A'}`, text: x.complete ? '모두 종료' : `진행 중 ${x.active}건` }))),
-      h('div', { class: `rec-ret ${upDown(x.avg)}` }, signed(x.avg), h('small', { text: x.complete ? '회차 평균' : '회차 평균 (잠정)' }))),
-    h('div', { class: 'stack', role: 'img', 'aria-label': parts.map(([, n, name]) => `${name} ${n}건`).join(', ') },
-      parts.map(([cls, n, name]) => h('span', { class: cls, style: `flex:${n}`, title: `${name} ${n}건` }))),
-    h('div', { class: 'stack-legend', style: 'margin-top:0' },
-      parts.map(([cls, n, name]) => h('span', {}, h('span', { class: 'dot', style: `background:${ROUND_COLOR[cls]}` }), `${name} ${n}`))),
-    h('div', { class: 'rec-foot' },
-      h('span', { text: `플러스 ${x.plus} / ${x.n}` }),
-      h('span', { text: `최고 ${shortName(x.best.r.market)} ${sgn(x.best.o.ret)}` }),
-      h('span', { text: `최저 ${shortName(x.worst.r.market)} ${sgn(x.worst.o.ret)}` })),
-    markLine,
-    h('div', { class: 'rec-foot' },
-      h('span', { text: `추천 ${kst(x.firstAt)}` }),
-      h('span', { text: x.complete ? '전부 끝남' : `만료 ${kst(x.expiresAt)}` })),
-    h('details', { class: 'round-detail' }, h('summary', { text: '종목별 보기' }),
-      h('div', { class: 'mini-rows' }, [...x.os].sort((a, b) => (b.o.ret ?? 0) - (a.o.ret ?? 0)).map(item))));
-}
-
-function renderRounds(d) {
-  const rounds = buildRounds(d);
-  $('#n-rounds').textContent = String(rounds.length);
-  const tilesEl = $('#rounds-tiles'), chartEl = $('#rounds-chart'), listEl = $('#rounds-list'), note = $('#rounds-note');
-  if (!rounds.length) {
-    tilesEl.replaceChildren(); chartEl.replaceChildren(empty('아직 대조군 회차가 없어요. 새 추천이 나오면 여기에 회차별로 쌓여요.'));
-    listEl.replaceChildren(); note.textContent = ''; return;
-  }
-  const done = rounds.filter((x) => x.complete);
-  const doneAvgs = done.map((x) => x.avg);
-  const ci = meanCI(doneAvgs);
-  const plusRounds = done.filter((x) => x.avg > 0).length;
-  const worst = done.length ? done.reduce((a, b) => (a.avg < b.avg ? a : b)) : null;
-  tilesEl.replaceChildren(
-    tile('회차', [String(rounds.length), h('span', { class: 'unit', text: '회' })], `완료 ${done.length} · 진행 중 ${rounds.length - done.length}`, null, 'hero'),
-    tile('완료 회차 평균', [done.length ? sgn(avg(doneAvgs)) : '—'],
-      ci ? `95% 구간 ${ci[0].toFixed(1)} ~ ${ci[1].toFixed(1)}% (참고)` : `완료 회차가 5개 이상이면 구간을 보여줘요 (지금 ${done.length}개)`),
-    tile('플러스 회차', [done.length ? `${plusRounds} / ${done.length}` : '—'], '회차 평균이 플러스였던 비율'),
-    tile('가장 나쁜 회차', [worst ? sgn(worst.avg) : '—'], worst ? `${worst.date.slice(5)} 회차 · ${worst.n}종목` : '끝난 회차가 아직 없어요'));
-  chartEl.replaceChildren(roundsChart(rounds));
-  note.textContent = '막대는 그 회차의 평균 수익률(%)이에요. 연한 막대는 아직 진행 중이라 바뀔 수 있는 잠정값이에요. 한 회차는 같은 날 같은 시장에서 나온 종목들이라 같이 오르고 같이 떨어져서, '
-    + '독립된 표본은 종목 수가 아니라 회차 수예요. 종목 수가 1개인 회차와 20개인 회차도 같은 비중으로 평균하고, 회차 평균은 시장 상승분이 섞인 절대 수익이라 우위의 증거는 아니에요.';
-  listEl.replaceChildren(...[...rounds].reverse().map((x) => roundCard(x, d)));
-}
-
-function renderHomeRounds(d) {
-  const host = $('#home-rounds');
-  const rounds = buildRounds(d).reverse().slice(0, 3);
-  if (!rounds.length) { host.replaceChildren(empty('아직 회차가 없어요.')); return; }
-  host.replaceChildren(...rounds.map((x) => h('div', { class: 'mini-row' },
-    h('span', { class: `badge ${x.complete ? '' : 'tp'}`, text: x.complete ? '종료' : `진행 ${x.active}` }),
-    h('span', {}, h('span', { class: 'nm', text: `${x.date.slice(5)} (${WEEKDAY.format(new Date(x.firstAt))})` }), h('span', { class: 'when', text: ` · ${x.n}종목 · 익절 ${x.tp} 손절 ${x.sl}` })),
-    h('span', { class: `r ${upDown(x.avg)}`, text: signed(x.avg) }))));
-}
-
 /* ---------- 라이브 검증 현황 (미리 정한 기준을 표본이 찰 때까지 지켜본다) ---------- */
 function expProg(label, n, target) {
   const pctDone = Math.min(100, n / target * 100);
@@ -2162,35 +1907,10 @@ function expCard({ title, what, state, bars, reading, criteria, verdict }) {
 
 function renderExperiments(d) {
   const host = $('#exp-grid');
-  const orig = originalRecs(d);
+  const orig = mainRecs(d);
   const realClosed = (rs) => rs.filter((r) => r.exit && r.exit.reason !== 'excluded');
   const TARGET = 30;
   const cards = [];
-
-  // ① 변동폭 표식
-  {
-    const lo = realClosed(orig.filter((r) => volOf(r) != null && volOf(r) < VOL_MARK_PCT));
-    const hi = realClosed(orig.filter((r) => volOf(r) != null && volOf(r) >= VOL_MARK_PCT));
-    const st = (a) => ({ n: a.length, mean: avg(a.map((r) => r.exit.return_pct)), stop: a.length ? a.filter((r) => r.exit.reason === 'stop_loss').length / a.length * 100 : null });
-    const L = st(lo), H = st(hi);
-    const ready = L.n >= TARGET && H.n >= TARGET;
-    const line = (name, v) => (v.n ? `${name} ${v.n}건 · 평균 ${sgn(v.mean)} · 손절 ${v.stop.toFixed(0)}%` : `${name} 아직 종료된 추천이 없어요`);
-    let verdict = null;
-    if (ready) {
-      const okStop = L.stop < H.stop, okMean = L.mean - H.mean >= -0.5;
-      verdict = okStop && okMean ? '기준 충족: 낮은 변동폭만 추천하는 규칙을 정식 사전 등록 테스트로 넘길 만해요 (표식은 계속 표시만).'
-        : '기준 미충족: 표식은 표시만 계속하고 추천 규칙은 바꾸지 않아요.';
-    }
-    cards.push(expCard({
-      title: '변동폭 표식 (🔹낮음 · 🔸높음)',
-      what: '대조군 추천을 최근 14일 평균 일중 등락폭 7.1% 기준으로 나눠서, 낮은 쪽이 정말 손절이 덜한지 라이브로 지켜봐요. 백테스트에서는 손절도 익절도 같이 줄었어요.',
-      state: ready ? { text: '판단 가능', cls: 'ready' } : { text: '수집 중 · 결론 보류', cls: '' },
-      bars: [expProg('🔹 낮음 종료', L.n, TARGET), expProg('🔸 높음 종료', H.n, TARGET)],
-      reading: [line('🔹 낮음', L), line('🔸 높음', H)],
-      criteria: `두 표식 모두 종료 ${TARGET}건 이상일 때, ① 낮은 쪽 손절률이 더 낮고 ② 낮은 쪽 평균 손익이 높은 쪽보다 0.5%p 넘게 나쁘지 않으면 '낮은 변동폭만 추천'을 정식 테스트로 넘겨요. 그 전에는 결론을 내리지 않아요.`,
-      verdict,
-    }));
-  }
 
   // ①-2 탐욕 구간 손절 (공포·탐욕 지수 75 이상, 사후 관찰의 라이브 재현 확인)
   {
@@ -2234,12 +1954,12 @@ function renderExperiments(d) {
         : '기준 미충족: MA20 아래 진입 추천의 손절률이 나머지보다 10%p 이상 높지 않아요. 경고만 하고 추천을 계속해요.';
     }
     cards.push(expCard({
-      title: 'MA20 아래 진입 추천 (개선판)',
-      what: '비트코인 일봉이 MA20 아래일 때도 개선판이 경고와 함께 추천을 계속해요. 이때 나간 추천이 나머지보다 정말 손절이 많은지 지켜봐요. (사용자 결정으로 필터를 뺀 것이라, 결과가 나쁘면 다시 켤지 판단하려는 확인용이에요)',
+      title: 'MA20 아래 진입 추천 (알트매크로 추천)',
+      what: '비트코인 일봉이 MA20 아래일 때도 알트매크로 추천이 경고와 함께 추천을 계속해요. 이때 나간 추천이 나머지보다 정말 손절이 많은지 지켜봐요. (사용자 결정으로 필터를 뺀 것이라, 결과가 나쁘면 다시 켤지 판단하려는 확인용이에요)',
       state: ready ? { text: '판단 가능', cls: 'ready' } : { text: '수집 중 · 결론 보류', cls: '' },
       bars: [expProg('MA20 아래 진입 종료', F.n, TARGET), expProg('서로 다른 진입 일수', dayN, 5)],
-      reading: [line('⚠ MA20 아래 진입', F), line('그 외 개선판', B)],
-      criteria: `MA20 아래 진입 추천이 종료 ${TARGET}건·서로 다른 5일 이상 모였을 때 손절률이 그 외 개선판보다 10%p 이상 높으면 필터를 다시 켜는 것을 검토해요. 그 전에는 결론을 내리지 않아요. 표식은 2026-10-11 이후 추천부터 붙어요.`,
+      reading: [line('⚠ MA20 아래 진입', F), line('그 외 알트매크로 추천', B)],
+      criteria: `MA20 아래 진입 추천이 종료 ${TARGET}건·서로 다른 5일 이상 모였을 때 손절률이 그 외 알트매크로 추천보다 10%p 이상 높으면 필터를 다시 켜는 것을 검토해요. 그 전에는 결론을 내리지 않아요. 표식은 2026-10-11 이후 추천부터 붙어요.`,
       verdict,
     }));
   }
@@ -2269,13 +1989,13 @@ function renderExperiments(d) {
       what: '규칙(일봉 저점 확인, 작은 파동 하락 게이트) 때문에 추천하지 못한 종목을 막지 않았다면 추천이 됐을 시점에 가상으로 진입한 걸로 치고, 실제 추천과 같은 규칙(-5%·+5%·3일)으로 따라가요. 두 규칙은 백테스트로 이득이 입증되지 않았어서, 막은 쪽이 정말 더 나빴는지를 라이브로 확인해요.',
       state: ready ? { text: '판단 가능', cls: 'ready' } : { text: '수집 중 · 결론 보류', cls: '' },
       bars: groups.map((g) => expProg(`${g.name} 종료`, g.v.n, TARGET)),
-      reading: [...groups.map((g) => line(g.name, g.v)), line('실제 개선판 추천(전체)', R), `아직 진행 중인 가상 진입 ${openN}건 · 가상 진입은 막힌 순간부터 쌓여요(2026-10-12~)`],
+      reading: [...groups.map((g) => line(g.name, g.v)), line('실제 알트매크로 추천(전체)', R), `아직 진행 중인 가상 진입 ${openN}건 · 가상 진입은 막힌 순간부터 쌓여요(2026-10-12~)`],
       criteria: `막은 쪽이 종료 ${TARGET}건·서로 다른 10일 이상일 때, 실제 추천보다 손절률이 5%p 이상 높고 평균 손익이 0.5%p 이상 낮으면 '규칙이 도움'으로, 반대로 손절률이 5%p 이상 낮고 평균이 0.5%p 이상 높으면 '규칙 재검토'로 봐요. 그 전에는 결론을 내지 않아요. 실제 추천(전체)에는 규칙이 없던 시기의 추천이 섞여 있어요.`,
       verdict: verdicts.length ? verdicts.join(' / ') : null,
     }));
   }
 
-  // ② 지정가 모의 (대조군)
+  // ② 지정가 모의
   {
     const origByKey = new Map(orig.map((r) => [`${r.market}|${new Date(r.entered_at).getTime()}`, r]));
     const orders = (d.paper_limit || []).map((o) => ({ o, r: origByKey.get(`${o.market}|${new Date(o.rec_at).getTime()}`) })).filter((x) => x.r);
@@ -2296,8 +2016,8 @@ function renderExperiments(d) {
     let verdict = null;
     if (ready) verdict = diff >= 0.3 && h1 > 0 && h2 > 0 ? '기준 충족: 지정가 방식이 의미 있게 나았어요. 정식 사전 등록 테스트로 넘길 만해요.' : '기준 미충족: 지정가 방식의 우위는 확인되지 않았어요.';
     cards.push(expCard({
-      title: '지지선 지정가 모의 (대조군)',
-      what: '대조군 추천마다 아래쪽 1시간봉 지지선에 24시간짜리 지정가를 건 결과와, 바로 산 결과를 같은 추천끼리 비교해요. 안 걸리면 취소(수익 0)로 셉니다.',
+      title: '지지선 지정가 모의',
+      what: '추천마다 아래쪽 1시간봉 지지선에 24시간짜리 지정가를 건 결과와, 바로 산 결과를 같은 추천끼리 비교해요. 안 걸리면 취소(수익 0)로 셉니다.',
       state: ready ? { text: '판단 가능', cls: 'ready' } : { text: '수집 중 · 결론 보류', cls: '' },
       bars: [expProg('확정된 주문', n, TARGET)],
       reading,
@@ -2306,28 +2026,6 @@ function renderExperiments(d) {
     }));
   }
 
-  // ③ 대조군 라이브 회차
-  {
-    const rounds = buildRounds(d);
-    const done = rounds.filter((x) => x.complete);
-    const avgs = done.map((x) => x.avg), ci = meanCI(avgs);
-    const ready = done.length >= TARGET;
-    let verdict = null;
-    if (ready && ci) verdict = ci[0] > 0 ? '완료 회차 평균의 95% 구간이 0 위예요. 다만 시장 상승분이 섞여 있어 우위 판정은 같은 시각 기준선 대비로 따로 확인해야 해요.'
-      : '완료 회차 평균의 95% 구간이 0을 포함해요. 절대 수익으로도 양(+)이라고 보기 어려워요.';
-    cards.push(expCard({
-      title: '대조군 라이브 성과 (회차 단위)',
-      what: '대조군은 하루에 한꺼번에 나와서, 독립된 표본은 종목이 아니라 회차예요. 끝난 회차의 평균 수익률이 꾸준히 플러스인지 지켜봐요.',
-      state: ready ? { text: '판단 가능', cls: 'ready' } : { text: '수집 중 · 결론 보류', cls: '' },
-      bars: [expProg('완료 회차', done.length, TARGET)],
-      reading: done.length
-        ? [`완료 ${done.length}회차 · 평균 ${sgn(avg(avgs))}${ci ? ` (95% 구간 ${ci[0].toFixed(1)} ~ ${ci[1].toFixed(1)}%)` : ''}`,
-          `플러스 회차 ${done.filter((x) => x.avg > 0).length} / ${done.length}`]
-        : ['완료된 회차가 아직 없어요'],
-      criteria: `완료 회차 ${TARGET}개 이상에서 평균의 95% 구간 하한이 0보다 크면 절대 수익이 양(+)이라고 봐요. 우위 여부는 시장 흐름을 걷어낸 같은 시각 기준선 대비 초과수익으로 따로 점검해요.`,
-      verdict,
-    }));
-  }
   host.replaceChildren(...cards);
 }
 
@@ -3162,7 +2860,6 @@ function renderSector(d) {
 function renderAll() {
   const keepTip = infoTipKept();
   infoTipHide();
-  wireStratFilter();
   charts.forEach((c) => c && c.destroy());
   charts = [];
   const d = DATA;
@@ -3172,10 +2869,7 @@ function renderAll() {
   renderHomeKpis(d);
   renderFunnel(d);
   renderHomeActive(d);
-  renderHomeRounds(d);
   renderHomeClosed(d);
-  renderHomeLegacy(d);
-  renderRounds(d);
   renderExperiments(d);
   renderCalendar(d);
   renderScans(d);
@@ -3186,7 +2880,6 @@ function renderAll() {
   renderDone(d);
   renderMacro(d);
   renderPerf(d);
-  renderCompare(d);
   renderPaper(d);
   renderMultiChart(d);
   renderStoch(d.macro);
@@ -3826,9 +3519,9 @@ function renderPerf(d) {
   renderWinRate(recs);
   const tp = rules.take_profit_pct, sl = rules.stop_loss_pct, days = rules.track_days || d.track_days || 3;
 
-  const tpRule = `익절 ${tp == null ? '없음' : `+${tp}%`} · 손절 ${sl == null ? '없음' : `-${sl}%`} · ${days}일 안에 닿지 않으면 기간 만료${rules.btc_exit ? ' · BTC 일봉 종가가 20일선 아래로 마감하면 개선판 전량 정리' : ''}`;
-  $('#p-sec').textContent = `${periodFilter.key === 'all' ? '' : `${periodLabel()} · `}${stratFilter === 'all' ? '전체' : STRAT_LABEL[stratFilter]} 성과`;
-  $('#p-rule').textContent = stratFilter === 'original' ? `${tpRule} (대조군에는 원래 종료 규칙이 없었지만, 성과를 재려고 개선판과 같은 규칙을 씀)` : tpRule;
+  const tpRule = `익절 ${tp == null ? '없음' : `+${tp}%`} · 손절 ${sl == null ? '없음' : `-${sl}%`} · ${days}일 안에 닿지 않으면 기간 만료${rules.btc_exit ? ' · BTC 일봉 종가가 20일선 아래로 마감하면 알트매크로 추천 전량 정리' : ''}`;
+  $('#p-sec').textContent = `${periodFilter.key === 'all' ? '' : `${periodLabel()} · `}알트매크로 추천 성과`;
+  $('#p-rule').textContent = tpRule;
 
   const avgClosed = avg(s.closedRets), avgExp = avg(s.expiredRets);
   const plus = s.closedRets.filter((v) => v > 0).length;
@@ -3877,28 +3570,9 @@ function renderPerf(d) {
       h('td', { class: 'why' }, whyNode(r)));
   });
   host.replaceChildren(h('table', {},
-    h('thead', {}, h('tr', {}, ['번호', '추천 시각', '종목 · 전략', '추천가 → 종료가', '종료 시각', '손익', '결과', '추천 근거'].map((x, i) => h('th', { class: i === 3 || i === 5 ? 'num' : '', text: x })))),
+    h('thead', {}, h('tr', {}, ['번호', '추천 시각', '종목', '추천가 → 종료가', '종료 시각', '손익', '결과', '추천 근거'].map((x, i) => h('th', { class: i === 3 || i === 5 ? 'num' : '', text: x })))),
     h('tbody', {}, rows)));
 }
-
-// 백테스트(약 65일, 비트코인 필터 적용, 시간 매칭 기준선 대비). 대조군·개선판 모두 같은 시각 아무 종목 대비
-// 우위가 확인되지 않았다 — 그래서 라이브로 계속 기록을 쌓아 다시 확인하는 중이다.
-const CMP_REF = '참고 (백테스트 약 65일, 비트코인 필터 적용, 같은 시각 아무 종목 대비 초과수익 기준): 대조군 규칙(일봉만 통과 + 최초 지표 설정)은 익절 198 : 손절 122 (62%)로 승률은 높았지만 초과수익이 +0.22%(구간 -0.28 ~ +0.67%)라 우위가 확인되지 않았고, 앞 절반 +0.48% / 뒤 절반 -0.35%로 뒤집혔어요. '
-  + '개선판은 255 : 215 (54%), 초과수익 -0.10%(구간 -0.41 ~ +0.21%)로 무작위와 같았어요. '
-  + '두 규칙 다 표본 기간 한정 결과라, 지금부터 쌓이는 라이브 기록이 진짜 검증이에요.';
-
-function groupStats(recs) {
-  if (!recs.length) return null;
-  const os = recs.map(outcomeOf);
-  const closedRets = os.filter((o) => o.closed && o.ret != null).map((o) => o.ret);
-  const h24 = recs.map((r) => r.horizons['24h']).filter((v) => v != null);
-  const h72 = recs.map((r) => r.horizons['72h']).filter((v) => v != null);
-  const reasons = {};
-  for (const o of os) if (o.closed) reasons[o.key] = (reasons[o.key] || 0) + 1;
-  return { n: recs.length, active: os.filter((o) => !o.closed).length, closedRets, h24, h72, reasons };
-}
-const fmtAvg = (a) => (a.length ? `${signed(avg(a))} (${a.length}건)` : '—');
-const fmtPlus = (a) => (a.length ? `${Math.round(a.filter((v) => v > 0).length / a.length * 100)}% (${a.filter((v) => v > 0).length}/${a.length})` : '—');
 
 /* ---------- 알트 사이클 탭 ---------- */
 const CYCLE_MODES = {
@@ -3997,7 +3671,7 @@ function renderCycle(d) {
   };
 
   const candByMarket = new Map((d.candidates || []).map((cc) => [cc.market, cc]));
-  const recByMarket = new Map();  // 종목별 가장 최근 개선판 추천 (d.recommendations는 최신순 정렬)
+  const recByMarket = new Map();  // 종목별 가장 최근 알트매크로 추천 (d.recommendations는 최신순 정렬)
   for (const r of d.recommendations || []) {
     if (stratOf(r) !== 'original' && !recByMarket.has(r.market)) recByMarket.set(r.market, r);
   }
@@ -4073,7 +3747,7 @@ function renderPaper(d) {
   const allRecs = (d.recommendations || []).filter((r) => stratOf(r) === 'legacy');
   const recByKey = new Map(allRecs.map((r) => [`${r.market}|${new Date(r.entered_at).getTime()}`, r]));
   if (!placed.length) {
-    tilesEl.replaceChildren(); cmpEl.replaceChildren(empty('아직 기록된 모의 주문이 없어요. 개선판이 새로 추천하면 여기에 쌓여요.'));
+    tilesEl.replaceChildren(); cmpEl.replaceChildren(empty('아직 기록된 모의 주문이 없어요. 알트매크로 추천이 새로 추천하면 여기에 쌓여요.'));
     detailEl.replaceChildren(); note.textContent = ''; return;
   }
   detailEl.replaceChildren(buildTable(
@@ -4115,38 +3789,6 @@ function renderPaper(d) {
   ];
   cmpEl.replaceChildren(buildTable(['구분', '건수', '지정가 병행 (미체결=0)', '같은 추천을 시장가로 샀다면'], rowsOut, 1));
   note.textContent = `체결된 건과 취소된 건에서 시장가 결과가 얼마나 다른지가 핵심이에요. 백테스트에서는 체결된 건을 시장가로 샀다면 평균 -1.20%, 안 걸린 건은 +1.98%였어요(지정가는 떨어지는 종목만 잡는 선택 편향). 표본이 수십 건 쌓이기 전에는 결론을 내리지 마세요.`;
-}
-
-function renderCompare(d) {
-  const all = d.recommendations || [];
-  const groups = [
-    ['대조군', all.filter((r) => stratOf(r) === 'original')],
-    ['개선판', all.filter((r) => stratOf(r) === 'legacy')],
-    ['대조군 🔹낮음', all.filter((r) => stratOf(r) === 'original' && volOf(r) != null && volOf(r) < VOL_MARK_PCT)],
-    ['대조군 🔸높음', all.filter((r) => stratOf(r) === 'original' && volOf(r) != null && volOf(r) >= VOL_MARK_PCT)],
-  ];
-  const st = groups.map(([, recs]) => groupStats(recs));
-  const row = (label, f) => [label, ...st.map((s) => (s == null ? '—' : f(s)))];
-  const rows = [
-    row('추천 수 (진행 중)', (s) => `${s.n} (${s.active})`),
-    row('종료 손익 평균', (s) => fmtAvg(s.closedRets)),
-    row('종료 중 플러스 비율', (s) => fmtPlus(s.closedRets)),
-    row('추천가 대비 +1일 뒤 평균', (s) => fmtAvg(s.h24)),
-    row('추천가 대비 +3일 뒤 평균', (s) => fmtAvg(s.h72)),
-    row('+3일 뒤 플러스 비율', (s) => fmtPlus(s.h72)),
-    row('종료 사유', (s) => {
-      const parts = Object.entries(s.reasons).map(([k, n]) => `${(RESULT_INFO[k] || RESULT_INFO.expired).label} ${n}`);
-      return parts.length ? parts.join(' · ') : '—';
-    }),
-  ];
-  const cmpTable = buildTable(['지표', ...groups.map(([name]) => name)], rows, 1);
-  cmpTable.classList.add('cmp-table');
-  // 좁은 화면에서는 표 대신 전략별 카드로 보여준다 (CSS가 둘 중 하나만 보이게 함)
-  const cmpCards = h('div', { class: 'cmp-cards' }, groups.map(([name], gi) => h('div', { class: 'cmp-card' }, h('h3', { text: name }),
-    ...rows.map((r) => h('div', { class: 'kv' }, h('span', { class: 'k', text: r[0] }), h('span', { class: 'v', text: String(r[gi + 1]) }))))));
-  $('#p-compare').replaceChildren(h('div', { class: 'cmp-wide table-wrap' }, cmpTable), cmpCards);
-  $('#p-cmp-note').textContent = '두 전략은 매도 규칙이 같아 종료 손익을 그대로 비교할 수 있어요. 진입 조건 자체를 비교하려면 +1일·+3일 뒤 손익도 함께 보세요. 표본이 30건쯤 쌓이기 전에는 우연일 수 있어요. 오른쪽 두 열은 대조군을 14일 평균 일중 등락폭(기준 7.1%)으로 나눈 것으로 2026-10-02 이후 추천부터 집계돼요(백테스트에서 낮은 쪽은 손절도 익절도 적었어요).';
-  $('#p-cmp-ref').textContent = CMP_REF;
 }
 
 /* ---------- 비트코인 멀티 차트 (일봉·4시간·1시간 + 이동평균선 + 스토캐스틱 3종 + RSI) ---------- */
@@ -4381,19 +4023,15 @@ const TABS = ['home', 'recs', 'perf', 'btc', 'cycle', 'sector', 'stock'];
 const HASH_ALIAS = { done: 'recs/done', macro: 'btc/analysis', chart: 'btc/chart', liq: 'btc/liq', wall: 'btc/wall', active: 'recs/active' };
 let currentTab = 'home', recsSub = 'active', btcSub = 'analysis';
 
-function syncFilterBar() {
-  $('#strat-filter').hidden = !(currentTab === 'perf' || (currentTab === 'recs' && recsSub !== 'cand' && recsSub !== 'rounds'));
-}
 function writeHash() {
   const hash = currentTab === 'home' ? '' : currentTab === 'recs' && recsSub !== 'active' ? `#recs/${recsSub}`
     : currentTab === 'btc' && btcSub !== 'analysis' ? `#btc/${btcSub}` : `#${currentTab}`;
   try { history.replaceState(null, '', location.pathname + location.search + hash); } catch (e) { /* 무시 */ }
 }
 function showRecsSub(name) {
-  recsSub = ['active', 'done', 'rounds', 'cand'].includes(name) ? name : 'active';
-  for (const key of ['active', 'done', 'rounds', 'cand']) $(`#recs-${key}`).hidden = key !== recsSub;
+  recsSub = ['active', 'done', 'cand'].includes(name) ? name : 'active';
+  for (const key of ['active', 'done', 'cand']) $(`#recs-${key}`).hidden = key !== recsSub;
   $('#recs-seg').querySelectorAll('[data-sub]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.sub === recsSub)));
-  syncFilterBar();
 }
 function showBtcSub(name) {
   btcSub = ['chart', 'liq', 'wall'].includes(name) ? name : 'analysis';
@@ -4407,7 +4045,6 @@ function selectTab(name, updateHash = true) {
   currentTab = TABS.includes(name) ? name : 'home';
   for (const key of TABS) $(`#view-${key}`).hidden = key !== currentTab;
   document.querySelectorAll('.tab').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === currentTab)));
-  syncFilterBar();
   if (updateHash) { writeHash(); window.scrollTo(0, 0); }
 }
 function gotoSpec(spec) {
