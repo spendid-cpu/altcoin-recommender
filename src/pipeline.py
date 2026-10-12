@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 
 import aiohttp
 
-from src import btc_context, manual_tp, scoring, btc_wave_gate, config, cycle, exits, fear_greed, funnel, macro_job, market_cap, migrations, paper_limit, price_tracker, report, scan_log, shadow, state_store, telegram_client
+from src import btc_context, manual_tp, scoring, btc_wave_gate, config, cycle, exits, fear_greed, funnel, macro_job, market_cap, migrations, orderbook, paper_limit, price_tracker, report, scan_log, shadow, state_store, telegram_client, upbit_extra
 from src.exchanges import upbit_client
 from src.notifier import diff_alerts
 from src.scanner import check_btc_trend, scan_all
@@ -213,6 +213,7 @@ async def run_once(session: aiohttp.ClientSession) -> None:
                     detail = {**detail, "fng": fng}
                 if btc_ctx is not None:  # 추천 순간의 BTC 지표 상태(일목·MACD·볼린저·파동·MVRV) — 나중에 검증하려는 기록, 추천 판단에는 안 씀
                     detail = {**detail, "btc_ctx": btc_ctx}
+                detail = {**detail, **await _entry_microstructure(session, a.market, c.current_price)}
                 rec_at = price_tracker.record_entry(a.market, c.current_price, c.grade, round(c.total_score, 1), detail)
                 paper_limit.place(a.market, rec_at, c.current_price, c.support_lows)
             except Exception as exc:
@@ -234,6 +235,25 @@ async def run_once(session: aiohttp.ClientSession) -> None:
     await _send_heartbeat(
         session, f"💓 {now} 스캔 완료 — 후보 {len(candidates)}개, 알림 {len(alerts)}건" + (" (BTC MA20 아래 경고)" if btc_warn else "")
     )
+
+
+async def _entry_microstructure(session: aiohttp.ClientSession, market: str, price: float) -> dict:
+    """추천 순간의 호가 매수 비중(detail.ob)과 최근 1시간 체결 매수 비중(detail.flow)을 기록용으로 받아온다 (2026-10-13 사용자 요청: 점수에 넣을지 판단하려고).
+    대조군에만 있던 기록이라 알트매크로 추천에는 없었다. 점수·추천 판단에는 안 쓰고, 실패해도 추천 기록은 계속 진행한다."""
+    out: dict = {}
+    try:
+        s = (await orderbook.fetch_summaries(session, {market: price})).get(market)
+        if s:
+            out["ob"] = {k: s[k] for k in ("imb", "bid_krw", "ask_krw", "range_pct", "level")}
+    except Exception as exc:
+        print(f"  {market} 호가 기록 실패(생략): {exc!r}")
+    try:
+        f = (await upbit_extra.fetch_flow(session, [market])).get(market)
+        if f:
+            out["flow"] = f
+    except Exception as exc:
+        print(f"  {market} 체결강도 기록 실패(생략): {exc!r}")
+    return out
 
 
 async def _manual_tp_cycle(session: aiohttp.ClientSession, prices: dict[str, float]) -> None:
