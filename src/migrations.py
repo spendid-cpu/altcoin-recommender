@@ -9,6 +9,28 @@ from datetime import datetime, timezone
 from src import state_store
 
 PURGED_KEY = "original_purged_at"
+HZ_CLEANUP_KEY = "high_zone_min_gain_cleanup_at"
+
+
+def cleanup_low_gain_high_zone_once(min_gain_pct: float) -> int:
+    """2026-10-12 일봉 고점권 안내에 '+3% 이상' 조건을 넣으면서, 그 전에 수익이 기준보다 낮은데 안내가 기록된 '진행 중' 추천의 안내 기록을 지운다
+    (대시보드 '수동 익절 추천' 표시가 잘못 남지 않게, 나중에 기준을 넘고 고점권이면 새로 한 번 안내된다). 종료된 추천 기록은 건드리지 않는다. 한 번만 한다."""
+    if state_store.get_meta(HZ_CLEANUP_KEY):
+        return 0
+    conn = state_store.connect_db()
+    deleted = 0
+    try:
+        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        if "rec_signals" in tables:
+            cur = conn.execute(
+                "DELETE FROM rec_signals WHERE kind = 'high_zone' AND (ret IS NULL OR ret < ?) AND "
+                "NOT EXISTS (SELECT 1 FROM rec_exits e WHERE e.market = rec_signals.market AND e.entered_at = rec_signals.entered_at)", (min_gain_pct,))
+            deleted = cur.rowcount
+        conn.commit()
+    finally:
+        conn.close()
+    state_store.set_meta(HZ_CLEANUP_KEY, datetime.now(timezone.utc).isoformat())
+    return deleted
 
 
 def purge_original_once() -> dict | None:

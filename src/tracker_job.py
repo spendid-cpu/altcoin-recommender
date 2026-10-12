@@ -13,7 +13,7 @@
 
 import aiohttp
 
-from src import exits, gap_replay, macro_job, manual_tp, migrations, pipeline, report, shadow
+from src import config, exits, gap_replay, macro_job, manual_tp, migrations, pipeline, report, shadow
 from src.scanner import check_btc_trend
 
 
@@ -24,6 +24,12 @@ async def run_once(session: aiohttp.ClientSession) -> None:
             print(f"[정리] 대조군 기록 삭제: 추천 {purged['entries']}건, 가격 스냅샷 {purged['snapshots']}건")
     except Exception as exc:
         print(f"[정리] 대조군 기록 삭제 실패(다음 사이클에 다시 시도): {exc!r}")
+    try:  # 일봉 고점권 안내에 '+3% 이상' 조건이 생기기 전에 낮은 수익으로 기록된 진행 중 안내를 한 번만 지운다
+        n_hz = migrations.cleanup_low_gain_high_zone_once(config.HIGH_ZONE_MIN_GAIN_PCT)
+        if n_hz:
+            print(f"[정리] 수익이 기준 미만인 일봉 고점권 안내 기록 {n_hz}건 삭제")
+    except Exception as exc:
+        print(f"[정리] 고점권 안내 정리 실패(다음 사이클에 다시 시도): {exc!r}")
     await macro_job.run(session)
 
     try:  # 2026-09-28 스캔 중단(43시간) 때 잘못 기록된 종료를 한 번 정정한다. 실패해도 추적은 계속한다

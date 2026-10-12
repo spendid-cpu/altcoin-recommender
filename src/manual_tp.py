@@ -2,6 +2,7 @@
 
 - 일봉 고점권 = 일봉 스토캐스틱 RSI 단기 %K가 고점권(100 - config.OVERSOLD_THRESHOLD = 80 이상)에 닿은 때. 마감된 일봉에 지금 가격을 오늘 봉으로 붙여 계산한다(진행 중인 봉이라 하루 안에도 닿을 수 있다).
   추적 중인 추천이 처음 닿았을 때 한 번만 텔레그램으로 안내하고(rec_signals 표에 기록해 반복하지 않는다), 대시보드 추천 카드에 '수동 익절 추천' 표시가 뜬다.
+  추천가 대비 config.HIGH_ZONE_MIN_GAIN_PCT(기본 +3%) 이상 올랐을 때만 안내한다 — 그보다 낮으면 고점권이어도 안내하지 않고, 나중에 +3%를 넘은 뒤 고점권이면 그때 한 번 안내한다.
 - 안내 메시지의 '수동 익절' 버튼(텔레그램 인라인 버튼)을 누르면 그 추천을 '수동 익절'로 완료 처리한다. 버튼 누름은 추적 사이클(5분)과 스캔(15분)이 getUpdates로 받아 처리하므로
   최대 몇 분 늦고, 완료가격은 누른 시각이 아니라 처리 시각의 현재가다(실제 매도가가 아니라 기록용 근사). 허용 채팅(TELEGRAM_CHAT_ID)의 버튼만 받는다.
 - 자동 익절(+config.EXIT_TAKE_PROFIT_PCT)·손절·만료 규칙은 그대로이고, 수동 익절은 그 위에 얹힌 사용자 선택이다."""
@@ -63,7 +64,7 @@ def _alert_text(rec: dict, k: float, price: float, ret: float) -> str:
     tp = config.EXIT_TAKE_PROFIT_PCT
     return (
         f"🔔 [알트매크로] {rec['market']} 일봉 고점권 진입 — 수동 익절 추천\n"
-        f"일봉 스토RSI %K {k:.0f} (고점권 {HIGH_ZONE_K:.0f} 이상) · 추천가 대비 {ret:+.1f}%"
+        f"일봉 스토RSI %K {k:.0f} (고점권 {HIGH_ZONE_K:.0f} 이상) · 추천가 대비 {ret:+.1f}% (안내 기준 +{config.HIGH_ZONE_MIN_GAIN_PCT:g}% 이상)"
         f"{f' (자동 익절 목표 +{tp:g}%)' if tp is not None else ''}\n"
         f"{fmt_price(rec['entry_price'])} → {fmt_price(price)}\n"
         f"아래 버튼을 누르면 이 추천을 '수동 익절'로 완료 처리해요. 누르지 않으면 정해 둔 익절·손절·만료 규칙대로 계속 따라가요."
@@ -85,6 +86,8 @@ async def check_high_zone(session: aiohttp.ClientSession, prices: dict[str, floa
             if key in done:
                 continue
             price = prices[rec["market"]]
+            if (price / rec["entry_price"] - 1) * 100 < config.HIGH_ZONE_MIN_GAIN_PCT:
+                continue  # 수익이 아직 작으면 안내하지 않는다 (일봉 조회도 생략)
             try:
                 candles = await upbit_client.fetch_candles(session, rec["market"], "day", count=200)
             except Exception as exc:
