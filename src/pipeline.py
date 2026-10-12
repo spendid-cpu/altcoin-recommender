@@ -107,10 +107,10 @@ async def run_once(session: aiohttp.ClientSession) -> None:
     except Exception as exc:
         print(f"[BTC MA20] 상태 기록 실패(무시): {exc!r}")
     try:  # 작은 파동 게이트: 막혀 있으면 신규 추천만 보류 (추적·종료는 그대로). 계산이 실패하면 막지 않는다
-        gate, gate_changed = btc_wave_gate.evaluate()
+        gate, _ = btc_wave_gate.evaluate()  # 상태 변경 알림은 아래 pending_notice가 '마지막으로 알린 상태' 기준으로 따로 판단한다
     except Exception as exc:
         print(f"[BTC 작은 파동 게이트] 상태 계산 실패(보류하지 않음): {exc!r}")
-        gate, gate_changed = {"blocked": False, "known": False, "small": None, "note": "계산 실패"}, False
+        gate = {"blocked": False, "known": False, "small": None, "note": "계산 실패"}
     small = gate.get("small") or {}
     print(f"[BTC 작은 파동 게이트] {config.BTC_WAVE_GATE}: " + ("보류 중" if gate["blocked"] else "통과") + f" — 작은 파동 {small.get('label', gate.get('note') or '-')}")
     if not favorable and not btc_warn:
@@ -175,11 +175,13 @@ async def run_once(session: aiohttp.ClientSession) -> None:
     alerts, new_states = diff_alerts(candidates, gate_blocked=gate["blocked"], btc_warning=btc_warn)
     state_store.save_all(new_states)
 
-    if gate_changed and telegram_client.is_configured() and btc_wave_gate.notice_due():
-        try:
-            await telegram_client.send_message(session, btc_wave_gate.transition_message(gate))
-        except Exception as exc:
-            print(f"[BTC 작은 파동 게이트] 상태 변경 알림 전송 실패(무시): {exc!r}")
+    try:  # 상태 변경 알림: 마지막으로 알린 상태와 다를 때만 (4시간 안에 두 번은 안 보내고, 그 사이 바뀐 상태는 간격이 지난 뒤 알린다)
+        notice = btc_wave_gate.pending_notice(gate) if telegram_client.is_configured() else None
+        if notice:
+            await telegram_client.send_message(session, notice)
+            btc_wave_gate.mark_announced(gate)
+    except Exception as exc:
+        print(f"[BTC 작은 파동 게이트] 상태 변경 알림 전송 실패(다음 스캔에 다시 시도): {exc!r}")
     try:  # 추천 퍼널: 이번 스캔에서 단계마다 몇 개가 남았고 5분 저점까지 온 종목이 왜 추천이 안 됐는지 (표시 전용)
         funnel.record(funnel.build(len(markets), scan_stats, candidates, tracked_now, {a.market for a in alerts if a.kind == "new_candidate"}, gate["blocked"]))
     except Exception as exc:

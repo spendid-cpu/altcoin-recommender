@@ -20,6 +20,7 @@ from src import config, jsonutil, macro_job, state_store
 
 META_KEY = "btc_wave_gate_json"
 NOTICE_KEY = "btc_wave_gate_notice_at"
+ANNOUNCED_KEY = "btc_wave_gate_announced"  # 텔레그램으로 마지막으로 알린 상태 ('blocked' | 'open')
 NOTICE_GAP_HOURS = 4  # 상태가 4시간봉 경계에서 오락가락해도 변경 알림은 이 간격 안에 두 번 보내지 않는다
 STALE_MINUTES = 90  # 매크로 분석이 이보다 낡으면 상태를 모른다고 보고 막지 않는다
 MODES = ("off", "down", "bear")
@@ -96,14 +97,33 @@ def transition_message(gate: dict) -> str:
     return (f"🟢 BTC 작은 파동이 하락 구간을 벗어났어요({small.get('label', '-')}) — 알트매크로 신규 추천을 다시 시작해요")
 
 
-def notice_due(now: datetime | None = None) -> bool:
-    """상태 변경 알림을 지금 보내도 되는지(스팸 방지). 보내도 되면 시각을 기록한다."""
+def _state(gate: dict) -> str:
+    return "blocked" if gate.get("blocked") else "open"
+
+
+def pending_notice(gate: dict, now: datetime | None = None) -> str | None:
+    """지금 보낼 상태 변경 알림 문구(없으면 None). 마지막으로 알린 상태와 지금 상태가 다르고, 직전 알림에서 NOTICE_GAP_HOURS가 지났을 때만.
+    (예전에는 '직전 스캔과 달라진 순간'에만 알려서, 4시간 안에 보류 -> 재개처럼 두 번 바뀌면 재개 알림이 영영 안 갔다.)
+    상태를 모르면(known=False) 알리지 않는다. 처음(알린 기록 없음)에는 지금 상태를 알린 것으로 기록만 한다. 보낸 뒤 mark_announced를 부른다."""
     now = now or datetime.now(timezone.utc)
+    if not gate.get("known"):
+        return None
+    last_state = state_store.get_meta(ANNOUNCED_KEY)
+    if last_state is None:
+        state_store.set_meta(ANNOUNCED_KEY, _state(gate))
+        return None
+    if last_state == _state(gate):
+        return None
     last = state_store.get_meta(NOTICE_KEY)
     if last and (now - datetime.fromisoformat(last)).total_seconds() < NOTICE_GAP_HOURS * 3600:
-        return False
+        return None
+    return transition_message(gate)
+
+
+def mark_announced(gate: dict, now: datetime | None = None) -> None:
+    now = now or datetime.now(timezone.utc)
+    state_store.set_meta(ANNOUNCED_KEY, _state(gate))
     state_store.set_meta(NOTICE_KEY, now.isoformat())
-    return True
 
 
 def export() -> dict | None:

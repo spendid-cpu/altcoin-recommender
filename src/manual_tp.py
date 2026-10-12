@@ -7,7 +7,6 @@
   최대 몇 분 늦고, 완료가격은 누른 시각이 아니라 처리 시각의 현재가다(실제 매도가가 아니라 기록용 근사). 허용 채팅(TELEGRAM_CHAT_ID)의 버튼만 받는다.
 - 자동 익절(+config.EXIT_TAKE_PROFIT_PCT)·손절·만료 규칙은 그대로이고, 수동 익절은 그 위에 얹힌 사용자 선택이다."""
 
-import json
 from datetime import datetime, timedelta, timezone
 
 import aiohttp
@@ -140,7 +139,8 @@ async def _complete(session: aiohttp.ClientSession, data: str) -> str:
 
 
 async def poll_actions(session: aiohttp.ClientSession) -> int:
-    """텔레그램에서 눌린 '수동 익절' 버튼을 받아 처리한다. 처리한 건수를 돌려준다. 실패해도 호출하는 쪽이 감싼다."""
+    """텔레그램에서 눌린 '수동 익절' 버튼을 받아 처리한다. 처리한 건수를 돌려준다. 실패해도 호출하는 쪽이 감싼다.
+    버튼 하나를 처리할 때마다 offset을 저장한다 — 중간에 오류가 나도 이미 처리한 버튼을 다음 사이클에 또 받지 않게(같은 완료 메시지가 두 번 가지 않게)."""
     if not telegram_client.is_configured():
         return 0
     offset = int(state_store.get_meta(OFFSET_KEY) or 0)
@@ -148,6 +148,7 @@ async def poll_actions(session: aiohttp.ClientSession) -> int:
     handled = 0
     for u in updates:
         offset = max(offset, int(u["update_id"]) + 1)
+        state_store.set_meta(OFFSET_KEY, str(offset))
         cb = u.get("callback_query")
         data = (cb or {}).get("data") or ""
         if not cb or not data.startswith(CALLBACK_PREFIX + "|"):
@@ -169,7 +170,10 @@ async def poll_actions(session: aiohttp.ClientSession) -> int:
                 await telegram_client.clear_buttons(session, chat, int(msg["message_id"]))
             except Exception as exc:
                 print(f"  [수동 익절] 버튼 정리 실패(무시): {exc!r}")
-        await telegram_client.send_message(session, text)
+        try:
+            await telegram_client.send_message(session, text)
+        except Exception as exc:
+            print(f"  [수동 익절] 결과 메시지 전송 실패(완료 처리는 됨): {exc!r}")
         handled += 1
         print(f"  [수동 익절] {text.splitlines()[0]}")
     state_store.set_meta(OFFSET_KEY, str(offset))
