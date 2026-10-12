@@ -660,6 +660,19 @@
     <h2 id="p-sec" class="section-title" style="margin-top:6px">성과</h2>
     <section id="p-tiles" class="tiles" aria-label="성과 요약"></section>
 
+    <section class="card" aria-labelledby="h-ppeak">
+      <div class="card-head">
+        <div>
+          <h2 id="h-ppeak">최고 수익별 최종 결과 · 익절선 시뮬레이션</h2>
+          <p class="sub">추천 후 가격이 최고 어디까지 갔는지(최고 수익)에 따라 끝이 어땠는지, 그리고 익절선을 다르게 잡았다면 평균이 어땠을지를 기록된 가격 경로로 다시 계산해요. 익절선을 정하는 참고 자료예요.</p>
+        </div>
+      </div>
+      <div id="p-peak" class="table-wrap"></div>
+      <p id="p-peak-note" class="card-note"></p>
+      <div id="p-tpsim" class="table-wrap" style="margin-top:14px"></div>
+      <p id="p-tpsim-note" class="card-note"></p>
+    </section>
+
     <section class="card" aria-labelledby="h-pwin">
       <div class="card-head">
         <div>
@@ -1086,6 +1099,7 @@
 // v1.19 (2026-10-05) 업비트 공개 API 참고 정보 3가지 추가: 추천 카드의 '체결 매수 N%'(실제 체결 중 사는 쪽 비중, 추천 순간 -> 지금), 업비트 공식 시장 경고 배지(거래량 급증·해외 가격 차이 등), 비트코인 분석 화면의 BTC 김치 프리미엄 타일. 모두 참고용
 // v1.20 (2026-10-07) '주식' 탭 추가(실험): 코스피·코스닥 지수 상태, 마감 주봉 RSI(14) 30 이하 신규 후보(시장별), 추천 기록·4주 성과 통계. 알림 없이 기록만
 // v1.21 (2026-10-07) 주식 카드의 거래대금 칩에 마우스를 올리거나 탭하면 최근 26주 종가·일평균 거래대금 흐름 팝업
+// v1.41 (2026-10-13) 성과 탭에 '최고 수익별 최종 결과 · 익절선 시뮬레이션'(최고가 구간별 손절/익절/만료 비율, 익절선 2~10%로 했다면의 평균 손익; 기록된 가격 경로 기준)
 // v1.40 (2026-10-13) 추천 카드·완료 목록에 추천 후 '최고 +N% · 최저 -N%' 표시(5~15분 간격 가격 기록 기준)
 // v1.39 (2026-10-12) 일봉 고점권 안내(수동 익절 추천)는 추천가 대비 +3% 이상일 때만 (HIGH_ZONE_MIN_GAIN_PCT)
 // v1.38 (2026-10-12) 일봉 저점 확인을 더 엄격하게: 일봉 골든크로스는 돌파한 그 일봉에서 %K가 20 이하여야 함(예전: 최근 5개 일봉 안에 20 이하였던 적). 추천 수가 크게 줄어듦(백테스트 약 70% 감소)
@@ -1111,7 +1125,7 @@
 // v1.24 (2026-10-09) 오늘 화면에 공포·탐욕 지수 타일(참고) + 라이브 검증 현황에 '탐욕 구간 손절' 카드. 추천 순간 지수는 detail.fng로 기록
 // v1.23 (2026-10-07) 팝업을 주봉 캔들+거래대금(상승·하락 색)+RSI(30선)로 바꾸고, 주식 공시·뉴스 / 코인 업비트 공지·뉴스 칩 추가(표시 전용)
 // v1.22 (2026-10-07) 시가총액 칩(주식: 네이버 증권, 코인: CoinGecko) + 코인 추천 카드에도 지난주 거래대금·시총 칩과 같은 주봉 팝업(종가·주간 거래대금·RSI)
-const APP_VERSION = 'v1.40';
+const APP_VERSION = 'v1.41';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DATA_URL = 'dashboard.json';
@@ -2950,6 +2964,7 @@ function renderAll() {
   renderDone(d);
   renderMacro(d);
   renderPerf(d);
+  renderPeakStudy(d);
   renderPaper(d);
   renderMultiChart(d);
   renderStoch(d.macro);
@@ -3578,6 +3593,35 @@ function renderWinRate(recs) {
   const btcAvg = avg(recs.filter((r) => r.exit && r.exit.reason === 'btc_exit').map((r) => r.exit.return_pct));
   note.textContent = `승률이 본전 승률보다 높아야 평균적으로 이익이에요. ${skipText ? `승패에서 제외된 종료: ${skipText}${btcAvg != null ? ` (BTC 이탈 정리 평균 손익 ${signed(btcAvg)})` : ''}. ` : ''}`
     + '이 범위는 위에서 고른 기간·기준(추천 시각/종료 시각)을 따라요.';
+}
+
+/* ---------- 최고 수익별 최종 결과 · 익절선 시뮬레이션 ---------- */
+const PEAK_BUCKETS = [[-Infinity, 1, '1% 미만'], [1, 2, '1~2%'], [2, 3, '2~3%'], [3, 4, '3~4%'], [4, 5, '4~5%'], [5, 7, '5~7%'], [7, 10, '7~10%'], [10, Infinity, '10% 이상']];
+function renderPeakStudy(d) {
+  const real = (d.recommendations || []).filter((r) => r.exit && r.exit.reason !== 'excluded' && r.peak_pct != null);
+  const kind = (r) => (r.exit.reason === 'take_profit' || r.exit.reason === 'manual_tp' ? 'tp' : r.exit.reason === 'stop_loss' ? 'sl' : r.exit.reason === 'expired' ? 'exp' : 'etc');
+  const pct0 = (n, t) => (t ? `${Math.round(n / t * 100)}%` : '—');
+  const rows = PEAK_BUCKETS.map(([lo, hi, name]) => {
+    const g = real.filter((r) => r.peak_pct >= lo && r.peak_pct < hi);
+    const c = { tp: 0, sl: 0, exp: 0, etc: 0 };
+    g.forEach((r) => { c[kind(r)] += 1; });
+    return [name, String(g.length), pct0(c.tp, g.length), pct0(c.sl, g.length), pct0(c.exp, g.length), pct0(c.etc, g.length), g.length ? signed(avg(g.map((r) => r.exit.return_pct))) : '—'];
+  });
+  $('#p-peak').replaceChildren(real.length
+    ? buildTable(['추천 후 최고 수익', '추천 수', '익절로 끝', '손절로 끝', '만료로 끝', '기타', '평균 최종 손익'], rows, 1)
+    : empty('종료된 추천이 아직 없어요.'));
+  const reached = (x) => real.filter((r) => r.peak_pct >= x);
+  const lost = (x) => reached(x).filter((r) => kind(r) === 'sl').length;
+  const notes = [2, 3, 4].map((x) => (reached(x).length ? `최고가 +${x}% 이상까지 간 추천 ${reached(x).length}건 중 손절로 끝난 건 ${lost(x)}건(${pct0(lost(x), reached(x).length)})` : null)).filter(Boolean);
+  $('#p-peak-note').textContent = `${notes.join(' · ')}${notes.length ? '. ' : ''}최고 수익은 5~15분 간격 가격 기록 기준이라 순간 고점은 빠져요. +5% 이상 구간의 '익절로 끝'은 예전 +5% 익절 규칙 때문에 그 지점에서 추적이 끝난 추천이에요(이후 경로를 몰라요).`;
+  const sim = d.tp_sim;
+  if (!sim || !sim.closed) { $('#p-tpsim').replaceChildren(empty('시뮬레이션할 종료된 추천이 아직 없어요.')); $('#p-tpsim-note').textContent = ''; return; }
+  const simRows = sim.levels.map((l) => {
+    const heavy = l.n + l.censored > 0 && l.censored / (l.n + l.censored) > 0.2;
+    return [`+${l.tp}%${heavy ? ' ※' : ''}`, String(l.n), String(l.censored), l.mean == null ? '—' : signed(l.mean), l.actual_mean == null ? '—' : signed(l.actual_mean), `${l.tp_n} · ${l.sl_n} · ${l.exp_n}`];
+  });
+  $('#p-tpsim').replaceChildren(buildTable(['익절선', '계산한 추천', '경로 끊겨 뺀 추천', '이 익절선이었다면 평균', '실제 평균(같은 추천)', '익절 · 손절 · 만료'], simRows, 1));
+  $('#p-tpsim-note').textContent = `손절선 -${sim.sl}%·3일 만료는 그대로 두고 익절선만 바꿔 계산했어요(종료된 추천 ${sim.closed}건). ※ 표시(+6% 이상)는 예전 +5% 익절 규칙으로 일찍 끝난 추천(이긴 추천이 대부분)이 표본에서 빠져서, 두 평균 모두 전체 실제 성과보다 나쁘게 나와요 — 같은 표본 안에서 두 숫자를 비교하는 용도로만 보세요. 2026-10-12부터 익절선이 +10%라 그 이후 추천이 쌓이면 +10%까지 정확해져요. 수수료·슬리피지는 반영하지 않았고, 5~15분 간격 가격 기록 기준이에요.`;
 }
 
 function renderPerf(d) {

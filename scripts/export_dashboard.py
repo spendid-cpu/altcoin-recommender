@@ -135,6 +135,47 @@ def build_recommendations(now: datetime) -> list[dict]:
     return out
 
 
+TP_SIM_LEVELS = (2, 3, 4, 5, 6, 7, 8, 9, 10)
+
+
+def build_tp_sim() -> dict:
+    """익절선을 X%로 했다면 결과가 어땠을지를 기록된 가격 경로로 다시 계산한다 (성과 탭 '최고 수익별 최종 결과 · 익절선 시뮬레이션').
+    종료된 추천(제외 정리 빼고)마다 경로를 시간순으로 따라가서, +X%가 -손절선(config.EXIT_STOP_LOSS_PCT)보다 먼저 오면 X%로 익절, 손절선이 먼저면 손절, 둘 다 안 오고
+    기간 만료로 끝났으면 실제 만료 수익률을 쓴다. 가격은 5~15분 간격 기록이라 순간 고점·저점은 빠지고 수수료·슬리피지는 반영하지 않는다.
+    추천은 실제 종료 시점까지만 추적되므로, 실제로 익절(예전 +5% 규칙)·수동 익절·BTC 이탈로 끝난 추천은 그 뒤의 경로를 모른다 — 기록된 경로에서 +X%에 닿은 적이 없으면
+    X%에서 어떻게 됐을지 알 수 없어 그 X에서는 뺀다(censored 건수로 같이 보여준다)."""
+    sl = config.EXIT_STOP_LOSS_PCT if config.EXIT_STOP_LOSS_PCT is not None else 5.0
+    recs = [r for r in price_tracker.load_recommendations() if r["exit"] is not None and r["exit"]["reason"] != "excluded" and r["entry_price"]]
+    levels = {x: {"n": 0, "censored": 0, "sum": 0.0, "actual_sum": 0.0, "tp": 0, "sl": 0, "exp": 0} for x in TP_SIM_LEVELS}
+    for r in recs:
+        entry = r["entry_price"]
+        path = [(t, (p / entry - 1) * 100) for t, p in sorted(r["snaps"], key=lambda s: s[0])]
+        end = r["exit"]["return_pct"]
+        t_sl = next((t for t, v in path if v <= -sl), None)
+        reason = r["exit"]["reason"]
+        for x, acc in levels.items():
+            t_tp = next((t for t, v in path if v >= x), None)
+            if t_tp is not None and (t_sl is None or t_tp < t_sl):
+                res, kind = float(x), "tp"
+            elif t_sl is not None or reason == "stop_loss":
+                res, kind = -float(sl), "sl"
+            elif reason == "expired":
+                res, kind = end, "exp"
+            else:  # 실제 익절·수동 익절·BTC 이탈 등으로 일찍 끝나 그 뒤 경로를 모른다
+                acc["censored"] += 1
+                continue
+            acc["n"] += 1
+            acc["sum"] += res
+            acc["actual_sum"] += end
+            acc[kind] += 1
+    out = []
+    for x, a in levels.items():
+        n = a["n"]
+        out.append({"tp": x, "n": n, "censored": a["censored"], "mean": round(a["sum"] / n, 2) if n else None, "actual_mean": round(a["actual_sum"] / n, 2) if n else None,
+                    "tp_n": a["tp"], "sl_n": a["sl"], "exp_n": a["exp"]})
+    return {"sl": sl, "closed": len(recs), "levels": out}
+
+
 def build_summary(recs: list[dict]) -> dict:
     """알트매크로 추천의 요약."""
     recs = [r for r in recs if r["strategy"] == "legacy"]
@@ -228,6 +269,7 @@ async def main(out_path: Path) -> None:
         "btc_wave_gate": btc_wave_gate.export(),  # 알트매크로 신규 추천 보류 게이트(BTC 작은 파동 하락) 상태
         "low_confirm_mode": config.LOW_CONFIRM_MODE,  # RSI 저점 확인 규칙: day(일봉만) / both(일봉·4시간) / off
         "btc_filter_mode": config.BTC_FILTER_MODE,  # warn = BTC가 MA20 아래여도 알트매크로 추천 계속(경고만), block = 추천 중단
+        "tp_sim": build_tp_sim(),  # 익절선 시뮬레이션(성과 탭): 종료된 추천의 기록된 가격 경로로 다시 계산
         "funnel": funnel.export(),  # 추천 퍼널(단계별 통과 수·제외 사유), 표시 전용
         "shadow": shadow.export(),  # 규칙에 막힌 추천의 그림자 진입과 이후 성과
         "fear_greed": fear_greed.export(),  # 오늘 화면의 공포·탐욕 지수 타일 (참고용)
