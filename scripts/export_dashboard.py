@@ -87,6 +87,9 @@ def build_recommendations(now: datetime) -> list[dict]:
         snaps = rec["snaps"]
         last_at, last_price = (snaps[-1] if snaps else (entry_at, entry_price))
         pct = lambda p: round((p / entry_price - 1) * 100, 2) if entry_price else None  # noqa: E731
+        # 추천 후 기록된 가격 중 최고·최저 수익률 (카드의 '최고 +N%' 표시용; 오래된 추천은 가격 경로를 덜어내기 전에 여기서 계산한다)
+        snap_rets = [v for v in (pct(p) for _, p in snaps) if v is not None]
+        peak_pct, trough_pct = (max(snap_rets + [0.0]), min(snap_rets + [0.0])) if snap_rets else (0.0, 0.0)
         horizons = {}
         for hours in HORIZONS_HOURS:
             target = entry_at + timedelta(hours=hours)
@@ -115,6 +118,8 @@ def build_recommendations(now: datetime) -> list[dict]:
             "last_price": last_price,
             "last_at": last_at.isoformat(),
             "return_pct": pct(last_price),
+            "peak_pct": peak_pct,
+            "trough_pct": trough_pct,
             "strategy": rec["strategy"],
             "high_zone": hz.get((rec["market"], entry_at.isoformat())),  # 일봉 고점권 안내(수동 익절 추천)가 나간 추천
             "horizons": horizons,

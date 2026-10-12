@@ -164,6 +164,8 @@
   .rec-meta { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
   .rec-ret { font-size: 21px; font-weight: 750; font-variant-numeric: tabular-nums; text-align: right; line-height: 1.1; letter-spacing: -.02em; white-space: nowrap; }
   .rec-ret small { display: block; margin-top: 4px; font-size: 11.5px; color: var(--muted); font-weight: 500; letter-spacing: 0; }
+  .rec-peak { font-size: 12.5px; color: var(--ink2); font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .rec-peak strong { color: var(--ink); }
   .rec-price { font-size: 13px; color: var(--ink2); font-variant-numeric: tabular-nums; }
   .rec-foot { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .gauge { color: var(--muted); }
@@ -1084,6 +1086,7 @@
 // v1.19 (2026-10-05) 업비트 공개 API 참고 정보 3가지 추가: 추천 카드의 '체결 매수 N%'(실제 체결 중 사는 쪽 비중, 추천 순간 -> 지금), 업비트 공식 시장 경고 배지(거래량 급증·해외 가격 차이 등), 비트코인 분석 화면의 BTC 김치 프리미엄 타일. 모두 참고용
 // v1.20 (2026-10-07) '주식' 탭 추가(실험): 코스피·코스닥 지수 상태, 마감 주봉 RSI(14) 30 이하 신규 후보(시장별), 추천 기록·4주 성과 통계. 알림 없이 기록만
 // v1.21 (2026-10-07) 주식 카드의 거래대금 칩에 마우스를 올리거나 탭하면 최근 26주 종가·일평균 거래대금 흐름 팝업
+// v1.40 (2026-10-13) 추천 카드·완료 목록에 추천 후 '최고 +N% · 최저 -N%' 표시(5~15분 간격 가격 기록 기준)
 // v1.39 (2026-10-12) 일봉 고점권 안내(수동 익절 추천)는 추천가 대비 +3% 이상일 때만 (HIGH_ZONE_MIN_GAIN_PCT)
 // v1.38 (2026-10-12) 일봉 저점 확인을 더 엄격하게: 일봉 골든크로스는 돌파한 그 일봉에서 %K가 20 이하여야 함(예전: 최근 5개 일봉 안에 20 이하였던 적). 추천 수가 크게 줄어듦(백테스트 약 70% 감소)
 // v1.37 (2026-10-12) 익절 +5% -> +10%(손절 -5%·3일 만료 그대로) + 일봉 고점권 안내/수동 익절: 추적 중인 추천의 일봉 스토RSI %K가 처음 80 이상에 닿으면 텔레그램으로 한 번 안내하고(버튼 '수동 익절'),
@@ -1108,7 +1111,7 @@
 // v1.24 (2026-10-09) 오늘 화면에 공포·탐욕 지수 타일(참고) + 라이브 검증 현황에 '탐욕 구간 손절' 카드. 추천 순간 지수는 detail.fng로 기록
 // v1.23 (2026-10-07) 팝업을 주봉 캔들+거래대금(상승·하락 색)+RSI(30선)로 바꾸고, 주식 공시·뉴스 / 코인 업비트 공지·뉴스 칩 추가(표시 전용)
 // v1.22 (2026-10-07) 시가총액 칩(주식: 네이버 증권, 코인: CoinGecko) + 코인 추천 카드에도 지난주 거래대금·시총 칩과 같은 주봉 팝업(종가·주간 거래대금·RSI)
-const APP_VERSION = 'v1.39';
+const APP_VERSION = 'v1.40';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DATA_URL = 'dashboard.json';
@@ -1578,6 +1581,18 @@ function hzNote(r) {
   return h('div', { class: 'rec-hz' }, h('strong', { text: '🔔 수동 익절 추천' }),
     ` · 일봉이 고점권에 닿았어요(스토RSI %K ${z.k ?? '—'}, 당시 추천가 대비 ${z.ret == null ? '—' : signed(z.ret)}). 텔레그램 안내 메시지의 '수동 익절' 버튼을 누르면 완료 처리돼요. 누르지 않으면 익절·손절·만료 규칙대로 계속 따라가요.`);
 }
+// 추천 후 가격 기록 중 최고·최저 수익률 (서버가 peak_pct/trough_pct로 내려준다, 없으면 가격 경로에서 계산)
+function peakOf(r) {
+  if (r.peak_pct != null) return { peak: r.peak_pct, trough: r.trough_pct ?? 0 };
+  const v = (r.series || []).map((p) => p[1]).filter((x) => x != null);
+  return v.length ? { peak: Math.max(0, ...v), trough: Math.min(0, ...v) } : null;
+}
+const PEAK_TIP = '추천 후 기록된 가격(5~15분 간격) 중 최고·최저 수익률이에요. 그 사이의 순간 고점·저점은 빠질 수 있어요.';
+function peakNote(r) {
+  const p = peakOf(r);
+  if (!p) return null;
+  return h('div', { class: 'rec-peak', title: PEAK_TIP }, '최고 ', h('strong', { class: upDown(p.peak), text: signed(p.peak) }), ` · 최저 ${signed(p.trough)}`);
+}
 function recCard(r, d) {
   const { tp, sl, days } = exitRulesOf(d);
   const o = outcomeOf(r);
@@ -1594,6 +1609,7 @@ function recCard(r, d) {
       h('div', {}, marketLabel(r.market), h('div', { class: 'rec-meta' }, meta)),
       h('div', { class: `rec-ret ${upDown(ret)}` }, signed(ret), h('small', { text: `${holdText(elapsed)} 경과` }))),
     h('div', { class: 'rec-price', text: `${fmtKRW(r.entry_price)} → ${fmtKRW(endPrice)}` }),
+    peakNote(r),
     belowNote(r),
     hzNote(r),
     gauge,
@@ -1866,7 +1882,7 @@ function doneItem(r, d) {
     h('div', { class: 'nm' }, h('small', { text: 'KRW' }), shortName(r.market), ' ', h('span', { class: `badge ${info.cls}`, text: info.label })),
     h('div', { class: `ret ${upDown(o.ret)}`, text: o.ret == null ? '—' : signed(o.ret) }),
     h('div', { class: 'line', text: `${fmtKRW(r.entry_price)} → ${fmtKRW(endPrice)}` }),
-    h('div', { class: 'line r', text: `${holdText(endMs - new Date(r.entered_at).getTime())} 보유` }),
+    h('div', { class: 'line r', text: `${holdText(endMs - new Date(r.entered_at).getTime())} 보유${peakOf(r) ? ` · 최고 ${signed(peakOf(r).peak)}` : ''}` }),
     h('div', { class: 'line' }, stratPill(r), h('span', { class: 'muted', text: ` · 추천 ${kst(r.entered_at)}` })),
     h('div', { class: 'line r', text: `${kst(new Date(endMs).toISOString())} 종료` }));
 }
