@@ -216,6 +216,10 @@ SCORE_BTC_ENV_POINTS = {"ma20_above": 2.0, "small_up": 1.0, "large_up": 1.0}  # 
 # both = 일봉·4시간 모두 골든크로스 필요(처음 적용했던 규칙), off = 끔.
 # 2.7년 사전 등록 백테스트(일봉·4시간 게이트 재생 10,081건)에서는 어느 방식도 손절이 줄지 않았다(일봉만 -0.5%p [-7.8,+7.0], 둘 다 +1.5%p [-5.7,+8.9]) — 근거 없이 쓰는 규칙이다.
 # 추천 수는 일봉만 확인하면 약 44%, 둘 다 확인하면 약 12%로 줄어든다. (옛 변수 LOW_CONFIRM_REQUIRED=false도 off로 받는다.)
+# 일봉 골든크로스의 '최근 저점 창'(2026-10-12 사용자 요청: 최근 5개 일봉 안으로 보는 건 너무 느슨하다): 돌파한 그 일봉에서 %K가 20 이하여야 한다(1, 기본).
+# 5로 두면 예전처럼 최근 5개 일봉 안에 %K가 20 이하였던 적만 있으면 된다. 백테스트(2.7년, 일봉+4시간 게이트 재생)에서 창을 5->2로만 줄이면 신호가 4%만 줄었고
+# (돌파가 대개 저점 1~2봉 안에 나와서), 1로 줄이면 약 70%가 줄었다(신호일당 약 9건 -> 4건, 진입 시 일봉 %K 중앙값 31 -> 12). 일봉에만 적용한다.
+DAY_GOLDEN_OVERSOLD_LOOKBACK = max(1, int(os.environ.get("DAY_GOLDEN_OVERSOLD_LOOKBACK") or "1"))
 LOW_CONFIRM_MODE = (os.environ.get("LOW_CONFIRM_MODE") or "").strip().lower()
 if LOW_CONFIRM_MODE not in ("day", "both", "off"):
     LOW_CONFIRM_MODE = "off" if os.environ.get("LOW_CONFIRM_REQUIRED", "").strip().lower() == "false" else "day"

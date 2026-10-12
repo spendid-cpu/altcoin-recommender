@@ -118,7 +118,8 @@ def score_frame(
     short_k, short_d = periods["short"]["k"], periods["short"]["d"]
 
     is_first_touch = bool(first_touch_series(short_k).tail(lookback_bars).any())
-    is_golden_cross = bool(golden_cross_series(short_k, short_d).tail(lookback_bars).any())
+    gc_lookback = config.DAY_GOLDEN_OVERSOLD_LOOKBACK if frame == "day" else 5  # 일봉만 '저점 창'을 좁게 본다 (config.DAY_GOLDEN_OVERSOLD_LOOKBACK)
+    is_golden_cross = bool(golden_cross_series(short_k, short_d, from_oversold_lookback=gc_lookback).tail(lookback_bars).any())
     # '저점 프레임'(config.LOW_LIKE_FRAMES)은 '지금 저점권에 있는가'도 통과로 본다
     # (저점권에 머무는 동안에는 최초 도달이 이미 지나갔어도 저점이다)
     at_low = is_low_like and bool(short_k.iloc[-1] <= config.OVERSOLD_THRESHOLD + EPS)
