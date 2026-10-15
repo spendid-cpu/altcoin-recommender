@@ -329,6 +329,49 @@ def build_zones(
     return zones
 
 
+def gate_blocked(small: dict | None, mode: str) -> bool:
+    """BTC 작은 파동 게이트(src/btc_wave_gate.py)가 신규 추천을 보류하는 상태인지 (백테스트 W1/W2와 같은 정의). 게이트 모듈도 이 함수를 쓴다."""
+    if not small or mode == "off":
+        return False
+    if mode == "bear":
+        return small.get("bias") == "bear"
+    return small.get("direction") == "down" and small.get("bias") != "bull"
+
+
+def _blocked_after(df: pd.DataFrame, x: float, mode: str) -> bool:
+    """다음 4시간봉이 종가 x(고가·저가는 직전 종가와 x 사이)로 마감했다고 치면 여전히 보류인지."""
+    last = df.iloc[-1]
+    prev = float(last["close"])
+    row = {"time": last["time"] + pd.Timedelta(hours=4), "open": prev, "high": max(prev, x), "low": min(prev, x), "close": x}
+    d2 = pd.concat([df[["time", "open", "high", "low", "close"]], pd.DataFrame([row])], ignore_index=True)
+    legs = build_legs(d2, "small")
+    return bool(legs) and gate_blocked(wave_state(legs[-1], x), mode)
+
+
+def gate_unblock_close(df: pd.DataFrame, mode: str) -> float | None:
+    """지금 게이트가 보류 중이면, 다음 4시간봉 종가가 얼마 이상이면 풀리는지(그 가격 근처로 마감한다고 칠 때의 최저가)를 찾는다.
+    파동 상태는 극점(고가·저가)과 종가로 정해져서 봉마다 바뀔 수 있다 — 4시간봉이 마감될 때마다 다시 계산하는 '지금 기준' 값이다. 보류가 아니면 None."""
+    legs = build_legs(df, "small")
+    if not legs:
+        return None
+    prev = float(df["close"].iloc[-1])
+    if not gate_blocked(wave_state(legs[-1], prev), mode):
+        return None
+    lo, hi = prev, max(legs[-1].high, prev) * 1.03
+    grid = [lo + (hi - lo) * i / 60 for i in range(1, 61)]
+    first = next((x for x in grid if not _blocked_after(df, x, mode)), None)
+    if first is None:
+        return None
+    a, b = max(lo, first - (hi - lo) / 60), first  # a: 보류, b: 해제 -> 사이를 좁힌다
+    for _ in range(12):
+        mid = (a + b) / 2
+        if _blocked_after(df, mid, mode):
+            a = mid
+        else:
+            b = mid
+    return round(b, 1)
+
+
 def analyse_fib(df4h: pd.DataFrame, price: float) -> dict:
     df = df4h.reset_index(drop=True)
     legs = {wave: build_legs(df, wave) for wave in ("large", "small")}
@@ -353,10 +396,15 @@ def analyse_fib(df4h: pd.DataFrame, price: float) -> dict:
                "kind": legs[wave][-1].end.kind}] if legs[wave] else [])
         for wave in legs
     }
+    try:  # 작은 파동 게이트가 보류 중일 때 '다음 4시간봉 종가가 얼마 이상이면 재개'(모드별)
+        gate_unblock = {m: gate_unblock_close(df, m) for m in ("down", "bear")}
+    except Exception:
+        gate_unblock = {}
     return {
         "basis_close": close,
         "basis_time": df["time"].iloc[-1].isoformat(),
         "waves": waves,
+        "gate_unblock": gate_unblock,
         "read": _fib_read(waves),
         "supports": supports,
         "resistances": resistances,

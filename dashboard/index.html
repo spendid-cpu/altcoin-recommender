@@ -1107,6 +1107,7 @@
 // v1.19 (2026-10-05) 업비트 공개 API 참고 정보 3가지 추가: 추천 카드의 '체결 매수 N%'(실제 체결 중 사는 쪽 비중, 추천 순간 -> 지금), 업비트 공식 시장 경고 배지(거래량 급증·해외 가격 차이 등), 비트코인 분석 화면의 BTC 김치 프리미엄 타일. 모두 참고용
 // v1.20 (2026-10-07) '주식' 탭 추가(실험): 코스피·코스닥 지수 상태, 마감 주봉 RSI(14) 30 이하 신규 후보(시장별), 추천 기록·4주 성과 통계. 알림 없이 기록만
 // v1.21 (2026-10-07) 주식 카드의 거래대금 칩에 마우스를 올리거나 탭하면 최근 26주 종가·일평균 거래대금 흐름 팝업
+// v1.43 (2026-10-16) BTC 작은 파동 보류 중이면 '4시간봉 종가가 $X(업비트 약 N원) 이상이면 재개'를 오늘 타일·후보 안내에 표시(btc_macro.gate_unblock_close, 봉 마감마다 다시 계산)
 // v1.42 (2026-10-15) 주식 탭에 '3주 분할매수 추적(요일별)': 주간 추천을 다음 주부터 3주간 매주 같은 요일 종가로 1/3씩 산다고 보고 월~금을 모두 가상 추적, 7주차 확정, 10년 백테스트 참고값
 // v1.41 (2026-10-13) 성과 탭에 '최고 수익별 최종 결과 · 익절선 시뮬레이션'(최고가 구간별 손절/익절/만료 비율, 익절선 2~10%로 했다면의 평균 손익; 기록된 가격 경로 기준)
 // v1.40 (2026-10-13) 추천 카드·완료 목록에 추천 후 '최고 +N% · 최저 -N%' 표시(5~15분 간격 가격 기록 기준)
@@ -1134,7 +1135,7 @@
 // v1.24 (2026-10-09) 오늘 화면에 공포·탐욕 지수 타일(참고) + 라이브 검증 현황에 '탐욕 구간 손절' 카드. 추천 순간 지수는 detail.fng로 기록
 // v1.23 (2026-10-07) 팝업을 주봉 캔들+거래대금(상승·하락 색)+RSI(30선)로 바꾸고, 주식 공시·뉴스 / 코인 업비트 공지·뉴스 칩 추가(표시 전용)
 // v1.22 (2026-10-07) 시가총액 칩(주식: 네이버 증권, 코인: CoinGecko) + 코인 추천 카드에도 지난주 거래대금·시총 칩과 같은 주봉 팝업(종가·주간 거래대금·RSI)
-const APP_VERSION = 'v1.42';
+const APP_VERSION = 'v1.43';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DATA_URL = 'dashboard.json';
@@ -1478,6 +1479,20 @@ const lowPill = (r) => {
   return h('span', { class: 'pill', title: LOW_TIP, text: miss.length ? `⏳ RSI 저점 미확인 · ${miss.join('·')}` : '✓ RSI 저점 확인 · 일봉·4H' });
 };
 const gateOf = (d) => { const g = d.btc_wave_gate; return g && g.mode !== 'off' && g.known && g.small ? g : null; };
+// 보류 중일 때 재개 기준: 다음 4시간봉 종가가 이 가격(USDT) 이상이면 풀린다. 업비트 원화는 BTC 김프 자료의 원/달러 비율로 환산
+function unblockText(d, short = false) {
+  const g = gateOf(d);
+  if (!g || !g.blocked || !g.unblock_close) return '';
+  const x = g.unblock_close, k = d.upbit_extra && d.upbit_extra.kimchi;
+  let krw = '';
+  if (k && k.btc_krw && k.btc_usdt) {
+    const man = Math.round(x * k.btc_krw / k.btc_usdt / 1e4), eok = Math.floor(man / 1e4), rest = man % 1e4;
+    krw = ` (업비트 약 ${eok ? `${eok}억 ` : ''}${nf0.format(rest)}만 원)`;
+  }
+  const left = g.price ? ` · 지금 $${nf0.format(g.price)}, ${((x / g.price - 1) * 100).toFixed(1)}% 남음` : '';
+  return short ? `4시간봉 종가 $${nf0.format(x)}${krw} 이상이면 재개${left}`
+    : `BTC 4시간봉 종가가 $${nf0.format(x)}${krw} 이상에서 마감하면 신규 추천을 다시 시작해요${left} (봉이 마감될 때마다 다시 계산해요)`;
+}
 const sgn = (v) => (v == null ? '—' : signed(v));
 const upDown = (v) => (v > 0 ? 'up' : v < 0 ? 'down' : '');
 
@@ -1523,7 +1538,7 @@ function renderHomeKpis(d) {
     const g = d.btc_wave_gate, sm = g.small;
     const dir = sm.direction === 'down' ? '하락 파동' : '상승 파동';
     tiles.push(tile('BTC 작은 파동', [statusIcon(g.blocked ? 'off' : 'on'), g.blocked ? '신규 추천 보류' : '신규 추천 가능'],
-      `${dir} · ${sm.label} · ${ago(g.since || g.at)}부터 · 4시간봉 기준, 알트매크로 추천에만 적용(시험 중)`));
+      `${dir} · ${sm.label} · ${ago(g.since || g.at)}부터${g.blocked && unblockText(d, true) ? ` · ${unblockText(d, true)}` : ' · 4시간봉 기준, 알트매크로 추천에만 적용(시험 중)'}`));
   }
   const fg = d.fear_greed;
   if (fg && fg.latest && fg.hist && fg.hist.length > 1) {
@@ -1803,7 +1818,7 @@ function renderCandidates(d) {
   if (gate) {
     const nHeld = cands.filter((c) => c.gated).length;
     gateEl.textContent = warnTxt + (gate.blocked
-      ? `🚦 BTC 작은 파동이 하락 중(${gate.small.label})이라 알트매크로 신규 추천을 보류하고 있어요${nHeld ? ` — 추천 조건을 채운 ${nHeld}개 종목이 '보류'로 표시돼요` : ''}. ${ago(gate.since || gate.at)}부터 · 이미 추천한 종목은 그대로 추적해요.`
+      ? `🚦 BTC 작은 파동이 하락 중(${gate.small.label})이라 알트매크로 신규 추천을 보류하고 있어요${nHeld ? ` — 추천 조건을 채운 ${nHeld}개 종목이 '보류'로 표시돼요` : ''}. ${ago(gate.since || gate.at)}부터 · 이미 추천한 종목은 그대로 추적해요.${unblockText(d) ? ` 📍 ${unblockText(d)}.` : ''}`
       : `🟢 BTC 작은 파동 ${gate.small.label} — 보류 없이 추천이 나와요 (하락 파동이 되면 신규 추천을 잠시 보류해요).`);
   }
   $('#n-cand').textContent = String(cands.length);
