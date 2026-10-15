@@ -14,7 +14,7 @@ import asyncio
 import html
 import json
 import re
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -52,10 +52,10 @@ def _connect():
     conn.execute(
         "CREATE TABLE IF NOT EXISTS stock_recs ("
         "code TEXT NOT NULL, signal_week TEXT NOT NULL, name TEXT, market TEXT, rsi REAL, k REAL, d REAL, signal_close REAL, tv_krw REAL, "
-        "created_at TEXT, entry_open REAL, ret1w REAL, ret4w REAL, base4w REAL, shown INTEGER, chg4w REAL, last_price REAL, last_at TEXT, hist TEXT, mcap REAL, news TEXT, PRIMARY KEY (code, signal_week))"
+        "created_at TEXT, entry_open REAL, ret1w REAL, ret4w REAL, base4w REAL, shown INTEGER, chg4w REAL, last_price REAL, last_at TEXT, hist TEXT, mcap REAL, news TEXT, daily TEXT, PRIMARY KEY (code, signal_week))"
     )
     have = [r[1] for r in conn.execute("PRAGMA table_info(stock_recs)")]
-    for col, typ in (("hist", "TEXT"), ("mcap", "REAL"), ("news", "TEXT")):  # 이미 만들어진 DB에는 열을 추가한다
+    for col, typ in (("hist", "TEXT"), ("mcap", "REAL"), ("news", "TEXT"), ("daily", "TEXT")):  # 이미 만들어진 DB에는 열을 추가한다
         if col not in have:
             conn.execute(f"ALTER TABLE stock_recs ADD COLUMN {col} {typ}")
     return conn
@@ -396,6 +396,131 @@ async def refresh_open_prices(session: aiohttp.ClientSession, conn) -> int:
     return n
 
 
+# ----------------------------------------------------------------------------- 3주 분할매수 추적 (2026-10-15 사용자 요청)
+# 추천(신호 주) 다음 주를 1주차로 1·2·3주차에 요일 d의 종가로 같은 금액씩 3번 산다고 보고, 다섯 요일(월~금)을 모두 가상으로 따라간다.
+# 그 요일이 휴장이면 그 주의 다음 거래일, 그 뒤 거래일이 없으면 직전 거래일. 7주차(마지막 매수 주 + 4주) 마지막 거래일 종가로 확정한다.
+# 실제 매매 기록이 아니라 일봉 종가로 계산한 기록이다(수수료·세금·호가 차이 없음).
+SPLIT_WEEKS = 3
+SPLIT_EVAL_WEEK = 7
+# 과거 10년 백테스트(scratchpad stock_weekday_split.py, 2026-10-15 사전 등록 1회, 신호 9,503건, 7주차 평가, 8주 블록 부트스트랩 99%): 대시보드 참고용 고정값
+SPLIT_BACKTEST = {
+    "n": 9503, "from": "2017-01", "to": "2026-08",
+    "days": [{"dow": 0, "mean": 3.92, "vs_avg": 0.58, "pass": True}, {"dow": 1, "mean": 3.37, "vs_avg": 0.04, "pass": False},
+             {"dow": 2, "mean": 3.13, "vs_avg": -0.20, "pass": False}, {"dow": 3, "mean": 3.27, "vs_avg": -0.07, "pass": False},
+             {"dow": 4, "mean": 2.98, "vs_avg": -0.36, "pass": False}],
+    "lump": 4.81, "split_avg": 3.33, "tail_split": -24.0, "tail_lump": -27.4,
+    "note": "월요일만 기준을 넘었지만 하한이 +0.003%p로 겨우였고 뒤 절반은 +0.16%p로 약했다. 요일 차이는 대부분 '신호 뒤 초기에 오르는 경향'이라 일찍 살수록 싸게 산 효과다. "
+            "같은 7주차 평가에서 1주차 첫날 종가 일시 매수가 평균 +4.81%로 분할(다섯 요일 평균 +3.33%)보다 높았고, 분할은 하위 10% 손실을 줄였다(-27.4% -> 약 -24%). 상장폐지 종목이 빠진 낙관적 결과다.",
+}
+
+
+def _daily_bars(res: dict, now_kst: datetime) -> list[list]:
+    """야후 일봉 -> [[날짜 'YYYY-MM-DD', 종가], ...]. 장 마감(15:40 KST) 전이면 오늘 봉은 확정 전이라 뺀다."""
+    q = res["indicators"]["quote"][0]
+    out = []
+    for ts, c in zip(res["timestamp"], q["close"]):
+        if c is None or c <= 0:
+            continue
+        d = (pd.Timestamp(ts, unit="s") + pd.Timedelta(hours=9)).date()
+        if d == now_kst.date() and (now_kst.hour, now_kst.minute) < (15, 40):
+            continue
+        out.append([d.isoformat(), round(float(c), 2)])
+    dedup = {d: c for d, c in out}
+    return [[d, dedup[d]] for d in sorted(dedup)]
+
+
+def split_plans(bars: list[list], signal_week: str, today: date) -> dict:
+    """일봉 종가로 다섯 요일의 3주 분할 결과를 계산한다. 각 요일: buys(1~3차 [날짜, 가격] / None=아직 / 'skip'=그 주 전체 휴장),
+    ret(지금 종가 기준 투입 자본 대비), final(7주차 확정 수익, 확정 전이면 None). lump = 1주차 첫 거래일 종가 일시 매수(비교용)."""
+    sig = date.fromisoformat(signal_week)
+    weeks: dict[int, list[tuple[date, float]]] = {}
+    for ds, c in bars:
+        d = date.fromisoformat(ds)
+        k = (d - sig).days // 7
+        if 1 <= k <= SPLIT_EVAL_WEEK:
+            weeks.setdefault(k, []).append((d, c))
+    in_window = [(d, c) for k in sorted(weeks) for d, c in weeks[k]]
+    if not in_window:
+        return {"plans": [], "last": None, "final_at": None}
+    last_d, last_c = in_window[-1]
+    ev_end = sig + timedelta(weeks=SPLIT_EVAL_WEEK, days=4)
+    final_px = weeks[SPLIT_EVAL_WEEK][-1][1] if today > ev_end and weeks.get(SPLIT_EVAL_WEEK) else None
+
+    def value(buys):
+        got = [b[1] for b in buys if isinstance(b, list)]
+        if not got:
+            return None, None
+        units = sum(1 / p for p in got)
+        now = units * last_c / len(got) - 1
+        fin = units * final_px / len(got) - 1 if final_px is not None and all(b is not None for b in buys) else None
+        return now, fin
+
+    plans = []
+    for dow in range(5):
+        buys = []
+        for k in range(1, SPLIT_WEEKS + 1):
+            start = sig + timedelta(weeks=k)
+            days = weeks.get(k, [])
+            later = [x for x in days if x[0].weekday() >= dow]
+            if later:
+                buys.append([later[0][0].isoformat(), later[0][1]])
+            elif today > start + timedelta(days=4):
+                buys.append([days[-1][0].isoformat(), days[-1][1]] if days else "skip")
+            else:
+                buys.append(None)
+        now, fin = value(buys)
+        plans.append({"dow": dow, "buys": buys, "ret": None if now is None else round(now, 5), "final": None if fin is None else round(fin, 5)})
+    w1 = weeks.get(1)
+    lump = None
+    if w1:
+        p0 = w1[0][1]
+        lump = {"buy": [w1[0][0].isoformat(), p0], "ret": round(last_c / p0 - 1, 5), "final": round(final_px / p0 - 1, 5) if final_px else None}
+    return {"plans": plans, "lump": lump, "last": [last_d.isoformat(), last_c], "final_at": ev_end.isoformat() if final_px is not None else None}
+
+
+async def refresh_split_daily(session: aiohttp.ClientSession, conn, now: datetime) -> int:
+    """3주 분할 추적용 일봉 종가를 받아 둔다: 7주차가 아직 확정되지 않은 추천만(확정된 건 다시 받지 않는다)."""
+    now_kst = now.astimezone(KST)
+    cutoff = (now_kst.date() - timedelta(weeks=SPLIT_EVAL_WEEK + 2)).isoformat()
+    rows = conn.execute("SELECT code, signal_week, market, daily FROM stock_recs WHERE signal_week >= ?", (cutoff,)).fetchall()
+    todo = [(c, w, m) for c, w, m, dj in rows if not (dj and json.loads(dj).get("final"))]
+    if not todo:
+        return 0
+    sem = asyncio.Semaphore(CONCURRENCY)
+
+    async def one(code: str, wk: str, market: str):
+        res = await _chart(session, sem, f"{code}.{'KS' if market == '유가' else 'KQ'}", "6mo", "1d")
+        return code, wk, (_daily_bars(res, now_kst) if res else None)
+
+    n = 0
+    for code, wk, bars in await asyncio.gather(*(one(*t) for t in todo)):
+        if not bars:
+            continue
+        start = (date.fromisoformat(wk) + timedelta(weeks=1)).isoformat()
+        end_d = date.fromisoformat(wk) + timedelta(weeks=SPLIT_EVAL_WEEK, days=4)
+        keep = [b for b in bars if start <= b[0] <= end_d.isoformat()]
+        final = now_kst.date() > end_d and any(date.fromisoformat(b[0]) >= end_d - timedelta(days=4) for b in keep)
+        conn.execute("UPDATE stock_recs SET daily=? WHERE code=? AND signal_week=?",
+                     (json.dumps({"v": 1, "c": keep, "final": final, "at": now_kst.isoformat()}, separators=(",", ":")), code, wk))
+        n += 1
+    conn.commit()
+    return n
+
+
+def split_summary(recs: list[dict]) -> dict:
+    """요일별 실제 추적 요약: 지금 수익(1번 이상 산 추천), 7주차 확정 수익. 일시 매수(1주차 첫날 종가)도 같은 방식으로."""
+    out = []
+    for dow in range(5):
+        cur = [r["split"]["plans"][dow]["ret"] for r in recs if r.get("split") and r["split"]["plans"] and r["split"]["plans"][dow]["ret"] is not None]
+        fin = [r["split"]["plans"][dow]["final"] for r in recs if r.get("split") and r["split"]["plans"] and r["split"]["plans"][dow]["final"] is not None]
+        out.append({"dow": dow, "n_now": len(cur), "now": float(np.mean(cur)) if cur else None,
+                    "n_final": len(fin), "final": float(np.mean(fin)) if fin else None, "win_final": float(np.mean([v > 0 for v in fin])) if fin else None})
+    lc = [r["split"]["lump"]["ret"] for r in recs if r.get("split") and r["split"].get("lump")]
+    lf = [r["split"]["lump"]["final"] for r in recs if r.get("split") and r["split"].get("lump") and r["split"]["lump"]["final"] is not None]
+    return {"days": out, "lump": {"n_now": len(lc), "now": float(np.mean(lc)) if lc else None, "n_final": len(lf), "final": float(np.mean(lf)) if lf else None},
+            "backtest": SPLIT_BACKTEST, "weeks": SPLIT_WEEKS, "eval_week": SPLIT_EVAL_WEEK}
+
+
 # ----------------------------------------------------------------------------- 메시지
 def _idx_text(ix: dict | None) -> str:
     if not ix:
@@ -456,17 +581,20 @@ def export() -> dict | None:
         return None
     conn = _connect()
     try:
-        cols = ["code", "signal_week", "name", "market", "rsi", "k", "d", "signal_close", "tv_krw", "entry_open", "ret1w", "ret4w", "base4w", "shown", "chg4w", "last_price", "last_at", "hist", "mcap", "news"]
+        cols = ["code", "signal_week", "name", "market", "rsi", "k", "d", "signal_close", "tv_krw", "entry_open", "ret1w", "ret4w", "base4w", "shown", "chg4w", "last_price", "last_at", "hist", "mcap", "news", "daily"]
         rows = conn.execute(f"SELECT {', '.join(cols)} FROM stock_recs ORDER BY signal_week DESC, tv_krw DESC LIMIT 600").fetchall()
         recs = [dict(zip(cols, r)) for r in rows]
         keep_from = (pd.Timestamp(json.loads(raw)["week"]) - pd.Timedelta(days=84)).date().isoformat()
         for r in recs:
             r["hist"] = json.loads(r["hist"]) if r["hist"] and r["signal_week"] >= keep_from else None
             r["news"] = json.loads(r["news"]) if r["news"] and r["signal_week"] >= keep_from else None
+            daily = json.loads(r.pop("daily")) if r.get("daily") else None
+            r["split"] = split_plans(daily["c"], r["signal_week"], datetime.now(KST).date()) if daily and daily.get("c") else None
         stats = _stats(conn)
+        split = split_summary(recs)
     finally:
         conn.close()
-    return {**json.loads(raw), "recs": recs, "stats": stats}
+    return {**json.loads(raw), "recs": recs, "stats": stats, "split": split}
 
 
 # ----------------------------------------------------------------------------- 실행
@@ -532,6 +660,10 @@ async def run(session: aiohttp.ClientSession, now: datetime | None = None, force
             result["open_prices"] = await refresh_open_prices(session, conn)
             result["mcap"] = await refresh_mcap(session, conn)
             result["news"] = await refresh_news(session, conn)
+            try:  # 3주 분할매수 추적용 일봉 (실패해도 나머지 기록은 그대로)
+                result["split_daily"] = await refresh_split_daily(session, conn, now)
+            except Exception as exc:
+                print(f"[주식] 분할매수 일봉 갱신 실패(건너뜀): {exc!r}")
             prev = json.loads(state_store.get_meta(OVERVIEW_KEY) or "{}")
             if not new_week and "universe" in prev:
                 overview["universe"] = prev["universe"]

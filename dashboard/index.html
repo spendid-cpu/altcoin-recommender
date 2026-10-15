@@ -1015,6 +1015,14 @@
 
     <div id="stock-cands"></div>
 
+    <section class="card" aria-labelledby="h-stock-split" style="margin-top:6px">
+      <div class="card-head"><div><h2 id="h-stock-split">3주 분할매수 추적 (요일별)</h2><p class="sub">매주 나온 추천을 다음 주부터 3주 동안 매주 같은 요일 종가로 1/3씩 산다고 보고, 다섯 요일(월~금)을 모두 가상으로 따라가요. 그 요일이 휴장이면 그 주의 다음 거래일(없으면 직전 거래일)에 사요. 7주차(마지막 매수 주 + 4주) 마지막 거래일 종가로 확정해요. 실제 매매가 아니라 일봉 종가로 계산한 기록이에요(수수료·세금 제외).</p></div></div>
+      <div id="stock-split-days" class="table-wrap"></div>
+      <p id="stock-split-note" class="card-note"></p>
+      <div class="sec-head" style="margin-top:14px"><h2>주간 추천별 진행</h2><div id="stock-split-dow" class="seg" role="group" aria-label="매수 요일 선택"></div></div>
+      <div id="stock-split-cohorts"></div>
+    </section>
+
     <section class="card" aria-labelledby="h-stock-stats" style="margin-top:6px">
       <div class="card-head"><div><h2 id="h-stock-stats">성과 통계</h2><p class="sub">추천 다음 주 첫 거래일 시가에 사서 4주(4번째 주봉 종가)까지 보유했을 때의 결과예요. 시장 대비는 같은 주에 유동성을 통과한 전 종목을 같은 방식으로 샀을 때의 평균과의 차이예요. 4주가 지난 종목이 30개쯤 쌓이기 전에는 우연일 수 있어요</p></div></div>
       <div id="stock-stats" class="table-wrap"></div>
@@ -1099,6 +1107,7 @@
 // v1.19 (2026-10-05) 업비트 공개 API 참고 정보 3가지 추가: 추천 카드의 '체결 매수 N%'(실제 체결 중 사는 쪽 비중, 추천 순간 -> 지금), 업비트 공식 시장 경고 배지(거래량 급증·해외 가격 차이 등), 비트코인 분석 화면의 BTC 김치 프리미엄 타일. 모두 참고용
 // v1.20 (2026-10-07) '주식' 탭 추가(실험): 코스피·코스닥 지수 상태, 마감 주봉 RSI(14) 30 이하 신규 후보(시장별), 추천 기록·4주 성과 통계. 알림 없이 기록만
 // v1.21 (2026-10-07) 주식 카드의 거래대금 칩에 마우스를 올리거나 탭하면 최근 26주 종가·일평균 거래대금 흐름 팝업
+// v1.42 (2026-10-15) 주식 탭에 '3주 분할매수 추적(요일별)': 주간 추천을 다음 주부터 3주간 매주 같은 요일 종가로 1/3씩 산다고 보고 월~금을 모두 가상 추적, 7주차 확정, 10년 백테스트 참고값
 // v1.41 (2026-10-13) 성과 탭에 '최고 수익별 최종 결과 · 익절선 시뮬레이션'(최고가 구간별 손절/익절/만료 비율, 익절선 2~10%로 했다면의 평균 손익; 기록된 가격 경로 기준)
 // v1.40 (2026-10-13) 추천 카드·완료 목록에 추천 후 '최고 +N% · 최저 -N%' 표시(5~15분 간격 가격 기록 기준)
 // v1.39 (2026-10-12) 일봉 고점권 안내(수동 익절 추천)는 추천가 대비 +3% 이상일 때만 (HIGH_ZONE_MIN_GAIN_PCT)
@@ -1125,7 +1134,7 @@
 // v1.24 (2026-10-09) 오늘 화면에 공포·탐욕 지수 타일(참고) + 라이브 검증 현황에 '탐욕 구간 손절' 카드. 추천 순간 지수는 detail.fng로 기록
 // v1.23 (2026-10-07) 팝업을 주봉 캔들+거래대금(상승·하락 색)+RSI(30선)로 바꾸고, 주식 공시·뉴스 / 코인 업비트 공지·뉴스 칩 추가(표시 전용)
 // v1.22 (2026-10-07) 시가총액 칩(주식: 네이버 증권, 코인: CoinGecko) + 코인 추천 카드에도 지난주 거래대금·시총 칩과 같은 주봉 팝업(종가·주간 거래대금·RSI)
-const APP_VERSION = 'v1.41';
+const APP_VERSION = 'v1.42';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DATA_URL = 'dashboard.json';
@@ -2740,10 +2749,78 @@ function stockCard(r) {
       h('span', { text: r.ret1w != null ? `1주 ${pctSigned(r.ret1w)}` : '1주 성과 대기' })));
 }
 
+/* ---------- 주식 3주 분할매수 추적 (요일별, 2026-10-15) ---------- */
+const DOW_KO = ['월', '화', '수', '목', '금'];
+let splitDow = 0;
+try { const v = Number(localStorage.getItem('stockSplitDow')); if (Number.isInteger(v) && v >= 0 && v <= 4) splitDow = v; } catch (e) { /* 저장소를 못 쓰면 월요일 */ }
+function renderStockSplit(S) {
+  const daysEl = $('#stock-split-days'), noteEl = $('#stock-split-note'), segEl = $('#stock-split-dow'), coEl = $('#stock-split-cohorts');
+  const sp = S && S.split;
+  if (!sp) {
+    daysEl.replaceChildren(empty('분할매수 추적 자료가 아직 없어요. 평일 장 마감 뒤(16시 이후) 실행부터 쌓여요.'));
+    noteEl.textContent = ''; segEl.replaceChildren(); coEl.replaceChildren();
+    return;
+  }
+  const bt = sp.backtest || {};
+  const pp = (v) => (v == null ? '—' : pctSigned(v));
+  const sg = (v, unit) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}${unit}`;
+  const rows = sp.days.map((x) => {
+    const b = (bt.days || []).find((y) => y.dow === x.dow);
+    return [`${DOW_KO[x.dow]}요일`, x.n_now ? `${pp(x.now)} (${x.n_now})` : '—', x.n_final ? `${pp(x.final)} (${x.n_final})` : '—',
+      b ? sg(b.mean, '%') : '—', b ? `${sg(b.vs_avg, '%p')}${b.pass ? ' ✓' : ''}` : '—'];
+  });
+  const L = sp.lump || {};
+  rows.push(['일시 매수 (1주차 첫날)', L.n_now ? `${pp(L.now)} (${L.n_now})` : '—', L.n_final ? `${pp(L.final)} (${L.n_final})` : '—', bt.lump != null ? sg(bt.lump, '%') : '—', '—']);
+  daysEl.replaceChildren(buildTable(['매수 요일', '실제: 지금 평균 (종목)', `실제: ${sp.eval_week}주차 확정 (종목)`, '백테스트 10년 평균', '다섯 요일 평균 대비'], rows, 1));
+  noteEl.textContent = `백테스트(${bt.from}~${bt.to}, 신호 ${nf0.format(bt.n || 0)}건, 같은 ${sp.eval_week}주차 종가로 평가): ${bt.note || ''} ✓는 미리 정한 기준을 넘은 요일이에요. 실제 기록의 '지금 평균'은 산 만큼만 넣은 지금 가격 기준이라 매일 바뀌고, 확정 종목이 30개쯤 쌓이기 전에는 우연일 수 있어요. 매수 권유가 아니에요.`;
+
+  segEl.replaceChildren(...DOW_KO.map((name, i) => {
+    const b = h('button', { class: 'btn', type: 'button', 'aria-pressed': String(i === splitDow), text: name });
+    b.onclick = () => {
+      splitDow = i;
+      try { localStorage.setItem('stockSplitDow', String(i)); } catch (e) { /* 저장 못 해도 화면은 바뀐다 */ }
+      renderStockSplit(S);
+    };
+    return b;
+  }));
+
+  const recs = (S.recs || []).filter((r) => r.split && r.split.plans && r.split.plans.length);
+  const weeks = [...new Set(recs.map((r) => r.signal_week))].sort().reverse();
+  if (!weeks.length) {
+    coEl.replaceChildren(empty('추적 중인 주간 추천이 아직 없어요. 추천 다음 주 첫 거래일부터 첫 매수가 기록돼요.'));
+    return;
+  }
+  const cell = (b) => (Array.isArray(b) ? `${mmdd(b[0])} ${px(b[1])}` : b === 'skip' ? '휴장 주' : '예정');
+  coEl.replaceChildren(...weeks.map((wk, wi) => {
+    const g = recs.filter((r) => r.signal_week === wk);
+    const plans = g.map((r) => r.split.plans[splitDow]);
+    const done = plans.every((p) => p.final != null);
+    const bought = Math.max(...plans.map((p) => p.buys.filter((b) => Array.isArray(b)).length));
+    const vals = plans.map((p) => (done ? p.final : p.ret)).filter((v) => v != null);
+    const mean = vals.length ? avg(vals) : null;
+    const status = done ? `${sp.eval_week}주차 확정` : bought < 3 ? `매수 ${bought}/3` : '3번 다 삼 · 보유 중';
+    const tRows = g.map((r) => {
+      const p = r.split.plans[splitDow];
+      const got = p.buys.filter((b) => Array.isArray(b));
+      const cost = got.length ? got.length / got.reduce((acc, b) => acc + 1 / b[1], 0) : null;
+      const v = p.final != null ? p.final : p.ret;
+      return [h('span', {}, r.name, h('small', { style: 'margin-left:5px;color:var(--muted)', text: r.code })),
+        cell(p.buys[0]), cell(p.buys[1]), cell(p.buys[2]), cost ? px(cost) : '—',
+        r.split.last ? `${px(r.split.last[1])} (${mmdd(r.split.last[0])})` : '—', h('span', { class: upDown(v), text: pp(v) })];
+    });
+    return h('details', { class: 'fold', open: wi === 0 },
+      h('summary', {}, h('span', {}, `${wk} 주 신호 · ${g.length}종목 · ${DOW_KO[splitDow]}요일 매수 · ${status} · 평균 `,
+        h('strong', { class: upDown(mean), style: 'white-space:nowrap', text: pp(mean) }))),
+      h('div', { class: 'fold-body' },
+        h('div', { class: 'table-wrap' }, buildTable(['종목', '1차', '2차', '3차', '평균 단가', '지금 (날짜)', done ? '확정 수익' : '지금 수익'], tRows, 1))));
+  }));
+}
+
 function renderStock(d) {
   infoTipHide();
   const S = d.stock;
   const tilesEl = $('#stock-tiles'), candEl = $('#stock-cands'), histEl = $('#stock-hist'), statEl = $('#stock-stats'), moreBtn = $('#stock-more');
+  renderStockSplit(S);
   if (!S) {
     tilesEl.replaceChildren(); histEl.replaceChildren(); statEl.replaceChildren(); moreBtn.hidden = true;
     candEl.replaceChildren(empty('주식 기록 수집이 아직 시작되지 않았어요. 평일 저녁(17시 40분경)에 처음 실행돼요.'));
