@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import aiohttp
 import pandas as pd
 
-from src import btc_wave_gate, coin_info, funnel, manual_tp, config, cycle, fear_greed, jsonutil, liquidations, macro_calendar, macro_job, orderbook, paper_limit, price_tracker, scan_log, shadow, stock_scan, upbit_extra
+from src import btc_wave_gate, coin_info, coinbase_premium, funnel, manual_tp, config, cycle, fear_greed, jsonutil, liquidations, macro_calendar, macro_job, orderbook, paper_limit, price_tracker, scan_log, shadow, stock_scan, upbit_extra
 from src.btc_trend import days_above_ma, is_trend_favorable
 from src.exchanges import binance_client
 
@@ -273,6 +273,7 @@ async def main(out_path: Path) -> None:
         "funnel": funnel.export(),  # 추천 퍼널(단계별 통과 수·제외 사유), 표시 전용
         "shadow": shadow.export(),  # 규칙에 막힌 추천의 그림자 진입과 이후 성과
         "fear_greed": fear_greed.export(),  # 오늘 화면의 공포·탐욕 지수 타일 (참고용)
+        "coinbase_premium": coinbase_premium.export(),  # 비트코인 탭 코인베이스 프리미엄 타일 (참고용, 추천 판단에는 안 씀)
         "coin_info": coin_info.export(),  # 코인 카드 팝업(주봉 종가·거래대금·RSI)과 시가총액 (참고용)
         "upbit_extra": upbit_extra.export(),  # 체결강도·시장 경고 신호·BTC 김프 (업비트 공개 API, 참고용)
         "orderbook": orderbook.export(),  # 호가창 스냅샷(BTC 벽·바이낸스 근접 호가·추적 종목 쏠림, 참고용)

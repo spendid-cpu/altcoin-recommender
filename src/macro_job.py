@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo
 import aiohttp
 import pandas as pd
 
-from src import btc_context, btc_macro, btc_mvrv, btc_watch, coin_info, config, fear_greed, jsonutil, liquidations, macro_calendar, orderbook, state_store, telegram_client, upbit_extra, volume_profile
+from src import btc_context, btc_macro, btc_mvrv, btc_watch, coin_info, coinbase_premium, config, fear_greed, jsonutil, liquidations, macro_calendar, orderbook, state_store, telegram_client, upbit_extra, volume_profile
 from src.exchanges import binance_client
 
 KST = ZoneInfo("Asia/Seoul")
@@ -301,6 +301,10 @@ async def run(session: aiohttp.ClientSession) -> None:
         await btc_mvrv.refresh(session)
     except Exception as exc:
         print(f"[MVRV] 수집 실패(이번 사이클은 건너뜀): {type(exc).__name__}: {exc}")
+    try:  # 코인베이스 프리미엄 (미국 현물 BTC 수요 참고, 추천 순간 기록용·비트코인 탭 표시, 15분에 한 번)
+        await coinbase_premium.refresh(session)
+    except Exception as exc:
+        print(f"[코인베이스 프리미엄] 수집 실패(이번 사이클은 건너뜀): {type(exc).__name__}: {exc}")
     try:  # 코인 카드의 주봉 이력·시가총액 (1시간에 한 번, 새 추천 종목은 바로)
         await coin_info.refresh(session)
     except Exception as exc:

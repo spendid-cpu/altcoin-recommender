@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 
 import aiohttp
 
-from src import btc_context, manual_tp, scoring, btc_wave_gate, config, cycle, exits, fear_greed, funnel, macro_job, market_cap, migrations, orderbook, paper_limit, price_tracker, report, scan_log, shadow, state_store, telegram_client, upbit_extra
+from src import btc_context, coinbase_premium, manual_tp, scoring, btc_wave_gate, config, cycle, exits, fear_greed, funnel, macro_job, market_cap, migrations, orderbook, paper_limit, price_tracker, report, scan_log, shadow, state_store, telegram_client, upbit_extra
 from src.exchanges import upbit_client
 from src.notifier import diff_alerts
 from src.scanner import check_btc_trend, scan_all
@@ -215,6 +215,9 @@ async def run_once(session: aiohttp.ClientSession) -> None:
                     detail = {**detail, "fng": fng}
                 if btc_ctx is not None:  # 추천 순간의 BTC 지표 상태(일목·MACD·볼린저·파동·MVRV) — 나중에 검증하려는 기록, 추천 판단에는 안 씀
                     detail = {**detail, "btc_ctx": btc_ctx}
+                cbp = coinbase_premium.entry_value()  # 추천 순간의 코인베이스 프리미엄(24시간 평균) — 백테스트 근거 없음, 라이브 확인용 기록만
+                if cbp is not None:
+                    detail = {**detail, "cbp": cbp}
                 detail = {**detail, **await _entry_microstructure(session, a.market, c.current_price)}
                 rec_at = price_tracker.record_entry(a.market, c.current_price, c.grade, round(c.total_score, 1), detail)
                 paper_limit.place(a.market, rec_at, c.current_price, c.support_lows)
