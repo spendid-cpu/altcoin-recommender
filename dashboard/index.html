@@ -352,6 +352,7 @@
   .wall-row .tag { font-size: 11px; color: var(--ink2); white-space: nowrap; }
   .wall-row.wall .tag { font-weight: 650; color: var(--ink); }
   .pill.warn { background: color-mix(in srgb, var(--warn) 24%, transparent); border-color: transparent; color: var(--ink); font-weight: 600; }
+  .pill.sector { background: color-mix(in srgb, var(--accent) 14%, transparent); border-color: transparent; color: var(--ink); }
   .chips-fold { display: inline-block; }
   .chips-fold[open] { flex-basis: 100%; }
   .chips-fold > summary { display: inline-block; cursor: pointer; list-style: none; font-size: 12px; padding: 1px 9px; border: 1px dashed var(--border); border-radius: 999px; color: var(--ink2); }
@@ -1107,6 +1108,7 @@
 // v1.19 (2026-10-05) 업비트 공개 API 참고 정보 3가지 추가: 추천 카드의 '체결 매수 N%'(실제 체결 중 사는 쪽 비중, 추천 순간 -> 지금), 업비트 공식 시장 경고 배지(거래량 급증·해외 가격 차이 등), 비트코인 분석 화면의 BTC 김치 프리미엄 타일. 모두 참고용
 // v1.20 (2026-10-07) '주식' 탭 추가(실험): 코스피·코스닥 지수 상태, 마감 주봉 RSI(14) 30 이하 신규 후보(시장별), 추천 기록·4주 성과 통계. 알림 없이 기록만
 // v1.21 (2026-10-07) 주식 카드의 거래대금 칩에 마우스를 올리거나 탭하면 최근 26주 종가·일평균 거래대금 흐름 팝업
+// v1.45 (2026-10-22) 추천 카드 첫 줄에 대표 섹터 칩(가장 구체적인 테마 + 나머지 개수, 마우스를 올리면 전체) — 전에는 '참고 N' 안에 접혀 있었다
 // v1.44 (2026-10-17) 비트코인 탭에 '코인베이스 프리미엄(24시간 평균)' 타일(미국 현물 수요 참고, 백테스트 근거 없음 -> 추천 순간 detail.cbp 기록만)
 // v1.43 (2026-10-16) BTC 작은 파동 보류 중이면 '4시간봉 종가가 $X(업비트 약 N원) 이상이면 재개'를 오늘 타일·후보 안내에 표시(btc_macro.gate_unblock_close, 봉 마감마다 다시 계산)
 // v1.42 (2026-10-15) 주식 탭에 '3주 분할매수 추적(요일별)': 주간 추천을 다음 주부터 3주간 매주 같은 요일 종가로 1/3씩 산다고 보고 월~금을 모두 가상 추적, 7주차 확정, 10년 백테스트 참고값
@@ -1136,7 +1138,7 @@
 // v1.24 (2026-10-09) 오늘 화면에 공포·탐욕 지수 타일(참고) + 라이브 검증 현황에 '탐욕 구간 손절' 카드. 추천 순간 지수는 detail.fng로 기록
 // v1.23 (2026-10-07) 팝업을 주봉 캔들+거래대금(상승·하락 색)+RSI(30선)로 바꾸고, 주식 공시·뉴스 / 코인 업비트 공지·뉴스 칩 추가(표시 전용)
 // v1.22 (2026-10-07) 시가총액 칩(주식: 네이버 증권, 코인: CoinGecko) + 코인 추천 카드에도 지난주 거래대금·시총 칩과 같은 주봉 팝업(종가·주간 거래대금·RSI)
-const APP_VERSION = 'v1.44';
+const APP_VERSION = 'v1.45';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DATA_URL = 'dashboard.json';
@@ -1640,7 +1642,7 @@ function recCard(r, d) {
   const endPrice = r.exit ? r.exit.exit_price : r.last_price;
   const left = days * 86400e3 - elapsed;
   const slPrice = r.entry_price * (1 - sl / 100), tpPrice = r.entry_price * (1 + tp / 100);
-  const meta = [h('span', { class: 'strat', text: '알트매크로' }), gradePillRec(r), lowPill(r), belowPill(r), flagPill(r, d), chipFold(r, [...coinChips(r, d), unlockChip(r, d), ...sectorPills(r, d)])];
+  const meta = [h('span', { class: 'strat', text: '알트매크로' }), sectorTag(r, d), gradePillRec(r), lowPill(r), belowPill(r), flagPill(r, d), chipFold(r, [...coinChips(r, d), unlockChip(r, d)])];
   const gauge = gaugeBar(ret, tp, sl);
   gauge.querySelector('.gauge-labels').replaceChildren(h('span', { text: `손절 ${fmtKRW(slPrice)}` }), h('span', { text: `익절 ${fmtKRW(tpPrice)}` }));
   return h('article', { class: hzActive(r) ? 'rec hz' : 'rec' },
@@ -2969,6 +2971,15 @@ function sectorsOfMarket(d) {
 function sectorPills(r, d) {
   if (!d.sectors) return [];
   return (sectorsOfMarket(d).get(r.market) || []).slice(0, 2).map((name) => h('span', { class: 'pill', title: '소속 섹터(참고용). 섹터 탭에서 같은 테마 종목의 움직임을 볼 수 있어요', text: name }));
+}
+
+// 추천 카드 첫 줄의 대표 섹터 칩: 가장 구체적인(작은) 테마 하나 + 나머지 개수, 마우스를 올리면(모바일은 길게 누르면) 소속 테마 전체
+function sectorTag(r, d) {
+  if (!d.sectors) return null;
+  const names = sectorsOfMarket(d).get(r.market) || [];
+  if (!names.length) return null;
+  return h('span', { class: 'pill sector', title: `섹터: ${names.join(' · ')} (참고용 · 섹터 탭에서 같은 테마 종목의 흐름을 볼 수 있어요)`,
+    text: names.length > 1 ? `${names[0]} +${names.length - 1}` : names[0] });
 }
 
 function renderSector(d) {
