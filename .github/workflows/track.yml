@@ -44,6 +44,9 @@ jobs:
           EXIT_TRAIL_ARM_PCT: ${{ vars.EXIT_TRAIL_ARM_PCT }}
           EXIT_TRAIL_DD_PCT: ${{ vars.EXIT_TRAIL_DD_PCT }}
           BTC_HOLD_DAYS: ${{ vars.BTC_HOLD_DAYS }}
+          BTC_FILTER_MODE: ${{ vars.BTC_FILTER_MODE }}
+          DAY_GOLDEN_OVERSOLD_LOOKBACK: ${{ vars.DAY_GOLDEN_OVERSOLD_LOOKBACK }}
+          HIGH_ZONE_MIN_GAIN_PCT: ${{ vars.HIGH_ZONE_MIN_GAIN_PCT }}
           MACRO_BRIEFING_HOUR: ${{ vars.MACRO_BRIEFING_HOUR }}
           MACRO_REFRESH_MINUTES: ${{ vars.MACRO_REFRESH_MINUTES }}
 

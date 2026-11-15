@@ -227,10 +227,12 @@ if LOW_CONFIRM_MODE not in ("day", "both", "off"):
     LOW_CONFIRM_MODE = "off" if os.environ.get("LOW_CONFIRM_REQUIRED", "").strip().lower() == "false" else "day"
 LOW_CONFIRM_REQUIRED = LOW_CONFIRM_MODE != "off"
 
-# BTC 일봉 종가가 MA20 아래일 때 알트매크로 추천이 하는 일 (2026-10-11 사용자 결정): warn(기본) = 경고만 달고 추천은 계속, block = 예전처럼 스캔·추천 중단.
+# BTC 일봉 종가가 MA20 아래일 때 알트매크로 추천이 하는 일: block(기본) = 스캔·신규 추천 중단, warn = 경고만 달고 추천은 계속.
+# 2026-10-11 사용자 결정으로 warn을 썼지만, 2026-11-15 라이브 점검에서 MA20 아래 경고 진입 18건 손절률 78%(이전 39%, 사전 기준 +10%p 초과)이고
+# 2.6년 재현(4,257건)에서도 MA20 위 손절 41% vs 아래 52%라 사용자 결정으로 block으로 되돌렸다.
 # 대조군(original)은 원래 규칙(MA20 위 2일 이상일 때만 추천)을 그대로 지킨다. warn에서 MA20 아래일 때 나온 추천은 detail.btc_below_ma20=True로 기록하고
 # 'BTC 이탈 전량 정리'(BTC_EXIT_ENABLED)는 그 추천에는 적용하지 않는다(들어오자마자 정리되는 모순 방지). 저장소 변수 BTC_FILTER_MODE=block으로 되돌린다.
-BTC_FILTER_MODE = "block" if (os.environ.get("BTC_FILTER_MODE") or "warn").strip().lower() == "block" else "warn"
+BTC_FILTER_MODE = "warn" if (os.environ.get("BTC_FILTER_MODE") or "block").strip().lower() == "warn" else "block"
 
 # BTC 작은 파동이 하락 중이면 알트매크로 신규 추천을 보류하는 게이트(src/btc_wave_gate.py, 2026-10-11 사용자 결정으로 알림에 바로 적용).
 # 사전 등록 백테스트는 통과했지만 라이브 3주는 반대였다 — '시험 중인 보류'이며 대조군에는 적용하지 않는다.
