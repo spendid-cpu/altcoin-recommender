@@ -58,6 +58,9 @@ jobs:
         with:
           ref: master
 
+      - name: 상태 파일 받기 (state 브랜치)
+        run: bash scripts/state_sync.sh pull state state.db data/state.db
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -98,9 +101,9 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
       # 상태 저장을 대시보드보다 먼저 한다 — 대시보드 쪽 문제로 중복 알림 방지 상태가 유실되면 안 된다
-      - name: 상태 파일(data/state.db) 변경사항 커밋
+      - name: 상태 파일 올리기 (state 브랜치, 이력 없이 덮어쓰기)
         run: |
-          bash scripts/push_state.sh "state: 스캔 상태 갱신 [skip ci]"
+          bash scripts/state_sync.sh push state data/state.db state.db "state: 스캔 상태 갱신"
 
       - name: 대시보드 데이터 생성
         run: python scripts/export_dashboard.py

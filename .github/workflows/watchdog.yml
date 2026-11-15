@@ -24,6 +24,9 @@ jobs:
         with:
           ref: master
 
+      - name: 감시 장치 상태 받기 (state-watchdog 브랜치)
+        run: bash scripts/state_sync.sh pull state-watchdog watchdog.db data/watchdog/state.db
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -33,17 +36,13 @@ jobs:
       - run: python scripts/run_watchdog.py
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DATA_DIR: data/watchdog  # 감시 장치는 자기 상태만 따로 둔다 (scan 상태 파일과 다른 동시성 그룹이라 섞이면 서로 덮어쓴다)
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           WATCHDOG_STALE_MINUTES: ${{ vars.WATCHDOG_STALE_MINUTES }}
           WATCHDOG_REMIND_MINUTES: ${{ vars.WATCHDOG_REMIND_MINUTES }}
           WATCHDOG_STUCK_MINUTES: ${{ vars.WATCHDOG_STUCK_MINUTES }}
 
-      - name: 상태 파일(data/state.db) 변경사항 커밋
+      - name: 감시 장치 상태 올리기 (state-watchdog 브랜치)
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/state.db
-          git diff --staged --quiet || git commit -m "state: 감시 장치 상태 갱신 [skip ci]"
-          git pull --rebase origin master
-          git push
+          if [ -f data/watchdog/state.db ]; then bash scripts/state_sync.sh push state-watchdog data/watchdog/state.db watchdog.db "state: 감시 장치 상태 갱신"; fi

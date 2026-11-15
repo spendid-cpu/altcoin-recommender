@@ -27,6 +27,9 @@ jobs:
         with:
           ref: master
 
+      - name: 상태 파일 받기 (state 브랜치)
+        run: bash scripts/state_sync.sh pull state state.db data/state.db
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -39,6 +42,6 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
-      - name: 상태 파일(data/state.db) 변경사항 커밋
+      - name: 상태 파일 올리기 (state 브랜치, 이력 없이 덮어쓰기)
         run: |
-          bash scripts/push_state.sh "state: 주식 기록 갱신 [skip ci]"
+          bash scripts/state_sync.sh push state data/state.db state.db "state: 주식 기록 상태 갱신"

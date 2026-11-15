@@ -3,7 +3,10 @@ __pycache__/
 *.pyc
 .env
 *.log
-# data/state.db는 GitHub Actions 실행 간 상태(중복 알림 방지)를 이어가기 위해 일부러 커밋한다.
+# 실행 간 상태 파일은 2026-11-15부터 master가 아니라 state / state-watchdog 브랜치에 덮어써서 보관한다 (scripts/state_sync.sh).
+# 로컬에서 최신 상태가 필요하면: git fetch origin state && git show FETCH_HEAD:state.db > data/state.db
+data/state.db
+data/watchdog/
 # 대시보드 데이터는 매 스캔마다 Actions에서 새로 만들어 배포하므로 커밋하지 않는다
 dashboard/dashboard.json
 dashboard/dashboard.enc.json
