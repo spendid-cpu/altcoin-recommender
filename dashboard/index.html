@@ -307,6 +307,9 @@
   .rbar .val { position: absolute; left: -4px; right: -4px; text-align: center; font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; line-height: 1.4; }
   .rbar .lbl { position: absolute; bottom: -20px; left: 50%; transform: translateX(-50%); font-size: 10px; color: var(--muted); white-space: nowrap; }
   .rbars.dense .val { display: none; }
+  .status-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 11px 14px; margin: 0 0 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); font-size: 14px; }
+  .status-line strong { font-size: 15px; }
+  .status-line .sub2 { color: var(--ink2); font-size: 13px; }
   .exp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 12px; margin-bottom: 18px; }
   .exp { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 15px; box-shadow: var(--shadow); display: grid; gap: 11px; align-content: start; min-width: 0; }
   .exp-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
@@ -556,6 +559,7 @@
 
   <!-- ===== 오늘 ===== -->
   <main id="view-home" role="tabpanel" aria-labelledby="tab-home">
+    <div id="home-status" class="status-line" role="status"></div>
     <div id="home-notice" class="notice" hidden></div>
     <section id="tiles" class="tiles" aria-label="핵심 지표"></section>
 
@@ -648,7 +652,9 @@
           <p class="sub">미리 정해 둔 기준을 표본이 찰 때까지 지켜보는 중이에요. 표본이 모자랄 때는 숫자가 좋아 보여도 결론을 내리지 않아요</p>
         </div>
       </div>
-      <div id="exp-grid" class="exp-grid"></div>
+      <div id="exp-summary" class="table-wrap"></div>
+      <p class="card-note">진행이 목표에 닿으면 미리 정한 기준으로 한 번만 판정해요. 그 전에는 '지금' 숫자가 좋아 보여도 결론을 내리지 않아요.</p>
+      <details class="fold" style="margin-top:8px"><summary>항목별 자세히 보기</summary><div class="fold-body"><div id="exp-grid" class="exp-grid"></div></div></details>
     </section>
 
     <div id="p-period" class="period-bar" role="group" aria-label="기간 필터"></div>
@@ -1108,6 +1114,7 @@
 // v1.19 (2026-10-05) 업비트 공개 API 참고 정보 3가지 추가: 추천 카드의 '체결 매수 N%'(실제 체결 중 사는 쪽 비중, 추천 순간 -> 지금), 업비트 공식 시장 경고 배지(거래량 급증·해외 가격 차이 등), 비트코인 분석 화면의 BTC 김치 프리미엄 타일. 모두 참고용
 // v1.20 (2026-10-07) '주식' 탭 추가(실험): 코스피·코스닥 지수 상태, 마감 주봉 RSI(14) 30 이하 신규 후보(시장별), 추천 기록·4주 성과 통계. 알림 없이 기록만
 // v1.21 (2026-10-07) 주식 카드의 거래대금 칩에 마우스를 올리거나 탭하면 최근 26주 종가·일평균 거래대금 흐름 팝업
+// v1.46 (2026-11-15) 오늘 탭 맨 위 '추천 상태' 줄(멈춤·보류·가능 + 재개 가격), 성과 탭 '검증 진행표'(약속한 검증 8개의 진행률·지금 값·판정 기준, 항목 카드는 접음), MA20 아래 진입 칩은 '참고'로
 // v1.45 (2026-10-22) 추천 카드 첫 줄에 대표 섹터 칩(가장 구체적인 테마 + 나머지 개수, 마우스를 올리면 전체) — 전에는 '참고 N' 안에 접혀 있었다
 // v1.44 (2026-10-17) 비트코인 탭에 '코인베이스 프리미엄(24시간 평균)' 타일(미국 현물 수요 참고, 백테스트 근거 없음 -> 추천 순간 detail.cbp 기록만)
 // v1.43 (2026-10-16) BTC 작은 파동 보류 중이면 '4시간봉 종가가 $X(업비트 약 N원) 이상이면 재개'를 오늘 타일·후보 안내에 표시(btc_macro.gate_unblock_close, 봉 마감마다 다시 계산)
@@ -1138,7 +1145,7 @@
 // v1.24 (2026-10-09) 오늘 화면에 공포·탐욕 지수 타일(참고) + 라이브 검증 현황에 '탐욕 구간 손절' 카드. 추천 순간 지수는 detail.fng로 기록
 // v1.23 (2026-10-07) 팝업을 주봉 캔들+거래대금(상승·하락 색)+RSI(30선)로 바꾸고, 주식 공시·뉴스 / 코인 업비트 공지·뉴스 칩 추가(표시 전용)
 // v1.22 (2026-10-07) 시가총액 칩(주식: 네이버 증권, 코인: CoinGecko) + 코인 추천 카드에도 지난주 거래대금·시총 칩과 같은 주봉 팝업(종가·주간 거래대금·RSI)
-const APP_VERSION = 'v1.45';
+const APP_VERSION = 'v1.46';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DATA_URL = 'dashboard.json';
@@ -1596,6 +1603,73 @@ function renderFunnel(d) {
 }
 function host_replace(el, nodes) { el.replaceChildren(...nodes.filter(Boolean)); }
 
+// 오늘 탭 맨 위 한 줄: 지금 새 추천이 나올 수 있는가, 막혀 있으면 무엇이 막고 있고 언제 풀리나
+function usdKrw(d, x) {
+  const k = d.upbit_extra && d.upbit_extra.kimchi;
+  if (!k || !k.btc_krw || !k.btc_usdt) return '';
+  const man = Math.round(x * k.btc_krw / k.btc_usdt / 1e4), eok = Math.floor(man / 1e4);
+  return ` (업비트 약 ${eok ? `${eok}억 ` : ''}${nf0.format(man % 1e4)}만 원)`;
+}
+function renderHomeStatus(d) {
+  const el = $('#home-status');
+  const t = (d.macro && d.macro.trend) || {}, price = d.macro && d.macro.price;
+  const gate = gateOf(d);
+  let icon, head, sub;
+  if (btcBlocks(d)) {
+    icon = '🔴'; head = '신규 추천 멈춤 · BTC 일봉이 MA20 아래';
+    sub = t.resume_close ? `BTC 일봉 종가(오전 9시 마감)가 $${nf0.format(t.resume_close)}${usdKrw(d, t.resume_close)} 위에서 마감하면 재개${price ? ` · 지금 $${nf0.format(price)}, ${((t.resume_close / price - 1) * 100).toFixed(1)}% 남음` : ''}` : '';
+  } else if (gate && gate.blocked) {
+    icon = '🟡'; head = `신규 추천 보류 · BTC 작은 파동 ${gate.small.label}`;
+    sub = unblockText(d, true);
+  } else {
+    icon = btcWarn(d) ? '⚠️' : '🟢';
+    head = btcWarn(d) ? '신규 추천 가능 · BTC MA20 아래 경고 모드' : '신규 추천 가능 · BTC MA20 위 · 작은 파동 통과';
+    const day = d.funnel && d.funnel.day24;
+    const top = day && day.reasons ? Object.entries(day.reasons).sort((a, b) => b[1] - a[1])[0] : null;
+    sub = day && day.markets ? `최근 24시간 마지막 단계(5분 저점)까지 온 종목 ${day.markets}개${top ? ` · 가장 많이 걸린 이유: ${FUNNEL_REASON[top[0]] || top[0]} ${top[1]}개` : ''}` : '조건을 모두 채운 종목이 나오면 바로 알려요';
+  }
+  el.replaceChildren(h('span', { text: icon }), h('strong', { text: head }), sub ? h('span', { class: 'sub2', text: sub }) : null);
+}
+
+// 성과 탭 맨 위 '검증 진행표': 미뤄 둔 검증들의 표본이 얼마나 찼는지, 지금 값, 판정 기준을 한 표로
+function renderValidationSummary(d) {
+  const host = $('#exp-summary');
+  const recs = mainRecs(d).filter((r) => r.exit && r.exit.reason !== 'excluded');
+  const has = (k) => recs.filter((r) => r.detail && r.detail[k] != null);
+  const stopPct = (a) => (a.length ? `${Math.round(a.filter((r) => r.exit.reason === 'stop_loss').length / a.length * 100)}%` : '—');
+  const prog = (n, target) => h('span', {}, h('span', { class: 'prog', style: 'display:inline-flex;min-width:120px' },
+    h('span', { class: 'track', style: 'flex:1' }, h('span', { class: 'bar', style: `width:${Math.min(100, n / target * 100)}%` }))), ` ${n}/${target}`);
+  const rows = [];
+  // 1) 막은 추천(그림자) vs 실제
+  const sh = (d.shadow || []).filter((s) => s.status === 'closed');
+  const shStop = sh.length ? Math.round(sh.filter((s) => s.exit === 'stop_loss').length / sh.length * 100) : null;
+  const since = mainRecs(d).filter((r) => r.exit && r.exit.reason !== 'excluded' && r.entered_at >= '2026-10-12T14:26');
+  rows.push(['막은 추천 vs 실제 추천', prog(Math.min(sh.length, since.length), 30), sh.length ? `막음 ${sh.length}건 손절 ${shStop}% · 실제 ${since.length}건 손절 ${stopPct(since)}` : '—',
+    '양쪽 30건·10일 이상: 막은 쪽 손절이 5%p 이상 많고 평균 0.5%p 이상 나쁘면 규칙 유지, 반대면 재검토']);
+  // 2) 등급별
+  const v2 = recs.filter((r) => r.detail && r.detail.score_v === 2);
+  const g = (k) => v2.filter((r) => r.grade === k);
+  rows.push(['등급별 성과 (S/A/B)', prog(Math.min(...['A', 'B'].map((k) => g(k).length)), 30), ['S', 'A', 'B'].map((k) => `${k} ${g(k).length}건 손절 ${stopPct(g(k))}`).join(' · '),
+    '등급마다 30건: 높은 등급일수록 손절이 적은지 (아니면 가중치 재검토)']);
+  // 3~5) 추천 순간 기록들
+  const ob = has('ob');
+  rows.push(['호가·체결 매수 비중', prog(ob.length, 100), `기록된 종료 ${ob.length}건`, '100건·15주: 강(60%↑) vs 약(40%↓) 비교, 7일 블록 부트스트랩']);
+  const cbp = has('cbp');
+  rows.push(['코인베이스 프리미엄', prog(cbp.length, 100), `기록된 종료 ${cbp.length}건 · 강함 ${cbp.filter((r) => r.detail.cbp.tier === 'high').length} · 약함 ${cbp.filter((r) => r.detail.cbp.tier === 'low').length}`, '100건·15주: 강함 vs 약함 손절·수익 비교']);
+  const ctx = has('btc_ctx');
+  rows.push(['BTC 지표 상태 (일목 등)', prog(ctx.length, 100), `기록된 종료 ${ctx.length}건`, '100건·15주: BTC 일목구름 위 vs 아래 비교']);
+  // 6) 공포·탐욕
+  const hot = recs.filter((r) => r.detail && r.detail.fng != null && r.detail.fng >= 75);
+  rows.push(['공포·탐욕 75 이상 진입', prog(hot.length, 30), `탐욕 구간 ${hot.length}건 손절 ${stopPct(hot)}`, '30건·서로 다른 10일: 탐욕 구간 손절이 더 많은지 재현 확인']);
+  // 7) 익절 +10% 규칙
+  rows.push(['익절선 재판독 (+10% 규칙)', prog(since.length, 100), `+10% 규칙 종료 ${since.length}건 · 익절 ${since.filter((r) => r.exit.reason === 'take_profit').length}`, '100건: 성과 탭 익절선 시뮬레이션을 다시 읽고 익절선 재검토']);
+  // 8) 주식 3주 분할
+  const sp = d.stock && d.stock.split;
+  const fin = sp ? Math.max(0, ...sp.days.map((x) => x.n_final)) : 0;
+  rows.push(['주식 3주 분할매수 (요일별)', prog(fin, 30), sp ? sp.days.map((x) => `${DOW_KO[x.dow]} ${x.final == null ? '—' : pctSigned(x.final)}`).join(' · ') : '—', '7주차 확정 30종목: 요일별·일시 매수 비교']);
+  host.replaceChildren(buildTable(['검증 항목', '진행', '지금', '판정 기준'], rows, 9));
+}
+
 function renderNotice(d) {
   const el = $('#home-notice'), w = d.macro && d.macro.watch;
   const rows = [];
@@ -1642,7 +1716,7 @@ function recCard(r, d) {
   const endPrice = r.exit ? r.exit.exit_price : r.last_price;
   const left = days * 86400e3 - elapsed;
   const slPrice = r.entry_price * (1 - sl / 100), tpPrice = r.entry_price * (1 + tp / 100);
-  const meta = [h('span', { class: 'strat', text: '알트매크로' }), sectorTag(r, d), gradePillRec(r), lowPill(r), belowPill(r), flagPill(r, d), chipFold(r, [...coinChips(r, d), unlockChip(r, d)])];
+  const meta = [h('span', { class: 'strat', text: '알트매크로' }), sectorTag(r, d), gradePillRec(r), lowPill(r), flagPill(r, d), chipFold(r, [belowPill(r), ...coinChips(r, d), unlockChip(r, d)])];
   const gauge = gaugeBar(ret, tp, sl);
   gauge.querySelector('.gauge-labels').replaceChildren(h('span', { text: `손절 ${fmtKRW(slPrice)}` }), h('span', { text: `익절 ${fmtKRW(tpPrice)}` }));
   return h('article', { class: hzActive(r) ? 'rec hz' : 'rec' },
@@ -3065,12 +3139,14 @@ function renderAll() {
   const d = DATA;
   $('#updated').textContent = d.generated_at ? `데이터 생성 ${kst(d.generated_at)} KST` : '';
   renderScanChip(d);
+  renderHomeStatus(d);
   renderNotice(d);
   renderHomeKpis(d);
   renderFunnel(d);
   renderHomeActive(d);
   renderHomeClosed(d);
   renderExperiments(d);
+  renderValidationSummary(d);
   renderCalendar(d);
   renderScans(d);
   renderBtc(d.btc);

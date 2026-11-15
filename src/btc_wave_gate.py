@@ -68,20 +68,34 @@ def compute(macro: dict | None, mode: str, now: datetime) -> dict:
     return base
 
 
+def krw_text(usd: float) -> str:
+    """달러 BTC 가격 -> '(업비트 약 1억 1,157만 원) ' (업비트 김프 자료 비율로 환산, 자료가 없으면 빈 문자열)."""
+    try:
+        k = (upbit_extra.export() or {}).get("kimchi") or {}
+        if k.get("btc_krw") and k.get("btc_usdt"):
+            eok, man = divmod(round(usd * k["btc_krw"] / k["btc_usdt"] / 1e4), 10000)
+            return f"(업비트 약 {f'{eok}억 ' if eok else ''}{man:,}만 원) "
+    except Exception:
+        pass
+    return ""
+
+
+def ma20_resume_text(macro: dict | None) -> str:
+    """BTC 필터(MA20)가 꺼져 있을 때 'BTC 일봉 종가가 $X 위에서 마감하면 재개' 한 줄. 켜져 있거나 값이 없으면 빈 문자열."""
+    t = (macro or {}).get("trend") or {}
+    x, now = t.get("resume_close"), (macro or {}).get("price")
+    if t.get("favorable") or not x:
+        return ""
+    tail = f" · 지금 ${now:,.0f} ({(x / now - 1) * 100:+.1f}% 남음)" if now else ""
+    return f"BTC 일봉 종가(오전 9시 마감)가 ${x:,.0f} {krw_text(x)}위에서 마감하면 신규 추천 재개{tail}"
+
+
 def unblock_text(gate: dict) -> str:
     """'BTC 4시간봉 종가가 $82,660(약 1억 2,100만 원) 이상이면 재개 · 지금 $81,520(+1.4% 남음)' 같은 한 줄. 값이 없으면 빈 문자열."""
     x = gate.get("unblock_close")
     if not gate.get("blocked") or not x:
         return ""
-    krw = ""
-    try:
-        k = (upbit_extra.export() or {}).get("kimchi") or {}
-        if k.get("btc_krw") and k.get("btc_usdt"):
-            won = x * k["btc_krw"] / k["btc_usdt"]
-            eok, man = divmod(round(won / 1e4), 10000)
-            krw = f"(업비트 약 {f'{eok}억 ' if eok else ''}{man:,}만 원) "
-    except Exception:
-        krw = ""
+    krw = krw_text(x)
     now = gate.get("price")
     tail = f" · 지금 ${now:,.0f} ({(x / now - 1) * 100:+.1f}% 남음)" if now else ""
     return f"BTC 4시간봉 종가가 ${x:,.0f} {krw}이상이면 재개 예정{tail} — 4시간봉이 마감될 때마다 다시 계산해요"

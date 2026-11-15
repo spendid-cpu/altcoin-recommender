@@ -39,7 +39,9 @@ async def _notify_btc_ma20(session: aiohttp.ClientSession, favorable: bool) -> N
         text = ("⚠️ BTC 일봉 종가가 MA20 아래로 내려갔어요 — 알트매크로 추천은 계속 나오지만 하락장 추천이라 위험이 더 커요. "
                 "이때 나온 추천에는 BTC 이탈 정리를 적용하지 않아요")
     else:
-        text = "🔴 BTC 일봉 종가가 MA20 아래로 내려갔어요 — 알트매크로 신규 추천을 멈춰요 (이미 추천한 종목은 BTC 이탈 규칙대로 정리)"
+        line = btc_wave_gate.ma20_resume_text(macro_job.load_cached())
+        text = ("🔴 BTC 일봉 종가가 MA20 아래로 내려갔어요 — 알트매크로 신규 추천을 멈춰요 (이미 추천한 종목은 BTC 이탈 규칙대로 정리)"
+                + (f"\n📍 {line} (매일 다시 계산)" if line else ""))
     try:
         await telegram_client.send_message(session, text)
     except Exception as exc:

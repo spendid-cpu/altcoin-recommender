@@ -669,6 +669,8 @@ def analyse(
             "days_above": days_above_ma(day_close),
             "ma20": round(float(day_close.rolling(20).mean().iloc[-1]), 1),
             "close": float(day_close.iloc[-1]),
+            # 다음 일봉 종가가 이 값(직전 마감 19개 종가 평균)보다 높으면 그 일봉은 MA20 위로 마감한다 = BTC 필터 재개선 (BTC_HOLD_DAYS가 1보다 크면 첫날 기준)
+            "resume_close": round(float(day_close.tail(19).mean()), 1) if len(day_close) >= 19 else None,
         },
         "fib": analyse_fib(h4, price),
         "stoch": analyse_stoch({"day": day, "4h": h4, "1h": h1}),

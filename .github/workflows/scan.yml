@@ -21,6 +21,36 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    # 저장소 변수(Settings > Variables)로 바꿀 수 있는 설정 전부를 모든 단계(스캔·추적·대시보드 생성)에 넘긴다 — 빈 값이면 src/config.py 기본값
+    env:
+      BTC_EXIT_ENABLED: ${{ vars.BTC_EXIT_ENABLED }}
+      BTC_FILTER_MODE: ${{ vars.BTC_FILTER_MODE }}
+      BTC_HOLD_DAYS: ${{ vars.BTC_HOLD_DAYS }}
+      BTC_WAVE_GATE: ${{ vars.BTC_WAVE_GATE }}
+      CYCLE_LOOKBACK_DAYS: ${{ vars.CYCLE_LOOKBACK_DAYS }}
+      DAY_GOLDEN_OVERSOLD_LOOKBACK: ${{ vars.DAY_GOLDEN_OVERSOLD_LOOKBACK }}
+      DIRECTION_FILTER_ENABLED: ${{ vars.DIRECTION_FILTER_ENABLED }}
+      EXIT_STOP_LOSS_PCT: ${{ vars.EXIT_STOP_LOSS_PCT }}
+      EXIT_TAKE_PROFIT_PCT: ${{ vars.EXIT_TAKE_PROFIT_PCT }}
+      EXIT_TRAIL_ARM_PCT: ${{ vars.EXIT_TRAIL_ARM_PCT }}
+      EXIT_TRAIL_DD_PCT: ${{ vars.EXIT_TRAIL_DD_PCT }}
+      HEARTBEAT: ${{ vars.HEARTBEAT }}
+      HIGH_ZONE_MIN_GAIN_PCT: ${{ vars.HIGH_ZONE_MIN_GAIN_PCT }}
+      LOW_CONFIRM_MODE: ${{ vars.LOW_CONFIRM_MODE }}
+      LOW_CONFIRM_REQUIRED: ${{ vars.LOW_CONFIRM_REQUIRED }}
+      MACRO_BRIEFING_HOUR: ${{ vars.MACRO_BRIEFING_HOUR }}
+      MACRO_REFRESH_MINUTES: ${{ vars.MACRO_REFRESH_MINUTES }}
+      MA_CONFLUENCE_FILTER_ENABLED: ${{ vars.MA_CONFLUENCE_FILTER_ENABLED }}
+      MA_CONFLUENCE_MAX_GAP_PCT: ${{ vars.MA_CONFLUENCE_MAX_GAP_PCT }}
+      MIN_RECOMMEND_SCORE: ${{ vars.MIN_RECOMMEND_SCORE }}
+      NEW_LISTING_MIN_DAYS: ${{ vars.NEW_LISTING_MIN_DAYS }}
+      PAPER_LIMIT_ENABLED: ${{ vars.PAPER_LIMIT_ENABLED }}
+      REPORT_FULL_INTERVAL_HOURS: ${{ vars.REPORT_FULL_INTERVAL_HOURS }}
+      REPORT_INTERVAL_HOURS: ${{ vars.REPORT_INTERVAL_HOURS }}
+      REPORT_MOVE_PCT: ${{ vars.REPORT_MOVE_PCT }}
+      RUNUP_FILTER_ENABLED: ${{ vars.RUNUP_FILTER_ENABLED }}
+      RUNUP_LOOKBACK_HOURS: ${{ vars.RUNUP_LOOKBACK_HOURS }}
+      RUNUP_MAX_PCT: ${{ vars.RUNUP_MAX_PCT }}
     steps:
       # 실행이 다른 실행 뒤에서 기다렸다 시작되면 트리거 시점의 옛 커밋이 아니라 지금의 최신 master를 받아야 한다
       # (안 그러면 앞선 실행이 커밋한 state.db와 충돌해 push가 실패한다)
